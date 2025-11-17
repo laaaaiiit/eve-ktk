@@ -125,7 +125,12 @@ $app->post('/api/auth/login', function () use ($app, $db, $html5_db) {
 		// User is authenticated, need to set the cookie httpOnly to avoid identity stealth
 		$app->setCookie('unetlab_session', $cookie, SESSION, '/api/', $_SERVER['SERVER_NAME'], False, True);
 	}
-	$app->response->setStatus($output['code']);
+	$http_code = $output['code'];
+	if ($http_code == 400 && $output['status'] == 'fail') {
+		// Keep payload code for clients but respond with 200 to avoid console errors on failed login attempts
+		$http_code = 200;
+	}
+	$app->response->setStatus($http_code);
 	$app->response->setBody(json_encode($output));
 });
 

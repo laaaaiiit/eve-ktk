@@ -1,37 +1,54 @@
-<div class="login-box">
-  <div class="login-logo">
-    <a href="/" title="Emulated Virtual Environment"><img class="hidden-xs" src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" style="width:312px;height:120px"></a>
-  </div>
-  <div class="version">
-    <p style="text-align:center; color:white" data-ng-bind="eveversion"></p>
-  </div>
-  <!-- /.login-logo -->
-  <div class="login-box-body">
-    <p class="login-box-msg">Sign in to start your session</p>
-      <div class="form-group has-feedback">
-        <input type="text" class="form-control" placeholder="Username" ng-model="username" my-enter="tryLogin()" autofocus>
-        <span class="glyphicon glyphicon-user form-control-feedback"></span>
+<div class="login-modern">
+  <div class="login-modern__glow"></div>
+  <div class="login-modern__grid row">
+    <div class="login-modern__brand col-md-6">
+      <div class="login-modern__brand-card">
+        <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG Logo" class="login-modern__logo img-responsive">
+        <p class="login-modern__version" data-ng-bind="eveversion"></p>
+        <h1>Добро пожаловать в EVE-NG Community</h1>
+        <p>Создавайте, проверяйте и делитесь лабораториями быстрее благодаря обновленному рабочему пространству.</p>
+        <ul>
+          <li>Практические сценарии для сетей, безопасности и автоматизации.</li>
+          <li>HTML5-доступ к каждой консоли прямо из браузера.</li>
+        </ul>
       </div>
-      <div class="form-group has-feedback">
-        <input type="password" class="form-control" placeholder="Password" ng-model="password" my-enter="tryLogin()">
-        <span class="glyphicon glyphicon-lock form-control-feedback"></span>
-      </div>
-      <div class="form-group has-feedback">
-	<select name="html5" class="form-control" ng-init="html5='1'"  placeholder="html5" ng-model="html5" ng-model="data.singleSelect">
-		<!--<option value=-1 selected>Native console</option>-->
-		<option value=1>Html5 console</option>
-	</select>
-      </div>
-      <div class="row">
-        <div class="col-xs-4 col-xs-offset-4">
-          <center><button id="btnlogin" class="btn btn btn-flat" ng-click="tryLogin()">Sign In</button></center>
+    </div>
+    <div class="login-modern__form-wrapper col-md-5 col-md-offset-1">
+        <div class="login-modern__card">
+        <div class="login-modern__card-header">
+          <h2>Вход в систему</h2>
+          <p>Используйте учетные данные EVE, чтобы продолжить.</p>
         </div>
-		</p></br></br>
-		<p style="text-align:center; color:red" data-ng-bind="loginMessageInfo">
-		</p>
-        <!-- /.col -->
+        <form class="login-modern__form" ng-submit="tryLogin()" novalidate>
+          <label class="field-label">Имя пользователя</label>
+          <div class="login-field">
+            <span class="login-field__icon fa fa-user"></span>
+            <input type="text" class="form-control" placeholder="admin" ng-model="username" autofocus>
+          </div>
+
+          <label class="field-label">Пароль</label>
+          <div class="login-field">
+            <span class="login-field__icon fa fa-lock"></span>
+            <input type="password" class="form-control" placeholder="******" ng-model="password">
+          </div>
+
+          <div class="login-modern__options">
+            <label class="field-label">Тип консоли</label>
+            <div class="login-modern__toggle">
+              <select name="html5" class="form-control" ng-init="html5='1'" ng-model="html5">
+                <!--<option value=-1>Нативная консоль</option>-->
+                <option value=1>HTML5-консоль</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btnlogin" type="submit" class="btn btn-primary btn-block login-modern__submit">Войти в панель</button>
+        </form>
+        <p class="login-modern__hint">
+          Пароль по умолчанию задается при установке. Если вы его забыли, воспользуйтесь процедурой восстановления или обратитесь к администратору платформы.
+        </p>
+        <p class="login-modern__message text-danger" data-ng-bind="loginMessageInfo"></p>
       </div>
+    </div>
   </div>
-  <!-- /.login-box-body -->
 </div>
-<!-- /.login-box -->

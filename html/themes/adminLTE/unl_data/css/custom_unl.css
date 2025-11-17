@@ -198,6 +198,207 @@ Preview images size //START
 /* default image size*/ 
 [class$="_s2"]{width:60px;}
 [class$="_s3"]{width:40px;}
+[class$="_s4"]{width:120px;}
+[class$="_s5"]{width:320px;}
+[class$="_s6"]{width:520px;}
+[class$="_s7"]{width:720px;}
+[class$="_s8"]{width:820px;}
+[class$="_s9"]{width:920px;}
+
+/* Modern login view */
+.login-modern {
+  position: relative;
+  min-height: calc(100vh - 40px);
+  padding: 40px 20px 60px;
+  background: radial-gradient(circle at top left, #1e88e5, #12172a 60%);
+  color: #fff;
+  overflow: hidden;
+}
+
+.login-modern__glow {
+  position: absolute;
+  top: -200px;
+  right: -150px;
+  width: 400px;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.08);
+  filter: blur(80px);
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.login-modern__grid {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.login-modern__brand,
+.login-modern__form-wrapper {
+  flex: 1 1 420px;
+  max-width: 540px;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.login-modern__brand-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 24px;
+  padding: 40px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 15px 60px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.login-modern__logo {
+  max-width: 280px;
+  margin: 0 auto 24px;
+  display: block;
+}
+
+.login-modern__brand-card h1 {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.login-modern__brand-card p {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.login-modern__brand-card ul {
+  margin-top: 24px;
+  padding-left: 18px;
+  line-height: 1.9;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.login-modern__version {
+  font-size: 16px;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  color: #9ed0ff;
+}
+
+.login-modern__form-wrapper {
+  margin-top: 20px;
+}
+
+.login-modern__card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.2);
+  color: #1f2a37;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.login-modern__card-header h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.login-modern__card-header p {
+  color: #6b7280;
+  margin-bottom: 24px;
+}
+
+.field-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b7280;
+  margin-top: 16px;
+}
+
+.login-field {
+  position: relative;
+  margin-top: 8px;
+}
+
+.login-field__icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.login-field .form-control {
+  padding-left: 42px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+.login-modern__options {
+  margin-top: 24px;
+}
+
+.login-modern__toggle select.form-control {
+  border-radius: 10px;
+  height: 48px;
+}
+
+.login-modern__submit {
+  margin-top: 30px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #0078ff, #00c6ff);
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff !important;
+  transition: color 0.2s ease, background 0.3s ease;
+}
+
+.login-modern__submit:focus,
+.login-modern__submit:hover {
+  background: linear-gradient(90deg, #006ae3, #00a4ff);
+  color: #111 !important;
+}
+
+.login-modern__hint {
+  margin-top: 20px;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-modern__message {
+  margin-top: 12px;
+  min-height: 20px;
+}
+
+@media (max-width: 991px) {
+  .login-modern {
+    padding: 30px 12px;
+  }
+
+  .login-modern__brand,
+  .login-modern__form-wrapper {
+    width: 100%;
+  }
+
+  .login-modern__form-wrapper {
+    margin-top: 40px;
+  }
+}
 [class$="_s4"]{width:30px;}
 [class$="_s5"]{width:20px;}
 
@@ -900,16 +1101,17 @@ body {
 }
 
 #btnlogin {
-   color: #aaa !important ;
-   background-color: #263339 !important;
-   border: 1px !important;
-   border-style: solid !important;
+  color: #fff !important;
+  background: linear-gradient(90deg, #0078ff, #00c6ff) !important;
+  border: none !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-
-#btnlogin:hover {
-   color: #000  !important ;
-   background-color: #317087 !important ;
+#btnlogin:hover,
+#btnlogin:focus {
+  color: #111 !important;
+  background: linear-gradient(90deg, #006ae3, #00a4ff) !important;
 }
 .divPreview  {
  background-color: #eee !important;

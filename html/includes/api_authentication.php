@@ -154,7 +154,7 @@ function apiLogin($db, $html5_db, $p, $cookie)
 		$output['code'] = 200;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][90013];
-	} else if ($result['rows'] == 0) {
+	} else if ($result['urows'] == 0) {
 		// User/Password does not match
 		$output['code'] = 400;
 		$output['status'] = 'fail';
