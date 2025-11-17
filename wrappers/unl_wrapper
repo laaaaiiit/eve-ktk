@@ -33,7 +33,7 @@ if (posix_getuid() != 0) {
 umask(0002);
 
 // Parsing and checking parameters
-$options = getopt('oT:U:D:F:a:');
+$options = getopt('oT:U:D:F:a:i:b:');
 
 // Checking -a (action)
 if (!isset($options['a'])) {
@@ -44,7 +44,7 @@ if (!isset($options['a'])) {
 $action = $options['a'];
 
 // Checking -T (Tenant ID)
-if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe'))) {
+if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe', 'link'))) {
 	if (!isset($options['T'])) {
 		// Tenant ID is missing
 		usage();
@@ -61,7 +61,7 @@ if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe'))) {
 }
 
 // Checking -U (Username)
-if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe'))) {
+if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe', 'link'))) {
 	if (!isset($options['U'])) {
 		// Username is missing
 		usage();
@@ -83,7 +83,7 @@ if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe'))) {
 }
 
 // Checking -F (Lab file)
-if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe'))) {
+if (in_array($action, array('delete', 'export', 'start', 'stop', 'wipe', 'link'))) {
 	if (!is_file($options['F'])) {
 		// File not found
 		usage();
@@ -316,6 +316,69 @@ switch ($action) {
 						exit(12);
 					}
 				}
+			}
+		}
+		break;
+	case 'link':
+		if (!isset($node_id)) {
+			usage();
+			error_log(date('M d H:i:s ') . date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][8]);
+			exit(8);
+		}
+		if (!isset($options['i'])) {
+			usage();
+			error_log(date('M d H:i:s ') . date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][40017]);
+			exit(40017);
+		}
+		$interface_id = (int) $options['i'];
+		$old_network_id = isset($options['b']) ? (int) $options['b'] : 0;
+		$node = $lab->getNodes()[$node_id];
+		$interfaces = $node->getEthernets();
+		if (!isset($interfaces[$interface_id])) {
+			// Only Ethernet interfaces require host wiring changes
+			break;
+		}
+		$new_network_id = (int) $interfaces[$interface_id]->getNetworkId();
+		if ($new_network_id == $old_network_id) {
+			break;
+		}
+		$tap_prefix = ($node->getNType() == 'docker') ? 'vnet' : 'vunl';
+		$tap_name = $tap_prefix . $lab->getTenant() . '_' . $node_id . '_' . $interface_id;
+		if ($old_network_id > 0) {
+			if (isset($lab->getNetworks()[$old_network_id])) {
+				$old_network = $lab->getNetworks()[$old_network_id];
+				$old_name = $old_network->isCloud() ? $old_network->getNType() : 'vnet' . $lab->getTenant() . '_' . $old_network_id;
+			} else {
+				$old_name = 'vnet' . $lab->getTenant() . '_' . $old_network_id;
+			}
+			$rc = disconnectInterface($old_name, $tap_name);
+			if ($rc !== 0) {
+				exit($rc);
+			}
+		}
+		if ($new_network_id > 0) {
+			if (!isset($lab->getNetworks()[$new_network_id])) {
+				error_log(date('M d H:i:s ') . date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][20033]);
+				exit(20033);
+			}
+			$new_network = $lab->getNetworks()[$new_network_id];
+			if ($new_network->isCloud()) {
+				$new_name = $new_network->getNType();
+			} else {
+				$new_name = 'vnet' . $lab->getTenant() . '_' . $new_network_id;
+				$p = array(
+					'name' => $new_name,
+					'type' => $new_network->getNType(),
+					'count' => $new_network->getCount()
+				);
+				$rc = addNetwork($p);
+				if ($rc !== 0) {
+					exit($rc);
+				}
+			}
+			$rc = connectInterface($new_name, $tap_name);
+			if ($rc !== 0) {
+				exit($rc);
 			}
 		}
 		break;

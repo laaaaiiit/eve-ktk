@@ -353,6 +353,41 @@ function connectInterface($n, $p)
 }
 
 /**
+ * Function to disconnect an interface (TAP) from a network (Bridge/OVS)
+ *
+ * @param   string  $n                  Network name
+ * @param   string  $p                  Interface name
+ * @return  int                         0 means ok
+ */
+function disconnectInterface($n, $p)
+{
+	if (isBridge($n)) {
+		$cmd = 'brctl delif ' . $n . ' ' . $p . ' 2>&1';
+		exec($cmd, $o, $rc);
+		$output = implode("\n", $o);
+		if ($rc == 0 || preg_match('/not a member/i', $output) || preg_match('/No such device/i', $output)) {
+			return 0;
+		}
+		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80090]);
+		error_log(date('M d H:i:s ') . $output);
+		return 80090;
+	} else if (isOvs($n)) {
+		$cmd = 'ovs-vsctl del-port ' . $n . ' ' . $p . ' 2>&1';
+		exec($cmd, $o, $rc);
+		$output = implode("\n", $o);
+		if ($rc == 0 || preg_match('/no port named/i', $output)) {
+			return 0;
+		}
+		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80091]);
+		error_log(date('M d H:i:s ') . $output);
+		return 80091;
+	} else {
+		// Network not found, nothing to detach
+		return 0;
+	}
+}
+
+/**
  * Function to delete a bridge
  *
  * @param   string  $s                  Bridge name

@@ -243,19 +243,104 @@ function apiExportLabNodes($lab, $tenant, $username)
  */
 function apiEditLabNodeInterfaces($lab, $id, $p)
 {
+	if (!isset($lab->getNodes()[$id])) {
+		$output['code'] = 404;
+		$output['status'] = 'fail';
+		$output['message'] = $GLOBALS['messages'][20032];
+		return $output;
+	}
+
+	$node = $lab->getNodes()[$id];
+	$old_ethernets = array();
+	if (is_array($p)) {
+		foreach ($p as $interface_id => $interface_link) {
+			if (isset($node->getEthernets()[$interface_id])) {
+				$old_ethernets[$interface_id] = (int) $node->getEthernets()[$interface_id]->getNetworkId();
+			}
+		}
+	}
+
 	// Edit node interfaces
 	$rc = $lab->connectNode($id, $p);
 
 	if ($rc === 0) {
-		$output['code'] = 201;
-		$output['status'] = 'success';
-		$output['message'] = $GLOBALS['messages'][60023];
+		$hotplug_rc = apiHotplugNodeInterfaces($lab, $id, $old_ethernets);
+		if ($hotplug_rc === 0) {
+			$output['code'] = 201;
+			$output['status'] = 'success';
+			$output['message'] = $GLOBALS['messages'][60023];
+		} else {
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			if (isset($GLOBALS['messages'][$hotplug_rc])) {
+				$output['message'] = $GLOBALS['messages'][$hotplug_rc];
+			} else {
+				$output['message'] = $GLOBALS['messages'][80092];
+			}
+		}
 	} else {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
 		$output['message'] = $GLOBALS['messages'][$rc];
 	}
 	return $output;
+}
+
+/**
+ * Function to rewire ethernet interfaces for running nodes without requiring a reboot.
+ *
+ * @param   Lab     $lab                Lab
+ * @param   int     $id                 Node ID
+ * @param   array   $old_ethernets      Map of ethernet_id => old network id
+ * @return  int                         0 means ok
+ */
+function apiHotplugNodeInterfaces($lab, $id, $old_ethernets)
+{
+	if (empty($old_ethernets)) {
+		return 0;
+	}
+
+	if (!isset($lab->getNodes()[$id])) {
+		return 0;
+	}
+
+	$node = $lab->getNodes()[$id];
+	if ($node->getStatus() < 2) {
+		// Node is not running, wiring will be applied on next boot
+		return 0;
+	}
+
+	$author = $lab->getAuthor();
+	if ($author === '' || $author === null) {
+		$author = 'admin';
+	}
+	$lab_file = $lab->getPath() . '/' . $lab->getFilename();
+	$interfaces = $node->getEthernets();
+	foreach ($old_ethernets as $interface_id => $old_network_id) {
+		if (!isset($interfaces[$interface_id])) {
+			continue;
+		}
+		$new_network_id = (int) $interfaces[$interface_id]->getNetworkId();
+		if ($new_network_id == $old_network_id) {
+			continue;
+		}
+		$cmd = 'sudo /opt/unetlab/wrappers/unl_wrapper';
+		$cmd .= ' -a link';
+		$cmd .= ' -T ' . (int) $lab->getTenant();
+		$cmd .= ' -U ' . escapeshellarg($author);
+		$cmd .= ' -D ' . (int) $id;
+		$cmd .= ' -F ' . escapeshellarg($lab_file);
+		$cmd .= ' -i ' . (int) $interface_id;
+		if ($old_network_id > 0) {
+			$cmd .= ' -b ' . (int) $old_network_id;
+		}
+		$cmd .= ' 2>> /opt/unetlab/data/Logs/unl_wrapper.txt';
+		exec($cmd, $o, $wrapper_rc);
+		if ($wrapper_rc !== 0) {
+			return $wrapper_rc;
+		}
+	}
+	return 0;
 }
 
 /**

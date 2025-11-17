@@ -343,6 +343,9 @@ $messages[80086] = 'Cannot import iou-web file (80086).';
 $messages[80087] = 'iou-web file imported (80087).';
 $messages[80088] = 'Cannot find vpcs installation (80088).';
 $messages[80089] = 'Cannot disable ipv6 (80089).';
+$messages[80090] = 'Cannot remove interface from bridge (80090).';
+$messages[80091] = 'Cannot remove interface from OVS (80091).';
+$messages[80092] = 'Failed to update running node interfaces (80092).';
 
 // Authentication (90000-99999)
 $messages[90001] = 'User is not authenticated or session timed out (90001).';
