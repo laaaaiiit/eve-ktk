@@ -1,0 +1,41 @@
+<div class="modal-header">
+    <h3 class="modal-title">Edit Cloud</h3>
+</div>
+<div class="modal-body">
+    <form role="form" name="cloudForm">
+        <div class="form-group required">
+            <label class="control-label">Cloud Name</label>
+            <input type="text" name="cloudname" class="form-control" ng-model="cloud.cloudname"
+                placeholder="Enter cloud name" required ng-pattern="/^[A-Za-z0-9_-]+$/"
+                ng-class="{'input--error': cloudForm.cloudname.$invalid && cloudForm.cloudname.$touched}">
+            <span class="help-block" ng-show="cloudForm.cloudname.$invalid && cloudForm.cloudname.$touched">
+                Use only A-Z, a-z, 0-9, _ and -
+            </span>
+        </div>
+
+        <div class="form-group required">
+            <label class="control-label">Username</label>
+            <input type="text" name="username" class="form-control" ng-model="cloud.username"
+                placeholder="Enter associated username" required>
+        </div>
+
+        <div class="form-group required">
+            <label class="control-label">Pnet</label>
+            <input type="text" name="pnet" class="form-control" ng-model="cloud.pnet" placeholder="Enter pnet" required
+                ng-pattern="/^pnet((0[1-9])|([1-9][0-9]{0,3}))$/"
+                ng-class="{'input--error': cloudForm.pnet.$invalid && cloudForm.pnet.$touched}">
+            <span class="help-block" ng-show="cloudForm.pnet.$invalid && cloudForm.pnet.$touched">
+                Must be in format <code>pnet1</code> to <code>pnet9999</code> (excluding <code>pnet0</code>)
+            </span>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-success btn-flat" type="button" ng-disabled="cloudForm.$invalid"
+                ng-click="editCloud(cloud)">
+                Save Changes
+            </button>
+            <button class="btn btn-default btn-flat" type="button" ng-click="closeModal()">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>

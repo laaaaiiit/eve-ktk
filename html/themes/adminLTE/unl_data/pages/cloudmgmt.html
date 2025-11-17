@@ -1,0 +1,90 @@
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
+</div>
+<div class="wrapper">
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+      <h1>
+        Cloud management
+        <small>here you can manage clouds</small>
+      </h1>
+      <ol class="breadcrumb">
+        <li><a href="#/main"><i class="fa fa-home"></i></a></li>
+        <li><i class="fa fa-wrench"></i> Management</li>
+        <li class="active"><i class="glyphicon glyphicon-cloud"></i> Cloud management</li>
+      </ol>
+    </section>
+
+    <!-- Main content -->
+    <section class="content row">
+      <!-- /.content -->
+      <div class="col-xs-12">
+        <div class="box">
+          <div class="box-header">
+            <h3 class="box-title">Find of clouds</h3>
+            <div class="box-tools">
+              <div class="btn-group">
+                <button type="button" class="btn btn-success btn-flat btn-sm" data-ng-click="openModal('addcloud')">+Add
+                  cloud</button>
+              </div>
+            </div>
+          </div>
+          <!-- /.box-header -->
+          <div class="box-body table-responsive no-padding">
+            <table class="table table-hover table-striped">
+              <thead>
+                <tr>
+                  <th ng-click="sortData('cloudname')">
+                    Cloud Name
+                    <span ng-if="sortColumn === 'cloudname'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('username')">
+                    User
+                    <span ng-if="sortColumn === 'username'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('pnet')">
+                    Pnet
+                    <span ng-if="sortColumn === 'pnet'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-ng-repeat="cloud in clouddata | orderBy:sortColumn:reverseSort">
+                  <td>{{cloud.cloudname}}</td>
+                  <td>{{cloud.username}}</td>
+                  <td>{{cloud.pnet}}</td>
+                  <td>
+                    <button class="btn btn-xs btn-primary" ng-click="openModal('editcloud', cloud)" title="Edit Cloud">
+                      <i class="fa fa-edit"></i>
+                    </button>
+                    <button class="btn btn-xs btn-danger" ng-click="deleteCloud(cloud.id)" title="Delete Cloud">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <!-- /.box-body -->
+      </div>
+      <!-- /.box -->
+  </div>
+  <!-- /.content -->
+  </section>
+</div>
+<!-- /.content-wrapper -->
+</div>
+<!-- ./wrapper -->
+<!-- AdminLTE App -->
+<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
+<script src="/themes/adminLTE/dist/js/app.js"></script>

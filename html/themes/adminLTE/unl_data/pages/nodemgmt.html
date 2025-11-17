@@ -1,0 +1,200 @@
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
+</div>
+<div class="wrapper">
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+      <h1>
+        Node management
+        <small>here you can manage unl nodes</small>
+      </h1>
+      <ol class="breadcrumb">
+        <li><a href="#/main"><i class="fa fa-home"></i></a></li>
+        <li><i class="fa fa-wrench"></i> Management</li>
+        <li class="active"><i class="glyphicon glyphicon-hdd"></i> Node management</li>
+      </ol>
+    </section>
+
+    <!-- Main content -->
+    <section class="content row">
+      <!-- /.content -->
+      <div class="col-xs-12">
+        <div class="box">
+          <div class="box-header">
+            <h3 class="box-title">Find of nodes</h3>
+            <div class="box-tools">
+              <div class="btn-group">
+                <button type="button" class="btn btn-danger btn-flat btn-sm" ng-click="stopAllNodes()">
+                  Stop all
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- /.box-header -->
+          <div class="box-body table-responsive no-padding">
+            <table class="table table-hover table-striped">
+              <thead>
+                <tr>
+                  <th ng-click="sortData('lab')">
+                    Lab
+                    <span ng-if="sortColumn === 'lab'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('user')">
+                    User
+                    <span ng-if="sortColumn === 'user'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('name')">
+                    Name
+                    <span ng-if="sortColumn === 'name'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('type')">
+                    Type
+                    <span ng-if="sortColumn === 'type'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('template')">
+                    Template
+                    <span ng-if="sortColumn === 'template'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('image')">
+                    Image
+                    <span ng-if="sortColumn === 'image'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('cpulimit')">
+                    CPU Limit
+                    <span ng-if="sortColumn === 'cpulimit'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('cpucount')">
+                    CPU Count
+                    <span ng-if="sortColumn === 'cpucount'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('nvram')">
+                    NVRAM
+                    <span ng-if="sortColumn === 'nvram'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('ram')">
+                    RAM
+                    <span ng-if="sortColumn === 'ram'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('eth')">
+                    Ethernet
+                    <span ng-if="sortColumn === 'eth'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('ser')">
+                    Serial
+                    <span ng-if="sortColumn === 'ser'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('console')">
+                    Console
+                    <span ng-if="sortColumn === 'console'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('port')">
+                    Port
+                    <span ng-if="sortColumn === 'port'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th ng-click="sortData('status')">
+                    Status
+                    <span ng-if="sortColumn === 'status'">
+                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
+                    </span>
+                  </th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-ng-repeat="node in nodedata | orderBy:sortColumn:reverseSort">
+                  <td>{{node.lab}}</td>
+                  <td>{{node.user}}</td>
+                  <td>{{node.name}}</td>
+                  <td>{{node.type}}</td>
+                  <td>{{node.template}}</td>
+                  <td>{{node.image}}</td>
+                  <td>
+                    <span ng-switch="node.cpulimit">
+                      <span ng-switch-when="0" class="label label-default">No limit</span>
+                      <span ng-switch-when="1" class="label label-warning">Limited</span>
+                      <span ng-switch-default class="label label-danger">Unknown</span>
+                    </span>
+                  </td>
+                  <td>{{node.cpucount}}</td>
+                  <td>{{node.nvram}} MB</td>
+                  <td>{{node.ram}} MB</td>
+                  <td>{{node.eth}}</td>
+                  <td>{{node.ser}}</td>
+                  <td>
+                    <a ng-href="{{node.url}}">
+                      {{node.console}}
+                    </a>
+                  </td>
+                  <td>{{node.port}}</td>
+                  <td>
+                    <span ng-switch="node.status">
+                      <span ng-switch-when="0" class="label label-default">Stopped</span>
+                      <span ng-switch-when="1" class="label label-warning">Stopped (locked)</span>
+                      <span ng-switch-when="2" class="label label-success">Running</span>
+                      <span ng-switch-when="3" class="label label-warning">Running (locked)</span>
+                      <span ng-switch-default class="label label-danger">Unknown</span>
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-xs btn-success" ng-click="startNode(node)" title="Запустить">
+                      <i class="fa fa-play"></i>
+                    </button>
+                    <button class="btn btn-xs btn-warning" ng-click="stopNode(node)" title="Остановить">
+                      <i class="fa fa-stop"></i>
+                    </button>
+                    <button class="btn btn-xs btn-info" ng-click="wipeNode(node)" title="Wipe (очистить)">
+                      <i class="fa fa-eraser"></i>
+                    </button>
+                    <button class="btn btn-xs btn-danger" ng-click="deleteNode(node.id, node.lab)" title="Удалить">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- /.box-body -->
+        </div>
+        <!-- /.box -->
+      </div>
+      <!-- /.content -->
+    </section>
+  </div>
+  <!-- /.content-wrapper -->
+  <!-- Main Footer -->
+  <!-- <div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/footer.html'"> -->
+</div>
+<!-- ./wrapper -->
+<!-- AdminLTE App -->
+<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
+<script src="/themes/adminLTE/dist/js/app.js"></script>
