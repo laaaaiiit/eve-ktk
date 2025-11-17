@@ -19,3 +19,6 @@
 [17-Nov-2025 12:37:41 Europe/Rome] Nov 17 12:37:41 DEBUG: lab saved
 [17-Nov-2025 12:37:42 Europe/Rome] Nov 17 12:37:42 DEBUG: lab saved
 [17-Nov-2025 12:37:42 Europe/Rome] Nov 17 12:37:42 DEBUG: lab saved
+[17-Nov-2025 12:39:01 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 1 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[17-Nov-2025 12:39:01 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 2 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[17-Nov-2025 12:39:01 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 3 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt

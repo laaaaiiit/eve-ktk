@@ -1,7 +1,9 @@
-angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope) {
+angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies) {
 	$scope.eveversion = $rootScope.EVE_VERSION + "-Community";
 	if ($scope.html5 == null) { $scope.html5 = -1; }
-	$scope.testAUTH("/main");
+	if ($cookies.get('unetlab_session')) {
+		$scope.testAUTH("/main");
+	}
 	$('body').removeClass().addClass('hold-transition login-page');
 	$scope.tryLogin = function () {
 		$scope.loginMessageInfo = "";

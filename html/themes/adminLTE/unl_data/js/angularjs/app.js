@@ -141,7 +141,6 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                 else { console.log("Unknown Error. Why did API doesn't respond?") }
             });
     }
-    $scope.testAUTH();
 }]);
 
 /* Setup Layout Part - Header */
