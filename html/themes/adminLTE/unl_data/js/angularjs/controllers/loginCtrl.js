@@ -1,4 +1,95 @@
 angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies) {
+		var translations = {
+			en: {
+				brandTitle: 'Welcome to EVE-NG Community',
+				brandSubtitle: 'Build, validate, and share labs faster with the refreshed workspace.',
+				brandBulletOne: 'Hands-on scenarios for networking, security, and automation.',
+				brandBulletTwo: 'HTML5 access to every console directly from your browser.',
+				cardTitle: 'Sign in',
+				cardSubtitle: 'Use your EVE credentials to continue.',
+				usernameLabel: 'Username',
+				usernamePlaceholder: 'admin',
+				passwordLabel: 'Password',
+				passwordPlaceholder: '******',
+				consoleLabel: 'Console type',
+				html5Console: 'HTML5 console',
+				submitButton: 'Open dashboard',
+				hintText: 'The default password is set during installation. If you lost it, follow the recovery procedure or contact your platform administrator.',
+				languageLabel: 'Language',
+				errors: {
+					missingCredentials: 'Enter both username and password.',
+					generic: 'Login failed. Try again later or contact your administrator.',
+					serverUnavailable: 'Authorization service is unavailable. Check the connection and retry.',
+					invalidCredentials: 'Incorrect username or password.'
+				}
+			},
+			ru: {
+				brandTitle: 'Добро пожаловать в EVE-NG Community',
+				brandSubtitle: 'Создавайте, проверяйте и делитесь лабораториями быстрее благодаря обновленному рабочему пространству.',
+				brandBulletOne: 'Практические сценарии для сетей, безопасности и автоматизации.',
+				brandBulletTwo: 'HTML5-доступ к каждой консоли прямо из браузера.',
+				cardTitle: 'Вход в систему',
+				cardSubtitle: 'Используйте учетные данные EVE, чтобы продолжить.',
+				usernameLabel: 'Имя пользователя',
+				usernamePlaceholder: 'admin',
+				passwordLabel: 'Пароль',
+				passwordPlaceholder: '******',
+				consoleLabel: 'Тип консоли',
+				html5Console: 'HTML5-консоль',
+				submitButton: 'Войти в панель',
+				hintText: 'Пароль по умолчанию задается при установке. Если вы его забыли, воспользуйтесь процедурой восстановления или обратитесь к администратору платформы.',
+				languageLabel: 'Язык',
+				errors: {
+					missingCredentials: 'Введите имя пользователя и пароль.',
+					generic: 'Не удалось выполнить вход. Попробуйте позже или обратитесь к администратору.',
+					serverUnavailable: 'Сервер авторизации недоступен. Проверьте подключение и повторите попытку.',
+					invalidCredentials: 'Неверное имя пользователя или пароль.'
+				}
+			}
+		};
+
+		$scope.languages = [
+			{ key: 'ru', label: 'Русский' },
+			{ key: 'en', label: 'English' }
+		];
+
+		function getValidLanguage(lang) {
+			return translations[lang] ? lang : 'ru';
+		}
+
+		function currentTranslation() {
+			return translations[$scope.lang] || translations.ru;
+		}
+
+		function hasCyrillic(text) {
+			return /[А-Яа-яЁё]/.test(text || '');
+		}
+
+		function formatServerMessage(fallback, serverMessage) {
+			if (!serverMessage) {
+				return fallback;
+			}
+			if ($scope.lang === 'ru' || !hasCyrillic(serverMessage)) {
+				return serverMessage;
+			}
+			var codeMatch = serverMessage.match(/\(\s*\d+\s*\)/);
+			return codeMatch ? fallback + ' ' + codeMatch[0] : fallback;
+		}
+
+		function applyLanguage(lang) {
+			var validLang = getValidLanguage(lang);
+			$scope.lang = validLang;
+			$scope.t = translations[validLang];
+			$cookies.put('eve_login_lang', validLang, { path: '/' });
+		}
+
+		var savedLang = $cookies.get('eve_login_lang');
+		applyLanguage(getValidLanguage(savedLang || 'ru'));
+
+		$scope.setLanguage = function (lang) {
+			applyLanguage(lang);
+		};
+
 		$scope.eveversion = $rootScope.EVE_VERSION + "-Community";
 		if ($scope.html5 == null) { $scope.html5 = -1; }
 		if ($cookies.get('unetlab_session')) {
@@ -8,7 +99,7 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 		$scope.tryLogin = function () {
 			$scope.loginMessageInfo = "";
 			if (!$scope.username || !$scope.password) {
-				$scope.loginMessageInfo = 'Введите имя пользователя и пароль.';
+				$scope.loginMessageInfo = currentTranslation().errors.missingCredentials;
 				return;
 			}
 			$http({
@@ -22,23 +113,19 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 							blockUI();
 							$scope.testAUTH("/main");
 						} else {
-							var message = 'Не удалось выполнить вход. Попробуйте позже или обратитесь к администратору.';
-							if (response.data && response.data.message) {
-								message = response.data.message;
-							}
-							$scope.loginMessageInfo = message;
+							var message = currentTranslation().errors.generic;
+							$scope.loginMessageInfo = formatServerMessage(message, response.data && response.data.message);
 						}
 					},
 					function errorCallback(response) {
-						var message = 'Не удалось выполнить вход. Попробуйте позже или обратитесь к администратору.';
+						var message = currentTranslation().errors.generic;
 						if (response.status == 0) {
-							message = 'Сервер авторизации недоступен. Проверьте подключение и повторите попытку.';
+							message = currentTranslation().errors.serverUnavailable;
 						} else if (response.status == 400 || response.status == 401) {
-							message = 'Неверное имя пользователя или пароль.';
-						} else if (response.data && response.data.message) {
-							message = response.data.message;
+							message = currentTranslation().errors.invalidCredentials;
 						}
-						$scope.loginMessageInfo = message;
+						var serverMessage = response.data && response.data.message;
+						$scope.loginMessageInfo = formatServerMessage(message, serverMessage);
 					}
 				);
 		}

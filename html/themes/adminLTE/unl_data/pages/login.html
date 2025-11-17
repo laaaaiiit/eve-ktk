@@ -5,47 +5,55 @@
       <div class="login-modern__brand-card">
         <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG Logo" class="login-modern__logo img-responsive">
         <p class="login-modern__version" data-ng-bind="eveversion"></p>
-        <h1>Добро пожаловать в EVE-NG Community</h1>
-        <p>Создавайте, проверяйте и делитесь лабораториями быстрее благодаря обновленному рабочему пространству.</p>
+        <h1>{{t.brandTitle}}</h1>
+        <p>{{t.brandSubtitle}}</p>
         <ul>
-          <li>Практические сценарии для сетей, безопасности и автоматизации.</li>
-          <li>HTML5-доступ к каждой консоли прямо из браузера.</li>
+          <li>{{t.brandBulletOne}}</li>
+          <li>{{t.brandBulletTwo}}</li>
         </ul>
       </div>
     </div>
     <div class="login-modern__form-wrapper col-md-5 col-md-offset-1">
         <div class="login-modern__card">
+        <div class="login-modern__language form-group">
+          <label class="field-label">{{t.languageLabel}}</label>
+          <select class="form-control"
+                  ng-model="lang"
+                  ng-change="setLanguage(lang)"
+                  ng-options="language.key as language.label for language in languages">
+          </select>
+        </div>
         <div class="login-modern__card-header">
-          <h2>Вход в систему</h2>
-          <p>Используйте учетные данные EVE, чтобы продолжить.</p>
+          <h2>{{t.cardTitle}}</h2>
+          <p>{{t.cardSubtitle}}</p>
         </div>
         <form class="login-modern__form" ng-submit="tryLogin()" novalidate>
-          <label class="field-label">Имя пользователя</label>
+          <label class="field-label">{{t.usernameLabel}}</label>
           <div class="login-field">
             <span class="login-field__icon fa fa-user"></span>
-            <input type="text" class="form-control" placeholder="admin" ng-model="username" autofocus>
+            <input type="text" class="form-control" placeholder="{{t.usernamePlaceholder}}" ng-model="username" autofocus>
           </div>
 
-          <label class="field-label">Пароль</label>
+          <label class="field-label">{{t.passwordLabel}}</label>
           <div class="login-field">
             <span class="login-field__icon fa fa-lock"></span>
-            <input type="password" class="form-control" placeholder="******" ng-model="password">
+            <input type="password" class="form-control" placeholder="{{t.passwordPlaceholder}}" ng-model="password">
           </div>
 
           <div class="login-modern__options">
-            <label class="field-label">Тип консоли</label>
+            <label class="field-label">{{t.consoleLabel}}</label>
             <div class="login-modern__toggle">
               <select name="html5" class="form-control" ng-init="html5='1'" ng-model="html5">
                 <!--<option value=-1>Нативная консоль</option>-->
-                <option value=1>HTML5-консоль</option>
+                <option value=1>{{t.html5Console}}</option>
               </select>
             </div>
           </div>
 
-          <button id="btnlogin" type="submit" class="btn btn-primary btn-block login-modern__submit">Войти в панель</button>
+          <button id="btnlogin" type="submit" class="btn btn-primary btn-block login-modern__submit">{{t.submitButton}}</button>
         </form>
         <p class="login-modern__hint">
-          Пароль по умолчанию задается при установке. Если вы его забыли, воспользуйтесь процедурой восстановления или обратитесь к администратору платформы.
+          {{t.hintText}}
         </p>
         <p class="login-modern__message text-danger" data-ng-bind="loginMessageInfo"></p>
       </div>
