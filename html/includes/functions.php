@@ -26,11 +26,30 @@ function checkDatabase()
 		//$db = new PDO('sqlite:'.DATABASE);
 		$db = new PDO('mysql:host=localhost;dbname=eve_ng_db', 'eve-ng', 'eve-ng');
 		$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		ensureUsersLangColumn($db);
 		return $db;
 	} catch (Exception $e) {
 		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][90003]);
 		error_log(date('M d H:i:s ') . (string) $e);
 		return False;
+	}
+}
+
+function ensureUsersLangColumn($db)
+{
+	try {
+		$query = "SHOW COLUMNS FROM users LIKE 'lang';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (empty($result)) {
+			$query = "ALTER TABLE users ADD COLUMN lang VARCHAR(8) DEFAULT 'en';";
+			$statement = $db->prepare($query);
+			$statement->execute();
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to ensure lang column in users table');
+		error_log(date('M d H:i:s ') . (string) $e);
 	}
 }
 
@@ -444,8 +463,13 @@ function configureUserPod($db, $username)
 function getUserByCookie($db, $cookie)
 {
 	$now = time();
+	$lang_column_available = checkUsersLangColumn($db);
 	try {
-		$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
+		if ($lang_column_available) {
+			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, users.lang AS lang, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
+		} else {
+			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
+		}
 		$statement = $db->prepare($query);
 		$statement->bindParam(':cookie', $cookie, PDO::PARAM_STR);
 		$statement->bindParam(':session', $now, PDO::PARAM_INT);
@@ -460,7 +484,7 @@ function getUserByCookie($db, $cookie)
 				'email' => $result['email'],
 				'folder' => $result['folder'],
 				'lab' => $result['lab'],
-				'lang' => 'en',	// TODO: must deal with multiple lang
+				'lang' => (empty($result['lang']) ? 'en' : $result['lang']),
 				'name' => $result['name'],
 				'role' => $result['role'],
 				'tenant' => $result['pod'],
@@ -997,6 +1021,26 @@ function updateDatabase($db)
 	}
         */
 	return $db;
+}
+
+/**
+ * Helper to detect if users.lang column exists
+ */
+function checkUsersLangColumn($db)
+{
+	if (isset($GLOBALS['users_lang_column'])) {
+		return $GLOBALS['users_lang_column'];
+	}
+	try {
+		$query = "SHOW COLUMNS FROM users LIKE 'lang';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		$GLOBALS['users_lang_column'] = !empty($result);
+	} catch (Exception $e) {
+		$GLOBALS['users_lang_column'] = False;
+	}
+	return $GLOBALS['users_lang_column'];
 }
 
 /**

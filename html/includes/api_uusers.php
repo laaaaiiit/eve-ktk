@@ -24,7 +24,7 @@
 function apiGetUUser($db, $user) {
 	$data = Array();
 
-	$query = 'SELECT users.username AS username, email, users.expiration AS expiration, name, session, users.role as role , ip, pods.id AS pod, pods.expiration AS pexpiration FROM users LEFT JOIN pods ON users.username = pods.username WHERE users.username = :username;';
+	$query = 'SELECT users.username AS username, email, users.expiration AS expiration, name, session, users.role as role , users.lang as lang, ip, pods.id AS pod, pods.expiration AS pexpiration FROM users LEFT JOIN pods ON users.username = pods.username WHERE users.username = :username;';
 
 	try {
 		$statement = $db->prepare($query);
@@ -35,6 +35,9 @@ function apiGetUUser($db, $user) {
 			// Check should have a new single user
 			foreach ($result as $key => $value) {
 				$data[$key] = $value;
+			}
+			if (!isset($data['lang']) || $data['lang'] == '') {
+				$data['lang'] = 'en';
 			}
 			if (!isset($data['pod'])) {
 				$data['pod'] = -1;
@@ -68,7 +71,7 @@ function apiGetUUser($db, $user) {
 function apiGetUUsers($db) {
 	$data = Array();
 
-	$query = 'SELECT users.username AS username, email, users.expiration AS expiration, folder, name, session, users.role as role, ip, pods.id AS pod, pods.expiration AS pexpiration, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username ORDER BY users.username ASC;';
+	$query = 'SELECT users.username AS username, email, users.expiration AS expiration, folder, name, session, users.role as role, users.lang as lang, ip, pods.id AS pod, pods.expiration AS pexpiration, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username ORDER BY users.username ASC;';
 	try {
 		$statement = $db->prepare($query);
 		$statement->execute();
@@ -80,6 +83,7 @@ function apiGetUUsers($db) {
 			$data[$row['username']]['name'] = $row['name'];
 			$data[$row['username']]['session'] = $row['session'];
 			$data[$row['username']]['role'] = $row['role'];
+			$data[$row['username']]['lang'] = (isset($row['lang']) && $row['lang'] != '') ? $row['lang'] : 'en';
 			$data[$row['username']]['ip'] = $row['ip'];
 			$data[$row['username']]['folder'] = $row['folder'];
 			$data[$row['username']]['lab'] = $row['lab'];
@@ -193,6 +197,10 @@ function apiEditUUser($db, $user, $p) {
 		$query .= 'expiration = :expiration, ';
 		$update_user = True;
 	}
+	if (isset($p['lang']) && !empty($p['lang'])) {
+		$query .= 'lang = :lang, ';
+		$update_user = True;
+	}
 	$query = substr($query, 0, -2);	// Remove last ', ' chars
 	$query .= ' WHERE username = :username;';
 	if ($update_user) {
@@ -215,6 +223,9 @@ function apiEditUUser($db, $user, $p) {
 		}
 		if (isset($p['expiration']) && !empty($p['expiration'])) {
 			$statement->bindParam(':expiration', $p['expiration'], PDO::PARAM_STR);
+		}
+		if (isset($p['lang']) && !empty($p['lang'])) {
+			$statement->bindParam(':lang', $p['lang'], PDO::PARAM_STR);
 		}
 		$statement->execute();
 		//$result = $statement->fetch();
@@ -275,8 +286,9 @@ function apiAddUUser($db, $p) {
 		$p['expiration'] = -1;
 	}
 	if (!isset($p['name'])) $p['name'] = '';
+	if (!isset($p['lang']) || empty($p['lang'])) $p['lang'] = 'en';
 
-	$query = 'INSERT INTO users (username, email, name, password, expiration, role) VALUES (:username, :email, :name, :password, :expiration, :role);';
+	$query = 'INSERT INTO users (username, email, name, password, expiration, role, lang) VALUES (:username, :email, :name, :password, :expiration, :role, :lang);';
 	try {
 		$statement = $db->prepare($query);
 		$statement->bindParam(':username', $p['username'], PDO::PARAM_STR);
@@ -286,6 +298,7 @@ function apiAddUUser($db, $p) {
 		$statement->bindParam(':password',  $hash , PDO::PARAM_STR);
 		$statement->bindParam(':expiration', $p['expiration'], PDO::PARAM_STR);
 		$statement->bindParam(':role', $p['role'], PDO::PARAM_STR);
+		$statement->bindParam(':lang', $p['lang'], PDO::PARAM_STR);
 		$statement->execute();
 	} catch (Exception $e) {
 		$output['code'] = 500;

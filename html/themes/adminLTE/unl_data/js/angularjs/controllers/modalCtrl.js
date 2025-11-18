@@ -352,6 +352,9 @@ angular.module("unlMainApp").controller('EditElModalCtrl', function EditElModalC
 });
 
 angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModalCtrl($scope, $uibModalInstance, $http, data) {
+	var trDict = $scope.t || ($scope.$parent && $scope.$parent.t) || {};
+	var tr = function (key, fallback) { return trDict[key] || fallback; };
+
 	$scope.roles = '';
 	$scope.selectRole = '';
 	$scope.roleArray = [];
@@ -361,6 +364,11 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 	$scope.passwd = '';
 	$scope.passwdConfirm = '';
 	$scope.role = '';
+	$scope.languageOptions = [
+		{ key: 'en', label: 'English' },
+		{ key: 'ru', label: 'Русский' }
+	];
+	$scope.selectedLanguage = ($scope.$parent && $scope.$parent.lang) || 'en';
 	$scope.podArray = [];
 	$scope.expiration = '-1';
 	$scope.restrictNumber = '^[a-zA-Z0-9-]+$';
@@ -383,6 +391,8 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 	$scope.errorClass = '';
 	$scope.errorMessage = '';
 	$scope.result = false;
+	$scope.blockButtons = false;
+	$scope.blockButtonsClass = '';
 
 	$scope.closeModal = function () {
 		$uibModalInstance.dismiss('cancel');
@@ -413,10 +423,10 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 		$scope.errorMessage = "";
 		$scope.podError = false;
 		$scope.username = $scope.username.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],|]/g, '')
-		if ($scope.passwdConfirm != $scope.passwd) { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = "Password doesn't match"; }
-		if ($scope.passwdConfirm == '') { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = "Password can't be empty!"; }
-		if ($scope.passwd == '') { $scope.errorClass = 'has-error passwd'; $scope.errorMessage = "Password can't be empty!"; }
-		if ($scope.username == '') { $scope.errorClass = 'has-error username'; $scope.errorMessage = "Username can't be empty!"; }
+		if ($scope.passwdConfirm != $scope.passwd) { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = tr('validationPasswordMismatch', "Passwords don't match"); }
+		if ($scope.passwdConfirm == '') { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = tr('validationPasswordRequired', "Password can't be empty!"); }
+		if ($scope.passwd == '') { $scope.errorClass = 'has-error passwd'; $scope.errorMessage = tr('validationPasswordRequired', "Password can't be empty!"); }
+		if ($scope.username == '') { $scope.errorClass = 'has-error username'; $scope.errorMessage = tr('validationUsernameRequired', "Username can't be empty!"); }
 		if ($scope.passwd == 'whereismypassword?') { $scope.passwd = ''; }
 		if ($scope.errorClass != '') { return; }
 
@@ -433,18 +443,26 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 		}).then(function (response) {
 
 			if ($scope.podError) {
-				toastr["error"]("Please set unique POD value", "Error"); return;
+				toastr["error"](tr('validationPodUnique', "Please set unique POD value"), "Error");
+				return;
 			}
+
+			$scope.blockButtons = true;
+			$scope.blockButtonsClass = 'm-progress';
+
+			var displayName = $scope.name || $scope.username;
+			var emailValue = $scope.email || '';
 
 			$scope.newdata = {
 				"username": $scope.username,
-				"name": $scope.name,
-				"email": $scope.email,
+				"name": displayName,
+				"email": emailValue,
 				"password": $scope.passwd,
 				"role": $scope.roleArray[$scope.selectRole],
 				"expiration": $scope.expiration,
-				"pod": $scope.pod,
+				"pod": parseInt($scope.pod, 10),
 				//"pod": -1,
+				"lang": $scope.selectedLanguage,
 				"pexpiration": $scope.pexpiration,
 			}
 
@@ -455,7 +473,7 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 			})
 				.then(
 					function successCallback(response) {
-						//console.log(response)
+						toastr["success"](tr('toastUserCreated', "User created successfully"), "OK");
 						$scope.result = true;
 						$uibModalInstance.close($scope.result);
 					},
@@ -467,8 +485,10 @@ angular.module("unlMainApp").controller('AddUserModalCtrl', function AddUserModa
 							$uibModalInstance.dismiss('cancel');
 							toastr["error"]("Unauthorized user", "Error");
 						}
-						//$uibModalInstance.close($scope.result);
 						toastr["error"](response.data.message, "Error");
+					}).finally(function () {
+						$scope.blockButtons = false;
+						$scope.blockButtonsClass = '';
 					});
 		});
 	}
@@ -556,6 +576,9 @@ angular.module("unlMainApp").controller('EditCloudModalCtrl', function ($scope, 
 
 angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserModalCtrl($scope, $uibModalInstance, data, $http) {
 
+	var trDictEdit = $scope.t || ($scope.$parent && $scope.$parent.t) || {};
+	var trEdit = function (key, fallback) { return trDictEdit[key] || fallback; };
+
 	$scope.roles = '';
 	$scope.selectRole = '';
 	$scope.roleArray = [];
@@ -565,17 +588,23 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 	$scope.passwd = '';
 	$scope.passwdConfirm = '';
 	$scope.role = '';
+	$scope.languageOptions = [
+		{ key: 'en', label: 'English' },
+		{ key: 'ru', label: 'Русский' }
+	];
+	$scope.selectedLanguage = ($scope.$parent && $scope.$parent.lang) || 'en';
 	$scope.expiration = '-1';
-	$scope.pod = '1';
+	$scope.pod = 1;
 	$scope.pexpiration = '-1';
 	$scope.errorClass = '';
 	$scope.errorMessage = '';
 	$scope.podError = false;
 	$scope.result = false;
+	$scope.blockButtons = false;
+	$scope.blockButtonsClass = '';
 	$scope.restrictNumber = '^[a-zA-Z0-9-]+$';
 	$scope.patternEmail = '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[\.][a-zA-Z]{2,3}$';
 
-	console.log('Start edit user ' + data.username)
 	$http({
 		method: 'GET',
 		url: '/api/list/roles'
@@ -612,7 +641,9 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 					$scope.passwdConfirm = 'whereismypassword?';
 					$scope.role = $scope.userinfo.role;
 					$scope.expiration = '-1';
-					$scope.pod = $scope.userinfo.pod;
+					var parsedPod = parseInt($scope.userinfo.pod, 10);
+					$scope.pod = isNaN(parsedPod) ? 0 : parsedPod;
+					$scope.selectedLanguage = $scope.userinfo.lang || 'en';
 					$scope.pexpiration = '-1';
 					$scope.selectRole = $scope.roles[$scope.role]
 				},
@@ -627,26 +658,27 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 
 		$scope.errorClass = '';
 		$scope.errorMessage = "";
-		if ($scope.passwdConfirm != $scope.passwd) { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = "Password doesn't match"; }
-		if ($scope.passwdConfirm == '') { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = "Password can't be empty!"; }
-		if ($scope.passwd == '') { $scope.errorClass = 'has-error passwd'; $scope.errorMessage = "Password can't be empty!"; }
+		if ($scope.passwdConfirm != $scope.passwd) { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = trEdit('validationPasswordMismatch', "Passwords don't match"); }
+		if ($scope.passwdConfirm == '') { $scope.errorClass = 'has-error passwdConfirm'; $scope.errorMessage = trEdit('validationPasswordRequired', "Password can't be empty!"); }
+		if ($scope.passwd == '') { $scope.errorClass = 'has-error passwd'; $scope.errorMessage = trEdit('validationPasswordRequired', "Password can't be empty!"); }
 		if ($scope.passwd == 'whereismypassword?') { $scope.passwd = ''; }
 		if ($scope.errorClass != '') { return; }
 
 		$http.get('/api/users/').then(function (response) {
 
-			console.log(response.data.data)
 			//Compare unique POD //START
 			for (var key in response.data.data) {
-				console.log(parseInt(response.data.data[key].pod))
-				if (parseInt(response.data.data[key].pod) == parseInt($scope.pod) && response.data.data[key].username != $scope.username) {
+				var existingPod = parseInt(response.data.data[key].pod, 10);
+				if (existingPod == parseInt($scope.pod, 10) && response.data.data[key].username != $scope.username) {
 					$scope.podError = true; break;
 				}
 			}
 			//Compare unique POD //END
-			console.log($scope.podError)
 		}).then(function (response) {
-			if ($scope.podError) { toastr["error"]("Please set unique POD value", "Error"); return; }
+			if ($scope.podError) { toastr["error"](trEdit('validationPodUnique', "Please set unique POD value"), "Error"); return; }
+
+			$scope.blockButtons = true;
+			$scope.blockButtonsClass = 'm-progress';
 
 			$scope.newdata = {
 				"username": $scope.username,
@@ -655,7 +687,8 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 				"password": $scope.passwd,
 				"role": $scope.roleArray[$scope.selectRole],
 				"expiration": $scope.expiration,
-				"pod": $scope.pod,
+				"pod": parseInt($scope.pod, 10),
+				"lang": $scope.selectedLanguage,
 				"pexpiration": $scope.pexpiration,
 			}
 
@@ -666,8 +699,7 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 			})
 				.then(
 					function successCallback(response) {
-						//console.log(response)
-						console.log('End edit user ' + data.username)
+						toastr["success"](trEdit('toastUserUpdated', "User updated successfully"), "OK");
 						$scope.result = true;
 						$uibModalInstance.close($scope.result);
 					},
@@ -681,6 +713,9 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 						}
 						$uibModalInstance.close($scope.result);
 						toastr["error"](response.data.message, "Error");
+					}).finally(function () {
+						$scope.blockButtons = false;
+						$scope.blockButtonsClass = '';
 					});
 		});
 	}
@@ -894,4 +929,3 @@ angular.module("unlMainApp").controller('MoveToModalCtrl', function MoveToModalC
 	};
 
 });
-

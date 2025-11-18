@@ -1,87 +1,105 @@
-<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
-</div>
-<div class="wrapper">
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <h1>
-        User management
-        <small>here you can manage unl users</small>
-      </h1>
-      <ol class="breadcrumb">
-        <li><a href="#/main"><i class="fa fa-home"></i></a></li>
-        <li><i class="fa fa-wrench"></i> Management</li>
-        <li class="active"><i class="fa fa-group"></i> User management</li>
-      </ol>
-    </section>
-
-    <!-- Main content -->
-    <section class="content row">
-      <!-- /.content -->
-      <div class="col-xs-12">
-        <div class="box">
-          <div class="box-header">
-            <h3 class="box-title">Database of users</h3>
-            <div class="box-tools">
-              <div class="btn-group">
-                <button type="button" class="btn btn-success btn-flat btn-sm" data-ng-click="openModal('adduser')">+Add
-                  user</button>
-              </div>
-            </div>
-          </div>
-          <!-- /.box-header -->
-          <div class="box-body table-responsive no-padding">
-            <table class="table table-hover table-striped">
-              <tbody>
-                <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Last session time</th>
-                  <th>Last session ip</th>
-                  <th>Current folder</th>
-                  <th>Current lab</th>
-                  <th>POD</th>
-                  <th>Actions</th>
-                </tr>
-                <tr data-ng-repeat="(x,y) in userdata">
-                  <td>{{x}}</td>
-                  <td>{{y.email}}</td>
-                  <td>{{y.name}}</td>
-                  <td>{{y.role}}</td>
-                  <td>{{ (y.session === null ) ? 'N/A' : timeConverter(y.session) }}</td>
-                  <td>{{ (y.ip === null) ? 'N/A' : y.ip}}</td>
-                  <td>{{ (y.folder === null) ? 'N/A' : y.folder }}</td>
-                  <td>{{ (y.lab === null) ? 'N/A' : y.lab }}</td>
-                  <td>{{y.pod}}</td>
-                  <td>
-                    <button class="btn btn-xs btn-primary" ng-click="openModal('edituser', y.username)"
-                      title="Edit Cloud">
-                      <i class="fa fa-edit"></i>
-                    </button>
-                    <button class="btn btn-xs btn-danger" ng-click="deleteUser( y.username )" title="Delete Cloud">
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- /.box-body -->
+<main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/60 to-slate-900 text-slate-100">
+  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10">
+    <div class="flex flex-col gap-3">
+      <p class="text-xs uppercase tracking-[0.45em] text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 class="text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
+          <p class="text-slate-300 text-lg" data-ng-bind="t.heroDescription"></p>
         </div>
-        <!-- /.box -->
+        <button type="button"
+                class="bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold rounded-2xl px-6 py-3 tracking-[0.2em] uppercase shadow-xl hover:shadow-2xl transition text-sm cursor-pointer"
+                data-ng-click="openModal('adduser')">
+          <span class="mr-2">+</span>
+          <span data-ng-bind="t.addUserButton"></span>
+        </button>
       </div>
-      <!-- /.content -->
-    </section>
-  </div>
-  <!-- /.content-wrapper -->
-  <!-- Main Footer -->
-  <!-- <div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/footer.html'"> -->
-</div>
-<!-- ./wrapper -->
-<!-- AdminLTE App -->
-<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
-<script src="/themes/adminLTE/dist/js/app.js"></script>
+    </div>
+
+    <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-[0.2em]" data-ng-bind="t.tableTitle"></h2>
+          <p class="text-slate-400 text-sm" data-ng-bind="t.tableSubtitle"></p>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 shadow-xl overflow-hidden">
+        <table class="w-full table-fixed text-sm text-left">
+          <thead class="text-xs uppercase tracking-[0.25em] text-slate-300 bg-slate-900/60">
+            <tr>
+              <th class="px-4 py-3 w-[15%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('username')">
+                  <span data-ng-bind="t.colUsername"></span>
+                  <i ng-class="sortIcon('username')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[15%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('role')">
+                  <span data-ng-bind="t.colRole"></span>
+                  <i ng-class="sortIcon('role')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[15%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('session')">
+                  <span data-ng-bind="t.colSession"></span>
+                  <i ng-class="sortIcon('session')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[10%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('ip')">
+                  <span data-ng-bind="t.colIP"></span>
+                  <i ng-class="sortIcon('ip')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[20%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('lab')">
+                  <span data-ng-bind="t.colLab"></span>
+                  <i ng-class="sortIcon('lab')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[7%]">
+                <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('pod')">
+                  <span data-ng-bind="t.colPod"></span>
+                  <i ng-class="sortIcon('pod')"></i>
+                </button>
+              </th>
+              <th class="px-4 py-3 w-[15%] text-center" data-ng-bind="t.colActions"></th>
+            </tr>
+          </thead>
+          <tbody class="text-slate-100 divide-y divide-white/5">
+            <tr data-ng-repeat="user in sortedUsers track by user.username" class="hover:bg-white/5 transition">
+              <td class="px-4 py-3 font-semibold">{{user.username}}</td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em]"
+                      ng-class="{'bg-blue-500/30 text-blue-100': user.role == 'admin', 'bg-white/10 text-slate-100': user.role != 'admin'}">
+                  {{user.role}}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-slate-300">{{ (user.session === null ) ? 'N/A' : timeConverter(user.session) }}</td>
+              <td class="px-4 py-3 text-slate-300">{{ (user.ip === null) ? 'N/A' : user.ip}}</td>
+              <td class="px-4 py-3 text-slate-300">{{ (user.lab === null) ? 'N/A' : user.lab }}</td>
+              <td class="px-4 py-3 text-slate-300">{{user.pod || '—'}}</td>
+              <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-2">
+                  <button class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition text-xs uppercase tracking-[0.2em] cursor-pointer"
+                          ng-click="openModal('edituser', user.username)"
+                          title="{{t.editLabel}}">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button class="px-3 py-2 rounded-xl bg-red-500/30 hover:bg-red-500/50 transition text-xs uppercase tracking-[0.2em] cursor-pointer"
+                          ng-click="deleteUser( user.username )"
+                          title="{{t.deleteLabel}}">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm text-slate-400" data-ng-bind="t.hint"></p>
+    </div>
+  </section>
+</main>

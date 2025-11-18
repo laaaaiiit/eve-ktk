@@ -1,69 +1,106 @@
-<div class="modal-header">
-    <h3 class="modal-title">Add New User</h3>
-</div>
-<div class="modal-body">
-    <form role="form" name="form">
-        <div class="form-group required {{ (errorClass == 'has-error username') ? errorClass : ''}}">
-            <label class="control-label">User Name</label>
-            <input type="text" class="form-control" name="name" data-ng-model="username" placeholder="Enter username"
-                autofocus ng-pattern="restrictNumber"
-                ng-class="{'input--error': form.name.$valid == false, 'input': form.name.$valid == true}">
-            <span class="chars"
-                ng-class="{'chars--active': form.name.$valid == false, 'chars': form.name.$valid == true}">Use only
-                [A-Za-z0-9_-]chars</span>
-            <span class="help-block" data-ng-show="errorClass == 'has-error username'"
-                data-ng-bind="errorMessage"></span>
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-xl rounded-3xl border border-white/10 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-slate-100 shadow-2xl">
+    <div class="flex flex-col gap-2 px-8 pt-8 pb-4 border-b border-white/10">
+      <div>
+        <h3 class="text-2xl font-semibold" data-ng-bind="t.modalAddTitle"></h3>
+        <p class="text-slate-300 text-sm" data-ng-bind="t.modalAddSubtitle"></p>
+      </div>
+    </div>
+
+    <div class="px-8 py-6">
+      <form role="form" name="form" class="space-y-5">
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalUsernameLabel"></label>
+          <input type="text"
+                 name="usernameField"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="username"
+                 ng-pattern="restrictNumber"
+                 required
+                 autofocus
+                 placeholder="{{t.modalUsernameLabel}}">
+          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error username'" data-ng-bind="errorMessage"></p>
         </div>
 
-        <div class="form-group required {{ (errorClass == 'has-error passwd') ? errorClass : ''}}">
-            <label class="control-label">Password</label>
-            <input type="password" class="form-control" data-ng-model="passwd" placeholder="Enter password">
-            <span class="help-block" ng-show="errorClass == 'has-error passwd'"></span>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPasswordLabel"></label>
+          <input type="password"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 ng-class="{'border-red-500 focus:ring-red-500': errorClass == 'has-error passwd'}"
+                 data-ng-model="passwd"
+                 required
+                 placeholder="{{t.modalPasswordLabel}}">
+          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error passwd'" data-ng-bind="errorMessage"></p>
         </div>
 
-        <div class="form-group required {{ (errorClass == 'has-error passwdConfirm') ? errorClass : ''}}">
-            <label class="control-label">Password Confirmation</label>
-            <input type="password" class="form-control" ng-model="passwdConfirm" placeholder="Enter password">
-            <span class="help-block chars--active" ng-show="passwdConfirm != passwd">Passwords don't match</span>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPasswordConfirmLabel"></label>
+          <input type="password"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 ng-class="{'border-red-500 focus:ring-red-500': errorClass == 'has-error passwdConfirm' || passwdConfirm != passwd}"
+                 data-ng-model="passwdConfirm"
+                 required
+                 placeholder="{{t.modalPasswordConfirmLabel}}">
+          <p class="text-xs text-red-400 mt-1" data-ng-show="passwdConfirm != passwd" data-ng-bind="t.modalPasswordMismatch"></p>
+          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error passwdConfirm'" data-ng-bind="errorMessage"></p>
         </div>
 
-        <div class="form-group">
-            <label>Email</label>
-            <input type="text" name="email" class="form-control" data-ng-model="email" placeholder="Enter email"
-                ng-pattern="patternEmail"
-                ng-class="{'input--error': form.email.$valid == false, 'input': form.email.$valid == true}">
-            <span class="chars"
-                ng-class="{'chars--active': form.email.$valid == false, 'chars': form.email.$valid == true}">Please
-                enter an valid email</span>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalRoleLabel"></label>
+          <div class="relative">
+            <select data-ng-init="selectRole = 'Administrator'"
+                    data-ng-model="selectRole"
+                    data-ng-options="y for (x,y) in roles"
+                    class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+              <i class="fa fa-chevron-down"></i>
+            </span>
+          </div>
         </div>
 
-        <div class="form-group">
-            <label>Name</label>
-            <input type="text" class="form-control" data-ng-model="name" placeholder="Enter name">
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalLanguageLabel"></label>
+          <div class="relative">
+            <select data-ng-model="selectedLanguage"
+                    data-ng-options="opt.key as opt.label for opt in languageOptions"
+                    class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+              <i class="fa fa-chevron-down"></i>
+            </span>
+          </div>
         </div>
 
-        <div class="form-group">
-            <label>Role</label>
-            <select data-ng-init="selectRole = 'Administrator'" data-ng-model="selectRole"
-                data-ng-options="y for (x,y) in roles"></select>
-            <!--<label data-ng-bind="selectRole"></label>
-        <label data-ng-bind="roleArray[selectRole]"></label> -->
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPodLabel"></label>
+          <input type="text"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="pod"
+                 ng-model-options="{ allowInvalid: true }"
+                 required
+                 placeholder="{{t.modalPodLabel}}">
         </div>
 
-        <div class="form-group required">
-            <label class="control-label">POD</label>
-            <input type="text" class="form-control" data-ng-model="pod" placeholder="Enter pod">
-        </div>
-        <div class="row">
-            <div class="col-md-12 parent-required">
-                <p class="p-required"><sup class="sup-required">*</sup>- Required Fields</p>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-success btn-flat {{blockButtonsClass}}"
-                ng-disabled="!(form.$valid && (passwdConfirm == passwd) && passwdConfirm && username && ( pod > -1))"
-                type="button" ng-click="addNewUser()">Add</button>
-            <button class="btn btn-default btn-flat" type="button" ng-click="closeModal()">Cancel</button>
-        </div>
-    </form>
+        <p class="text-xs text-slate-400" data-ng-bind="t.modalRequiredHint"></p>
+      </form>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 px-8 pb-8 pt-2">
+      <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+              type="button"
+              ng-click="closeModal()"
+              data-ng-bind="t.modalCancel">
+      </button>
+      <button class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white uppercase tracking-[0.25em] shadow-lg hover:shadow-2xl transition cursor-pointer {{blockButtonsClass}}"
+              type="button"
+              ng-disabled="blockButtons"
+              ng-click="addNewUser()"
+              data-ng-bind="t.modalCreate">
+      </button>
+    </div>
+  </div>
 </div>

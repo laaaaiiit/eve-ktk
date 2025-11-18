@@ -38,6 +38,14 @@
   <link rel="stylesheet" href="/themes/adminLTE/unl_data/css/custom_unl.css">
 	<!-- jQuery 2.2.0 -->
 	<script src="/themes/adminLTE/plugins/jQuery/jQuery-3.7.1.min.js"></script>
+        <script>
+          if (!jQuery.fn.tooltip) {
+            jQuery.fn.tooltip = function () { return this; };
+          }
+          if (!jQuery.fn.popover) {
+            jQuery.fn.popover = function () { return this; };
+          }
+        </script>
         <!-- jQuery toggleswitch plugin -->
 	<script src="/themes/adminLTE/plugins/ToggleSwitch/tinytools.toggleswitch.min.js"></script>
 	<!-- angularJS -->
