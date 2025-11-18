@@ -1,0 +1,101 @@
+Nov 17 19:51:42 INFO: tunctl -u unl101 -g root -t vunl101_1_0 2>&1
+Nov 17 19:51:42 INFO: sysctl -w net.ipv6.conf.vunl101_1_0.disable_ipv6=1
+Nov 17 19:51:42 INFO: tunctl -u unl101 -g root -t vunl101_1_16 2>&1
+Nov 17 19:51:42 INFO: sysctl -w net.ipv6.conf.vunl101_1_16.disable_ipv6=1
+Nov 17 19:51:42 INFO: tunctl -u unl101 -g root -t vunl101_1_32 2>&1
+Nov 17 19:51:42 INFO: sysctl -w net.ipv6.conf.vunl101_1_32.disable_ipv6=1
+Nov 17 19:51:42 INFO: tunctl -u unl101 -g root -t vunl101_1_48 2>&1
+Nov 17 19:51:42 INFO: sysctl -w net.ipv6.conf.vunl101_1_48.disable_ipv6=1
+Nov 17 19:51:42 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1
+Nov 17 19:51:42 INFO: starting /opt/unetlab/wrappers/iol_wrapper -T 101 -D 1 -t "R1" -F /opt/unetlab/addons/iol/bin/Switch-L3.bin -d 0 -e 1 -s 0 --  -n 1024 -q -m 1024 > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1/wrapper.txt 2>&1 &
+Nov 17 19:51:43 INFO: sysctl -w net.ipv6.conf.vnet101_2.disable_ipv6=1
+Nov 17 19:51:43 INFO: tunctl -u unl101 -g root -t vunl101_2_0 2>&1
+Nov 17 19:51:43 INFO: sysctl -w net.ipv6.conf.vunl101_2_0.disable_ipv6=1
+Nov 17 19:51:43 INFO: tunctl -u unl101 -g root -t vunl101_2_16 2>&1
+Nov 17 19:51:43 INFO: sysctl -w net.ipv6.conf.vunl101_2_16.disable_ipv6=1
+Nov 17 19:51:43 INFO: tunctl -u unl101 -g root -t vunl101_2_32 2>&1
+Nov 17 19:51:43 INFO: sysctl -w net.ipv6.conf.vunl101_2_32.disable_ipv6=1
+Nov 17 19:51:43 INFO: tunctl -u unl101 -g root -t vunl101_2_48 2>&1
+Nov 17 19:51:43 INFO: sysctl -w net.ipv6.conf.vunl101_2_48.disable_ipv6=1
+Nov 17 19:51:43 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2
+Nov 17 19:51:43 INFO: starting /opt/unetlab/wrappers/iol_wrapper -T 101 -D 2 -t "R2" -F /opt/unetlab/addons/iol/bin/Router.bin -d 0 -e 1 -s 0 --  -n 1024 -q -m 1024 > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2/wrapper.txt 2>&1 &
+Nov 17 19:51:45 INFO: tunctl -u unl101 -g root -t vunl101_3_0 2>&1
+Nov 17 19:51:45 INFO: sysctl -w net.ipv6.conf.vunl101_3_0.disable_ipv6=1
+Nov 17 19:51:45 cmd = mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail || mount -B -o ro /opt/unetlab/jail /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail
+Nov 17 19:51:45 cmd = for i in /opt/qemu-*; do ( ls /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mkdir /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i) ; done 
+Nov 17 19:51:45 cmd = for i in /opt/qemu-*; do ( mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mount -B -o ro $i /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i ) ; done 
+Nov 17 19:51:45 cmd =  mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu || mount -B -o ro /opt/unetlab/addons/qemu /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu
+Nov 17 19:51:45 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3
+Nov 17 19:51:45 INFO: starting /opt/unetlab/wrappers/qemu_wrapper -T 101 -D 3 -t "Linux" -F /opt/qemu-2.12.0/bin/qemu-system-x86_64 -d 0 -x -- -device virtio-net-pci,netdev=net0,mac=00:50:65:00:03:00 -netdev tap,id=net0,ifname=vunl101_3_0,script=no -smp 2 -m 4096 -name Linux -uuid f0fd1083-b69e-49e2-aca3-8dcf42bba69f -vnc :52727 -drive file=virtioa.qcow2,if=virtio,bus=0,unit=0,cache=none -drive file=virtiob.qcow2,if=virtio,bus=0,unit=1,cache=none -drive file=virtioc.qcow2,if=virtio,bus=0,unit=2,cache=none -drive file=virtiod.qcow2,if=virtio,bus=0,unit=3,cache=none -drive file=virtioe.qcow2,if=virtio,bus=0,unit=4,cache=none -drive file=virtiof.qcow2,if=virtio,bus=0,unit=5,cache=none -machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/wrapper.txt 2>&1 &
+Nov 18 12:44:14 INFO: tunctl -u unl101 -g root -t vunl101_3_0 2>&1
+Nov 18 12:44:14 INFO: sysctl -w net.ipv6.conf.vunl101_3_0.disable_ipv6=1
+Nov 18 12:44:14 cmd = mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail || mount -B -o ro /opt/unetlab/jail /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail
+Nov 18 12:44:14 cmd = for i in /opt/qemu-*; do ( ls /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mkdir /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i) ; done 
+Nov 18 12:44:14 cmd = for i in /opt/qemu-*; do ( mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mount -B -o ro $i /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i ) ; done 
+Nov 18 12:44:14 cmd =  mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu || mount -B -o ro /opt/unetlab/addons/qemu /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu
+Nov 18 12:44:14 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3
+Nov 18 12:44:14 INFO: starting /opt/unetlab/wrappers/qemu_wrapper -T 101 -D 3 -t "Linux" -F /opt/qemu-2.12.0/bin/qemu-system-x86_64 -d 0 -x -- -device virtio-net-pci,netdev=net0,mac=00:50:65:00:03:00 -netdev tap,id=net0,ifname=vunl101_3_0,script=no -smp 2 -m 4096 -name Linux -uuid f0fd1083-b69e-49e2-aca3-8dcf42bba69f -vnc :52727 -drive file=virtioa.qcow2,if=virtio,bus=0,unit=0,cache=none -drive file=virtiob.qcow2,if=virtio,bus=0,unit=1,cache=none -drive file=virtioc.qcow2,if=virtio,bus=0,unit=2,cache=none -drive file=virtiod.qcow2,if=virtio,bus=0,unit=3,cache=none -drive file=virtioe.qcow2,if=virtio,bus=0,unit=4,cache=none -drive file=virtiof.qcow2,if=virtio,bus=0,unit=5,cache=none -machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/wrapper.txt 2>&1 &
+Nov 18 15:57:48 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3 > /dev/null 2>&1
+Nov 18 16:17:22 INFO: tunctl -u unl101 -g root -t vunl101_3_0 2>&1
+Nov 18 16:17:22 INFO: sysctl -w net.ipv6.conf.vunl101_3_0.disable_ipv6=1
+Nov 18 16:17:22 cmd = cp -ar /opt/unetlab/skeleton/* /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/
+Nov 18 16:17:22 cmd = mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail || mount -B -o ro /opt/unetlab/jail /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail
+Nov 18 16:17:22 cmd = for i in /opt/qemu-*; do ( ls /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mkdir /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i) ; done 
+Nov 18 16:17:22 cmd = for i in /opt/qemu-*; do ( mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mount -B -o ro $i /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i ) ; done 
+Nov 18 16:17:22 cmd =  mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu || mount -B -o ro /opt/unetlab/addons/qemu /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu
+Nov 18 16:17:22 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3
+Nov 18 16:17:22 INFO: starting /opt/unetlab/wrappers/qemu_wrapper -T 101 -D 3 -t "Linux" -F /opt/qemu-2.12.0/bin/qemu-system-x86_64 -d 0 -x -- -device virtio-net-pci,netdev=net0,mac=00:50:65:00:03:00 -netdev tap,id=net0,ifname=vunl101_3_0,script=no -smp 2 -m 4096 -name Linux -uuid f0fd1083-b69e-49e2-aca3-8dcf42bba69f -vnc :52727 -drive file=virtioa.qcow2,if=virtio,bus=0,unit=0,cache=none -drive file=virtiob.qcow2,if=virtio,bus=0,unit=1,cache=none -drive file=virtioc.qcow2,if=virtio,bus=0,unit=2,cache=none -drive file=virtiod.qcow2,if=virtio,bus=0,unit=3,cache=none -drive file=virtioe.qcow2,if=virtio,bus=0,unit=4,cache=none -drive file=virtiof.qcow2,if=virtio,bus=0,unit=5,cache=none -machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/wrapper.txt 2>&1 &
+Nov 18 16:58:36 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3 > /dev/null 2>&1
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/qemu-*: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/qemu-*: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/qemu-*: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/qemu-*: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu: no mount point specified.
+Nov 18 17:08:18 INFO: tunctl -u unl101 -g root -t vunl101_3_0 2>&1
+Nov 18 17:08:18 INFO: sysctl -w net.ipv6.conf.vunl101_3_0.disable_ipv6=1
+Nov 18 17:08:18 cmd = cp -ar /opt/unetlab/skeleton/* /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/
+Nov 18 17:08:18 cmd = mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail || mount -B -o ro /opt/unetlab/jail /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail
+Nov 18 17:08:18 cmd = for i in /opt/qemu-*; do ( ls /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mkdir /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i) ; done 
+Nov 18 17:08:18 cmd = for i in /opt/qemu-*; do ( mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mount -B -o ro $i /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i ) ; done 
+Nov 18 17:08:18 cmd =  mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu || mount -B -o ro /opt/unetlab/addons/qemu /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu
+Nov 18 17:08:18 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3
+Nov 18 17:08:18 INFO: starting /opt/unetlab/wrappers/qemu_wrapper -T 101 -D 3 -t "Linux" -F /opt/qemu-2.12.0/bin/qemu-system-x86_64 -d 0 -x -- -device virtio-net-pci,netdev=net0,mac=00:50:65:00:03:00 -netdev tap,id=net0,ifname=vunl101_3_0,script=no -smp 2 -m 4096 -name Linux -uuid f0fd1083-b69e-49e2-aca3-8dcf42bba69f -vnc :52727 -drive file=virtioa.qcow2,if=virtio,bus=0,unit=0,cache=none -drive file=virtiob.qcow2,if=virtio,bus=0,unit=1,cache=none -drive file=virtioc.qcow2,if=virtio,bus=0,unit=2,cache=none -drive file=virtiod.qcow2,if=virtio,bus=0,unit=3,cache=none -drive file=virtioe.qcow2,if=virtio,bus=0,unit=4,cache=none -drive file=virtiof.qcow2,if=virtio,bus=0,unit=5,cache=none -machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/wrapper.txt 2>&1 &
+Nov 18 17:09:07 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3 > /dev/null 2>&1
+Nov 18 17:22:54 INFO: tunctl -u unl101 -g root -t vunl101_3_0 2>&1
+Nov 18 17:22:54 INFO: sysctl -w net.ipv6.conf.vunl101_3_0.disable_ipv6=1
+Nov 18 17:22:54 cmd = mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail || mount -B -o ro /opt/unetlab/jail /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail
+Nov 18 17:22:54 cmd = for i in /opt/qemu-*; do ( ls /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mkdir /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i) ; done 
+Nov 18 17:22:54 cmd = for i in /opt/qemu-*; do ( mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i || mount -B -o ro $i /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/$i ) ; done 
+Nov 18 17:22:54 cmd =  mountpoint -q /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu || mount -B -o ro /opt/unetlab/addons/qemu /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu
+Nov 18 17:22:54 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3
+Nov 18 17:22:54 INFO: starting /opt/unetlab/wrappers/qemu_wrapper -T 101 -D 3 -t "Linux" -F /opt/qemu-2.12.0/bin/qemu-system-x86_64 -d 0 -x -- -device virtio-net-pci,netdev=net0,mac=00:50:65:00:03:00 -netdev tap,id=net0,ifname=vunl101_3_0,script=no -smp 2 -m 4096 -name Linux -uuid f0fd1083-b69e-49e2-aca3-8dcf42bba69f -vnc :52727 -drive file=virtioa.qcow2,if=virtio,bus=0,unit=0,cache=none -drive file=virtiob.qcow2,if=virtio,bus=0,unit=1,cache=none -drive file=virtioc.qcow2,if=virtio,bus=0,unit=2,cache=none -drive file=virtiod.qcow2,if=virtio,bus=0,unit=3,cache=none -drive file=virtioe.qcow2,if=virtio,bus=0,unit=4,cache=none -drive file=virtiof.qcow2,if=virtio,bus=0,unit=5,cache=none -machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/wrapper.txt 2>&1 &
+Nov 18 17:22:57 INFO: tunctl -u unl101 -g root -t vunl101_1_0 2>&1
+Nov 18 17:22:57 INFO: sysctl -w net.ipv6.conf.vunl101_1_0.disable_ipv6=1
+Nov 18 17:22:57 INFO: tunctl -u unl101 -g root -t vunl101_1_16 2>&1
+Nov 18 17:22:57 INFO: sysctl -w net.ipv6.conf.vunl101_1_16.disable_ipv6=1
+Nov 18 17:22:57 INFO: tunctl -u unl101 -g root -t vunl101_1_32 2>&1
+Nov 18 17:22:57 INFO: sysctl -w net.ipv6.conf.vunl101_1_32.disable_ipv6=1
+Nov 18 17:22:57 INFO: tunctl -u unl101 -g root -t vunl101_1_48 2>&1
+Nov 18 17:22:57 INFO: sysctl -w net.ipv6.conf.vunl101_1_48.disable_ipv6=1
+Nov 18 17:22:57 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1
+Nov 18 17:22:57 INFO: starting /opt/unetlab/wrappers/iol_wrapper -T 101 -D 1 -t "R1" -F /opt/unetlab/addons/iol/bin/Switch-L3.bin -d 0 -e 1 -s 0 --  -n 1024 -q -m 1024 > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1/wrapper.txt 2>&1 &
+Nov 18 17:23:00 INFO: tunctl -u unl101 -g root -t vunl101_2_0 2>&1
+Nov 18 17:23:00 INFO: sysctl -w net.ipv6.conf.vunl101_2_0.disable_ipv6=1
+Nov 18 17:23:00 INFO: tunctl -u unl101 -g root -t vunl101_2_16 2>&1
+Nov 18 17:23:00 INFO: sysctl -w net.ipv6.conf.vunl101_2_16.disable_ipv6=1
+Nov 18 17:23:00 INFO: tunctl -u unl101 -g root -t vunl101_2_32 2>&1
+Nov 18 17:23:00 INFO: sysctl -w net.ipv6.conf.vunl101_2_32.disable_ipv6=1
+Nov 18 17:23:00 INFO: tunctl -u unl101 -g root -t vunl101_2_48 2>&1
+Nov 18 17:23:00 INFO: sysctl -w net.ipv6.conf.vunl101_2_48.disable_ipv6=1
+Nov 18 17:23:00 INFO: CWD is /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2
+Nov 18 17:23:00 INFO: starting /opt/unetlab/wrappers/iol_wrapper -T 101 -D 2 -t "R2" -F /opt/unetlab/addons/iol/bin/Router.bin -d 0 -e 1 -s 0 --  -n 1024 -q -m 1024 > /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2/wrapper.txt 2>&1 &
+Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1 > /dev/null 2>&1
+Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2 > /dev/null 2>&1
+Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3 > /dev/null 2>&1

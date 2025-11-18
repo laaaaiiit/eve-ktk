@@ -1,0 +1,79 @@
+[17-Nov-2025 19:05:46 Europe/Rome] Nov 17 19:05:46 DEBUG: uksm off
+[17-Nov-2025 19:05:47 Europe/Rome] Nov 17 19:05:47 DEBUG: uksm off
+[17-Nov-2025 19:05:48 Europe/Rome] Nov 17 19:05:48 DEBUG: uksm on
+[17-Nov-2025 19:05:50 Europe/Rome] Nov 17 19:05:50 DEBUG: uksm off
+[17-Nov-2025 19:05:52 Europe/Rome] Nov 17 19:05:52 DEBUG: uksm on
+[17-Nov-2025 19:05:54 Europe/Rome] Nov 17 19:05:54 DEBUG: uksm off
+[17-Nov-2025 19:05:56 Europe/Rome] Nov 17 19:05:56 DEBUG: uksm on
+[17-Nov-2025 19:05:59 Europe/Rome] Nov 17 19:05:59 DEBUG: uksm off
+[17-Nov-2025 19:12:50 Europe/Rome] Nov 17 19:12:50 DEBUG: uksm on
+[18-Nov-2025 04:22:28 Europe/Rome] Nov 18 04:22:28 DEBUG: uksm off
+[18-Nov-2025 04:22:54 Europe/Rome] Nov 18 04:22:54 DEBUG: uksm on
+[18-Nov-2025 06:49:28 Europe/Rome] Nov 18 06:49:28 DEBUG: uksm off
+[18-Nov-2025 06:49:39 Europe/Rome] Nov 18 06:49:39 DEBUG: uksm on
+[18-Nov-2025 09:29:08 Europe/Rome] Nov 18 09:29:08 ERROR: Cannot query for users on (90026).
+[18-Nov-2025 09:29:08 Europe/Rome] Nov 18 09:29:08 PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'users.lang' in 'field list' in /opt/unetlab/html/includes/functions.php:469
+Stack trace:
+#0 /opt/unetlab/html/includes/functions.php(469): PDOStatement->execute()
+#1 /opt/unetlab/html/includes/api_authentication.php(202): getUserByCookie()
+#2 /opt/unetlab/html/api.php(147): apiAuthorization()
+#3 [internal function]: {closure}()
+#4 /opt/unetlab/html/includes/Slim/Route.php(468): call_user_func_array()
+#5 /opt/unetlab/html/includes/Slim/Slim.php(1357): Slim\Route->dispatch()
+#6 /opt/unetlab/html/includes/Slim/Middleware/Flash.php(85): Slim\Slim->call()
+#7 /opt/unetlab/html/includes/Slim/Middleware/MethodOverride.php(92): Slim\Middleware\Flash->call()
+#8 /opt/unetlab/html/includes/Slim/Middleware/PrettyExceptions.php(67): Slim\Middleware\MethodOverride->call()
+#9 /opt/unetlab/html/includes/Slim/Slim.php(1302): Slim\Middleware\PrettyExceptions->call()
+#10 /opt/unetlab/html/api.php(1774): Slim\Slim->run()
+#11 {main}
+[18-Nov-2025 09:29:17 Europe/Rome] Nov 18 09:29:17 ERROR: Cannot query for users on (90026).
+[18-Nov-2025 09:29:17 Europe/Rome] Nov 18 09:29:17 PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'users.lang' in 'field list' in /opt/unetlab/html/includes/functions.php:469
+Stack trace:
+#0 /opt/unetlab/html/includes/functions.php(469): PDOStatement->execute()
+#1 /opt/unetlab/html/includes/api_authentication.php(202): getUserByCookie()
+#2 /opt/unetlab/html/api.php(147): apiAuthorization()
+#3 [internal function]: {closure}()
+#4 /opt/unetlab/html/includes/Slim/Route.php(468): call_user_func_array()
+#5 /opt/unetlab/html/includes/Slim/Slim.php(1357): Slim\Route->dispatch()
+#6 /opt/unetlab/html/includes/Slim/Middleware/Flash.php(85): Slim\Slim->call()
+#7 /opt/unetlab/html/includes/Slim/Middleware/MethodOverride.php(92): Slim\Middleware\Flash->call()
+#8 /opt/unetlab/html/includes/Slim/Middleware/PrettyExceptions.php(67): Slim\Middleware\MethodOverride->call()
+#9 /opt/unetlab/html/includes/Slim/Slim.php(1302): Slim\Middleware\PrettyExceptions->call()
+#10 /opt/unetlab/html/api.php(1774): Slim\Slim->run()
+#11 {main}
+[18-Nov-2025 09:29:39 Europe/Rome] Nov 18 09:29:39 ERROR: Cannot query for users on (90026).
+[18-Nov-2025 09:29:39 Europe/Rome] Nov 18 09:29:39 PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'users.lang' in 'field list' in /opt/unetlab/html/includes/functions.php:469
+Stack trace:
+#0 /opt/unetlab/html/includes/functions.php(469): PDOStatement->execute()
+#1 /opt/unetlab/html/includes/api_authentication.php(202): getUserByCookie()
+#2 /opt/unetlab/html/api.php(147): apiAuthorization()
+#3 [internal function]: {closure}()
+#4 /opt/unetlab/html/includes/Slim/Route.php(468): call_user_func_array()
+#5 /opt/unetlab/html/includes/Slim/Slim.php(1357): Slim\Route->dispatch()
+#6 /opt/unetlab/html/includes/Slim/Middleware/Flash.php(85): Slim\Slim->call()
+#7 /opt/unetlab/html/includes/Slim/Middleware/MethodOverride.php(92): Slim\Middleware\Flash->call()
+#8 /opt/unetlab/html/includes/Slim/Middleware/PrettyExceptions.php(67): Slim\Middleware\MethodOverride->call()
+#9 /opt/unetlab/html/includes/Slim/Slim.php(1302): Slim\Middleware\PrettyExceptions->call()
+#10 /opt/unetlab/html/api.php(1774): Slim\Slim->run()
+#11 {main}
+[18-Nov-2025 09:30:17 Europe/Rome] Nov 18 09:30:17 ERROR: Cannot query for users on (90026).
+[18-Nov-2025 09:30:17 Europe/Rome] Nov 18 09:30:17 PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'users.lang' in 'field list' in /opt/unetlab/html/includes/functions.php:469
+Stack trace:
+#0 /opt/unetlab/html/includes/functions.php(469): PDOStatement->execute()
+#1 /opt/unetlab/html/includes/api_authentication.php(202): getUserByCookie()
+#2 /opt/unetlab/html/api.php(147): apiAuthorization()
+#3 [internal function]: {closure}()
+#4 /opt/unetlab/html/includes/Slim/Route.php(468): call_user_func_array()
+#5 /opt/unetlab/html/includes/Slim/Slim.php(1357): Slim\Route->dispatch()
+#6 /opt/unetlab/html/includes/Slim/Middleware/Flash.php(85): Slim\Slim->call()
+#7 /opt/unetlab/html/includes/Slim/Middleware/MethodOverride.php(92): Slim\Middleware\Flash->call()
+#8 /opt/unetlab/html/includes/Slim/Middleware/PrettyExceptions.php(67): Slim\Middleware\MethodOverride->call()
+#9 /opt/unetlab/html/includes/Slim/Slim.php(1302): Slim\Middleware\PrettyExceptions->call()
+#10 /opt/unetlab/html/api.php(1774): Slim\Slim->run()
+#11 {main}
+[18-Nov-2025 12:05:23 Europe/Rome] Nov 18 12:05:23 DEBUG: lab saved
+[18-Nov-2025 12:05:23 Europe/Rome] Nov 18 12:05:23 DEBUG: lab saved
+[18-Nov-2025 16:59:18 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 3 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[18-Nov-2025 17:03:31 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[18-Nov-2025 17:03:45 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[18-Nov-2025 17:09:07 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 3 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
