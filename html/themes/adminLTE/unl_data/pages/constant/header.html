@@ -11,8 +11,8 @@
 
       <nav class="flex-1 flex justify-center">
         <ul class="flex flex-wrap items-center justify-center gap-3 text-base font-semibold tracking-[0.08em] uppercase">
-          <li data-ng-click="blockui('/main')">
-            <a href="#!/main" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition"
+          <li>
+            <a href="#!/main" ng-click="blockui('/main')" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition"
                ng-class="{ 'bg-white/20 text-blue-200': currentPath == '/main' }">
               <i class="fa fa-home"></i>
               <span>Main</span>
@@ -26,20 +26,26 @@
               <i class="fa fa-angle-down"></i>
             </button>
             <ul class="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:flex z-40 flex-col bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl min-w-[220px] overflow-hidden">
-              <li data-ng-click="blockui('/usermgmt')"
-                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+                <a href="#!/usermgmt" ng-click="blockui('/usermgmt')" class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition w-full"
                   ng-class="{ 'text-blue-200': currentPath == '/usermgmt' }">
-                <a href="#!/usermgmt"><i class="fa fa-group mr-2"></i>User management</a>
+                  <i class="fa fa-group mr-2"></i>
+                  <span>User management</span>
+                </a>
               </li>
-              <li data-ng-click="blockui('/nodemgmt')"
-                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+                <a href="#!/nodemgmt" ng-click="blockui('/nodemgmt')" class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition w-full"
                   ng-class="{ 'text-blue-200': currentPath == '/nodemgmt' }">
-                <a href="#!/nodemgmt"><i class="fa fa-hdd-o mr-2"></i>Node management</a>
+                  <i class="fa fa-hdd-o mr-2"></i>
+                  <span>Node management</span>
+                </a>
               </li>
-              <li data-ng-click="blockui('/cloudmgmt')"
-                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+                <a href="#!/cloudmgmt" ng-click="blockui('/cloudmgmt')" class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition w-full"
                   ng-class="{ 'text-blue-200': currentPath == '/cloudmgmt' }">
-                <a href="#!/cloudmgmt"><i class="fa fa-cloud mr-2"></i>Cloud management</a>
+                  <i class="fa fa-cloud mr-2"></i>
+                  <span>Cloud management</span>
+                </a>
               </li>
             </ul>
           </li>
@@ -51,22 +57,25 @@
               <i class="fa fa-angle-down"></i>
             </button>
             <ul class="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:flex z-40 flex-col bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl min-w-[220px] overflow-hidden">
-              <li data-ng-click="blockui('/sysstat')"
-                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+                <a href="#!/sysstat" ng-click="blockui('/sysstat')" class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition w-full"
                   ng-class="{ 'text-blue-200': currentPath == '/sysstat' }">
-                <a href="#!/sysstat"><i class="fa fa-adjust mr-2"></i>System status</a>
+                  <i class="fa fa-adjust mr-2"></i>
+                  <span>System status</span>
+                </a>
               </li>
-              <li data-ng-click="blockui('/syslog')"
-                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
-                  ng-class="{ 'text-blue-200': currentPath == '/syslog' }"
-                  ng-if="role === 'admin'">
-                <a href="#!/syslog"><i class="fa fa-life-ring mr-2"></i>System logs</a>
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden" ng-if="role === 'admin'">
+                <a href="#!/syslog" ng-click="blockui('/syslog')" class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition w-full"
+                  ng-class="{ 'text-blue-200': currentPath == '/syslog' }">
+                  <i class="fa fa-life-ring mr-2"></i>
+                  <span>System logs</span>
+                </a>
               </li>
             </ul>
           </li>
 
           <li ng-if="role === 'admin'">
-            <a ng-href="/html5/#?token={{guacToken}}" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition">
+            <a ng-href="/html5/#?token={{guacToken}}" ng-click="blockui('/guacamole')" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition">
               <i class="fa fa-eye"></i>
               <span>Guacamole</span>
             </a>
