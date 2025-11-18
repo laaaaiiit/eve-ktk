@@ -107,7 +107,8 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     $rootScope.role = response.data.data.role;
                     $rootScope.name = response.data.data.name;
                     if (path != "/lab") $rootScope.lab = response.data.data.lab;
-                    $rootScope.lang = response.data.data.lang;
+                    var cookieLang = $cookies.get('eve_login_lang');
+                    $rootScope.lang = cookieLang || response.data.data.lang || 'ru';
                     $rootScope.tenant = response.data.data.tenant;
                     $scope.userfolder = response.data.folder;
 

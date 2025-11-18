@@ -206,6 +206,279 @@ Preview images size //START
 [class$="_s9"]{width:920px;}
 
 /* Modern login view */
+.eve-header {
+  background: linear-gradient(90deg, #0b1224, #122c52 55%, #0f5ea6);
+  box-shadow: 0 10px 40px rgba(4, 11, 26, 0.45);
+  position: relative;
+  z-index: 30;
+}
+
+.eve-header__nav {
+  border: none;
+  margin-bottom: 0;
+  background: transparent;
+  min-height: 70px;
+}
+
+.eve-header__container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.eve-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.eve-header__logo-static {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: default;
+}
+
+.eve-header__logo-static img {
+  height: 44px;
+  width: auto;
+}
+
+.eve-header__brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.eve-header__title {
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.eve-header__version {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.eve-header__toggle {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  background: transparent;
+  margin-left: 8px;
+}
+
+.eve-header__toggle i {
+  font-size: 18px;
+}
+
+.eve-header__menu-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: auto;
+  flex: 1 1 auto;
+  gap: 24px;
+}
+
+.eve-header__menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+.eve-header__nav-item > a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+  font-size: 11px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.eve-header__nav-item > a i {
+  font-size: 13px;
+}
+
+.eve-header__nav-item.active > a,
+.eve-header__nav-item > a:hover,
+.eve-header__nav-item > a:focus {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.eve-header__caret {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.eve-header__dropdown {
+  background: #0f1c35;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 240px;
+  box-shadow: 0 20px 45px rgba(5, 10, 25, 0.6);
+  overflow: hidden;
+}
+
+.eve-header__dropdown > li > a {
+  color: rgba(255, 255, 255, 0.85);
+  padding: 8px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.eve-header__dropdown > li > a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.eve-header__dropdown > li {
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.eve-header__dropdown > li:first-child > a {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  padding-top: 12px;
+}
+
+.eve-header__dropdown > li:last-child > a {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding-bottom: 12px;
+}
+
+.eve-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.eve-header__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+
+.eve-header__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.eve-header__user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.eve-header__user-name {
+  color: #fff;
+  font-weight: 600;
+}
+
+.eve-header__user-role {
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+
+.eve-header__logout {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(90deg, #ff7b55, #ff3d6e);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(255, 90, 105, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.eve-header__logout:hover,
+.eve-header__logout:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 15px 35px rgba(255, 90, 105, 0.45);
+  color: #fff;
+}
+
+@media (max-width: 1199px) {
+  .eve-header__container {
+    flex-wrap: wrap;
+  }
+
+  .eve-header__menu-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    width: 100%;
+  }
+
+  .eve-header__menu {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .eve-header__actions {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 991px) {
+  .eve-header__container {
+    padding: 10px 0;
+  }
+
+  .eve-header__menu {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eve-header__nav-item > a {
+    width: 100%;
+  }
+
+  .eve-header__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eve-header__toggle {
+    display: inline-flex;
+  }
+}
+
 .login-modern {
   position: relative;
   min-height: 100vh;
@@ -213,6 +486,423 @@ Preview images size //START
   background: radial-gradient(circle at top left, #1e88e5, #12172a 60%);
   color: #fff;
   overflow: hidden;
+}
+
+/* System status */
+.sysstat-wrapper {
+  background: #0b1224;
+}
+
+.sysstat {
+  padding: 30px;
+  color: #e3efff;
+}
+
+.sysstat__hero {
+  background: linear-gradient(120deg, #1b5390, #3190d4);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 35px 80px rgba(2, 8, 20, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.sysstat__hero-text h1 {
+  color: #fff;
+  margin: 6px 0;
+  font-size: 32px;
+}
+
+.sysstat__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sysstat__description {
+  max-width: 420px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sysstat__hero-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sysstat__chip {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  padding: 14px 20px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sysstat__chip span {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sysstat__chip strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.sysstat__gauges {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.sysstat__gauge-card,
+.sysstat__nodes-panel,
+.sysstat__status-panel {
+  background: linear-gradient(150deg, rgba(21, 39, 74, 0.95), rgba(22, 60, 112, 0.9));
+  border-radius: 8px;
+  padding: 18px 26px 26px;
+  border: 1px solid rgba(75, 118, 214, 0.35);
+  box-shadow: 0 25px 55px rgba(0, 0, 0, 0.55);
+}
+
+.sysstat__nodes-panel,
+.sysstat__status-panel {
+  margin-top: 24px;
+}
+
+.sysstat__gauge-label span {
+  color: #f8fbff;
+  font-weight: 600;
+}
+
+.sysstat__gauge-label small {
+  color: rgba(214, 226, 255, 0.65);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  margin-left: 6px;
+}
+
+.sysstat__gauge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.sysstat__gauge input.knob {
+  color: #f8fafc !important;
+}
+
+.sysstat__nodes-panel h2,
+.sysstat__status-panel h2 {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 22px;
+  color: #fff;
+}
+
+.sysstat__nodes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.sysstat__node-card {
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.35), rgba(24, 53, 102, 0.9));
+  border: 1px solid rgba(99, 179, 255, 0.35);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  color: #f8fbff;
+}
+
+.sysstat__node-card p {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: rgba(178, 198, 255, 0.9);
+}
+
+.sysstat__node-card strong {
+  display: block;
+  font-size: 32px;
+  color: #fff;
+}
+
+.sysstat__node-card span {
+  font-size: 12px;
+  color: rgba(226, 232, 255, 0.7);
+}
+
+.sysstat__status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.sysstat__status-row {
+  background: linear-gradient(200deg, rgba(33, 56, 102, 0.92), rgba(41, 76, 132, 0.96));
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(63, 85, 158, 0.4);
+}
+
+.sysstat__status-row p {
+  margin: 0;
+  color: #f1f5ff;
+  font-weight: 600;
+}
+
+.sysstat__status-row span {
+  color: rgba(226, 232, 255, 0.7);
+  font-size: 12px;
+}
+
+.sysstat__status-row .TinyTools.ToggleSwitch {
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.sysstat__status-row .TinyTools.ToggleSwitch .OffSide {
+  background: rgba(99, 102, 241, 0.25);
+  color: #f8fbff;
+}
+
+.sysstat__status-row .TinyTools.ToggleSwitch .OnSide {
+  background: linear-gradient(90deg, #34d399, #22d3ee);
+  color: #0b1224;
+}
+
+.sysstat__status-row .TinyTools.ToggleSwitch .Nub {
+  background: #fff;
+}
+
+@media (max-width: 767px) {
+  .sysstat {
+    padding: 20px 16px 40px;
+  }
+
+  .sysstat__hero {
+    padding: 24px;
+  }
+}
+
+/* System logs */
+.syslog-wrapper {
+  background: #050c1f;
+}
+
+.syslog {
+  padding: 30px;
+  color: #e5edff;
+}
+
+.syslog__hero {
+  background: linear-gradient(120deg, #0c2d55, #14457f);
+  border-radius: 8px;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+}
+
+.syslog__hero-text h1 {
+  color: #fff;
+  margin: 8px 0;
+  font-size: 30px;
+}
+
+.syslog__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.syslog__description {
+  max-width: 460px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.syslog__meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.syslog__chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 14px 18px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.syslog__chip span {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.syslog__chip strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.syslog__filters {
+  margin-top: 24px;
+  background: rgba(8, 17, 40, 0.9);
+  border-radius: 8px;
+  padding: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  border: 1px solid rgba(75, 118, 214, 0.4);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+}
+
+.syslog__filter label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: rgba(229, 237, 255, 0.7);
+}
+
+.syslog__filter .form-control {
+  background: rgba(5, 11, 26, 0.8);
+  border: 1px solid rgba(75, 118, 214, 0.4);
+  color: #fff;
+  border-radius: 8px;
+}
+
+.syslog__filter--button {
+  display: flex;
+  align-items: flex-end;
+}
+
+.syslog__filter--button .btn {
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  border: none;
+  box-shadow: 0 15px 35px rgba(6, 182, 212, 0.35);
+}
+
+.syslog__output-card {
+  margin-top: 24px;
+  background: rgba(6, 14, 33, 0.95);
+  border-radius: 8px;
+  padding: 26px;
+  border: 1px solid rgba(75, 118, 214, 0.35);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+}
+
+.syslog__output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.syslog__output-header p {
+  margin: 0;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.syslog__output-header small {
+  color: rgba(226, 232, 255, 0.65);
+}
+
+.syslog__output-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  font-size: 12px;
+  color: #bfdbfe;
+}
+
+.syslog__output-body {
+  margin-top: 18px;
+  max-height: 480px;
+  overflow-y: auto;
+  font-family: "Source Code Pro", Consolas, monospace;
+  background: rgba(3, 8, 20, 0.9);
+  border-radius: 8px;
+  padding: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.syslog__output-body--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.syslog__output-body h4 {
+  color: rgba(226, 232, 255, 0.7);
+}
+
+.syslog__log-line {
+  margin: 0;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  color: #111827;
+  background: rgba(243, 244, 246, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.syslog__log-line:last-child {
+  margin-bottom: 0;
+}
+
+.navbar-nav > li > .dropdown-menu {
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  overflow: hidden;
+  margin-top: 0;
+}
+
+@media (max-width: 767px) {
+  .syslog {
+    padding: 20px 16px 40px;
+  }
+
+  .syslog__hero {
+    padding: 24px;
+  }
 }
 
 .login-modern__glow {
@@ -239,8 +929,8 @@ Preview images size //START
 
 .login-modern__brand,
 .login-modern__form-wrapper {
-  flex: 1 1 380px;
-  max-width: 500px;
+  flex: 1 1 460px;
+  max-width: 600px;
   display: flex;
   align-items: stretch;
   width: 100%;
@@ -248,7 +938,7 @@ Preview images size //START
 
 .login-modern__brand-card {
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 36px;
   backdrop-filter: blur(8px);
   box-shadow: 0 15px 60px rgba(0, 0, 0, 0.25);
@@ -297,7 +987,7 @@ Preview images size //START
 
 .login-modern__card {
   background: #fff;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 32px;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.2);
   color: #1f2a37;
@@ -341,7 +1031,7 @@ Preview images size //START
 .login-field .form-control {
   padding-left: 42px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb;
   box-shadow: none;
 }
@@ -351,14 +1041,14 @@ Preview images size //START
 }
 
 .login-modern__toggle select.form-control {
-  border-radius: 10px;
+  border-radius: 8px;
   height: 48px;
 }
 
 .login-modern__submit {
   margin-top: 24px;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
   background: linear-gradient(90deg, #0078ff, #00c6ff);

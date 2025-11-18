@@ -1,84 +1,100 @@
-<!-- Main Header -->
-<header class="main-header" style="height: 50px;">
-  <nav class="navbar navbar-static-top navbar-static-top-eve">
-    <div class="container">
-      <div class="navbar-header">
-        <a href="#!/main" class="navbar-brand" data-ng-click="blockui('/main')" style="padding-top: 5px;"><img
-            class="hidden-xs" src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png"
-            style="width:104px;height:40px"></a>
-        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse">
+<!-- Modern Header -->
+<header class="eve-header">
+  <nav class="navbar navbar-static-top eve-header__nav">
+    <div class="container eve-header__container">
+      <div class="eve-header__brand">
+        <div class="eve-header__logo-static">
+          <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo">
+          <div class="eve-header__brand-text">
+            <span class="eve-header__title">EVE-NG</span>
+            <span class="eve-header__version">v{{EVE_VERSION}}</span>
+          </div>
+        </div>
+        <button type="button"
+                class="navbar-toggle collapsed eve-header__toggle"
+                data-toggle="collapse"
+                data-target="#eve-navbar">
+          <span class="sr-only">Toggle navigation</span>
           <i class="fa fa-bars"></i>
         </button>
       </div>
 
-      <!-- Collect the nav links, forms, and other content for toggling -->
-      <div class="collapse navbar-collapse pull-left" id="navbar-collapse">
-        <ul class="nav navbar-nav">
-          <li data-ng-click="blockui('/main')" class="{{ (currentPath == '/main') ? activeClass : emptyClass}}"><a
-              href="#!/main"><i class="fa fa-home" aria-hidden="true"></i> Main</a></li>
-          <li class="dropdown {{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}" ng-if="role !== 'editor'">
-            <a class="dropdown-toggle pointer" data-toggle="dropdown"><i class="fa fa-wrench" aria-hidden="true"></i>
-              Management <span class="caret"></span></a>
-            <ul class="dropdown-menu dropdown-main" role="menu">
+      <div class="collapse navbar-collapse eve-header__menu-wrapper" id="eve-navbar">
+        <ul class="nav navbar-nav eve-header__menu">
+          <li class="eve-header__nav-item {{ (currentPath == '/main') ? activeClass : emptyClass}}"
+              data-ng-click="blockui('/main')">
+            <a href="#!/main">
+              <i class="fa fa-home"></i>
+              <span>Main</span>
+            </a>
+          </li>
+          <li class="dropdown eve-header__nav-item {{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}"
+              ng-if="role !== 'editor'">
+            <a class="dropdown-toggle pointer" data-toggle="dropdown">
+              <i class="fa fa-wrench"></i>
+              <span>Management</span>
+              <i class="fa fa-angle-down eve-header__caret"></i>
+            </a>
+            <ul class="dropdown-menu eve-header__dropdown" role="menu">
               <li data-ng-click="blockui('/usermgmt')"
-                class="{{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}"><a href="#!/usermgmt"><i
-                    class="fa fa-group"></i> User management</a></li>
+                  class="{{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}">
+                <a href="#!/usermgmt"><i class="fa fa-group"></i> User management</a>
+              </li>
               <li data-ng-click="blockui('/nodemgmt')"
-                class="{{ (currentPath == '/nodemgmt') ? activeClass : emptyClass}}"><a href="#!/nodemgmt"><i
-                    class="glyphicon glyphicon-hdd"></i> Node management</a></li>
+                  class="{{ (currentPath == '/nodemgmt') ? activeClass : emptyClass}}">
+                <a href="#!/nodemgmt"><i class="glyphicon glyphicon-hdd"></i> Node management</a>
+              </li>
               <li data-ng-click="blockui('/cloudmgmt')"
-                class="{{ (currentPath == '/cloudmgmt') ? activeClass : emptyClass}}"><a href="#!/cloudmgmt"><i
-                    class="glyphicon glyphicon-cloud"></i> Cloud management</a></li>
+                  class="{{ (currentPath == '/cloudmgmt') ? activeClass : emptyClass}}">
+                <a href="#!/cloudmgmt"><i class="glyphicon glyphicon-cloud"></i> Cloud management</a>
+              </li>
             </ul>
           </li>
-          <li class="dropdown {{ (currentPath == '/syslog' || currentPath == '/sysstat') ? activeClass : emptyClass}}">
-            <a class="dropdown-toggle pointer" data-toggle="dropdown"><i class="fa fa-book" aria-hidden="true"></i>
-              System <span class="caret"></span></a>
-            <ul class="dropdown-menu dropdown-main" role="menu">
+          <li class="dropdown eve-header__nav-item {{ (currentPath == '/syslog' || currentPath == '/sysstat') ? activeClass : emptyClass}}">
+            <a class="dropdown-toggle pointer" data-toggle="dropdown">
+              <i class="fa fa-book"></i>
+              <span>System</span>
+              <i class="fa fa-angle-down eve-header__caret"></i>
+            </a>
+            <ul class="dropdown-menu eve-header__dropdown" role="menu">
               <li data-ng-click="blockui('/sysstat')"
-                class="{{ (currentPath == '/sysstat') ? activeClass : emptyClass}}"><a href="#!/sysstat"><i
-                    class="fa fa-adjust"></i> System status</a></li>
-              <li data-ng-click="blockui('/syslog')" class="{{ (currentPath == '/syslog') ? activeClass : emptyClass}}">
+                  class="{{ (currentPath == '/sysstat') ? activeClass : emptyClass}}">
+                <a href="#!/sysstat"><i class="fa fa-adjust"></i> System status</a>
+              </li>
+              <li data-ng-click="blockui('/syslog')"
+                  class="{{ (currentPath == '/syslog') ? activeClass : emptyClass}}">
                 <a href="#!/syslog"><i class="fa fa-life-ring"></i> System logs</a>
               </li>
             </ul>
           </li>
-          <li ng-if="role === 'admin'">
+          <li class="eve-header__nav-item" ng-if="role === 'admin'">
             <a ng-href="/html5/#?token={{guacToken}}">
-              <i class="fa fa-eye"></i> Guacamole
+              <i class="fa fa-eye"></i>
+              <span>Guacamole</span>
             </a>
           </li>
-          <li>
+          <li class="eve-header__nav-item">
             <a href="http://www.eve-ng.net/">&copy;2024 EVE-NG</a>
           </li>
-          <li>
+          <li class="eve-header__nav-item">
             <a href="http://ktk-45.ru/">&copy;2025 KTK</a>
           </li>
         </ul>
-      </div>
-      <!-- /.navbar-collapse -->
-      <!-- Navbar Right Menu -->
-      <div class="navbar-custom-menu">
-        <ul class="nav navbar-nav">
-          <!-- User Account Menu -->
-          <li class="dropdown user user-menu">
-            <!-- Menu Toggle Button -->
-            <a>
-              <i class="fa fa-user" aria-hidden="true"></i>
-              <span>{{username}}</span>
-            </a>
-          </li>
 
-          <li class="user user-menu">
-            <a href="" ng-click="logout()">
-              <i class="fa fa-sign-out" aria-hidden="true"></i>
-              <span class="hidden-xs"> Sign out </span>
-            </a>
-          </li>
-        </ul>
+        <div class="eve-header__actions">
+          <div class="eve-header__user">
+            <div class="eve-header__avatar">{{ ((username || '?')[0]) | uppercase }}</div>
+            <div class="eve-header__user-info">
+              <span class="eve-header__user-name">{{username}}</span>
+              <span class="eve-header__user-role">{{role || 'user'}}</span>
+            </div>
+          </div>
+          <button type="button" class="eve-header__logout" ng-click="logout()">
+            <i class="fa fa-sign-out"></i>
+            <span>Sign out</span>
+          </button>
+        </div>
       </div>
-      <!-- /.navbar-custom-menu -->
     </div>
-    <!-- /.container-fluid -->
   </nav>
 </header>
