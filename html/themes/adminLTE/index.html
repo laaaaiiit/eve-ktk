@@ -17,13 +17,12 @@
 	<link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
 	<link rel="shortcut icon" href="/favicon/favicon.ico">
+	<link rel="stylesheet" href="/themes/adminLTE/unl_data/css/main.output.css">
 	<meta name="msapplication-TileColor" content="#ffffff">
 	<meta name="msapplication-TileImage" content="/favicon/ms-icon-144x144.png">
 	<meta name="theme-color" content="#ffffff">
   <!-- Tell the browser to be responsive to screen width -->
   <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
-  <!-- Bootstrap 3.4.1 -->
-  <link rel="stylesheet" href="/themes/adminLTE/bootstrap/css/bootstrap-3.4.1.min.css">
   <!-- jQuery toggleswitch plugin css -->
   <link rel="stylesheet" href="/themes/adminLTE/plugins/ToggleSwitch/css/tinytools.toggleswitch.min.css">
   <!-- Font Awesome -->
@@ -41,8 +40,6 @@
 	<script src="/themes/adminLTE/plugins/jQuery/jQuery-3.7.1.min.js"></script>
         <!-- jQuery toggleswitch plugin -->
 	<script src="/themes/adminLTE/plugins/ToggleSwitch/tinytools.toggleswitch.min.js"></script>
-	<!-- Bootstrap 3.3.6 -->
-	<script src="/themes/adminLTE/bootstrap/js/bootstrap-3.4.1.min.js"></script>
 	<!-- angularJS -->
 	<script src="/themes/adminLTE/plugins/angularJS/angular-1.8.2.js"></script>
 	<script src="/themes/adminLTE/unl_data/js/custom_unl.js"></script>
@@ -75,13 +72,15 @@
 <div ui-view></div>
 <script>
 $(document).ready(function(){
-    $('[data-toggle="tooltip"]').tooltip({trigger: "click"}); 
-    $('[data-toggle="tooltip"]').tooltip('show');
-	
-	$('[data-toggle="popover"]').popover({
-    trigger: 'hover',
-        'placement': 'top'
-	});
+    if ($.fn && $.fn.tooltip) {
+        $('[data-toggle="tooltip"]').tooltip({trigger: "click"});
+    }
+    if ($.fn && $.fn.popover) {
+        $('[data-toggle="popover"]').popover({
+            trigger: 'hover',
+            placement: 'top'
+        });
+    }
 });
 
 toastr.options = {
@@ -102,17 +101,21 @@ toastr.options = {
   "hideMethod": "fadeOut"
 }
 var blockUI = function(options) {
-			$.blockUI({
-                message: '<h4 style="margin:0px; padding:15px; background-color:#fff;"><img src="/themes/adminLTE/dist/img/waiting.gif" style="width:16px;height:16px"/> <text class="hidden-xs">Loading...</text></h4>',
-                css: {
-					
-                },
-                overlayCSS: {
-                    backgroundColor: '#444',
-                    opacity: 0.8,
-                    cursor: 'wait'
-                }
-            });
+    $.blockUI({
+        message: '<div class="flex flex-col items-center gap-4 text-slate-100"><div class="w-14 h-14 border-4 border-t-transparent border-white/70 rounded-full animate-spin"></div><div class="text-sm tracking-[0.35em] uppercase">Loading</div></div>',
+        css: {
+            backgroundColor: 'rgba(14,18,27,0.95)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '1.5rem',
+            padding: '24px 32px',
+            boxShadow: '0 15px 45px rgba(8,10,18,0.5)'
+        },
+        overlayCSS: {
+            backgroundColor: '#020617',
+            opacity: 0.85,
+            cursor: 'wait'
+        }
+    });
 }
 </script>
 </body>

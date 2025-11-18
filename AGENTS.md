@@ -13,6 +13,11 @@
 ## Coding Style & Naming Conventions
 PHP follows the vim modeline already committed (tabs, no expandtab) and PSR-style docblocks; register new helpers under `html/includes` and mirror existing naming such as `api_nodes.php`. Python in `config_scripts/` uses four-space indents, snake_case functions, and uppercase constants for credentials and timeouts. Bash utilities declare `/bin/bash`, prefer `set -euo pipefail`, and log long-running operations to `/opt/unetlab/data/Logs/`. Keep filenames descriptive (`config_vendorfeature.py`, `wrapper_qemu`), and align new REST routes with the current `/api/<resource>` convention.
 
+### Front-end styles
+- Build Tailwind via `npm run watch:css` which reads `html/themes/adminLTE/unl_data/css/main.css` and writes the compiled bundle to `html/themes/adminLTE/unl_data/css/main.output.css` (see `postcss.config.mjs`).
+- Add project overrides directly inside `main.css` (or import extra files there). Avoid editing legacy CSS files in `html/themes/adminLTE/unl_data/css/`.
+- New templates should load only `main.output.css`. Remove bootstrap/AdminLTE dependencies when migrating old pages to Tailwind.
+
 ## Testing Guidelines
 No dedicated test harness exists, so rely on reproducible labs. Create verification labs in `labs/<feature>/<case>.unl`, clear stale `.unl.lock` files, and document external images in a README. Lint PHP and Python as described above, then import the lab through the UI or `curl` against `html/api.php` to confirm nodes boot, wrappers attach NICs, and config scripts reach their prompts. Capture `bash scripts/eve-info.sh` output and sample REST data such as `curl -s http://127.0.0.1/api/status | jq '.'` when reporting results.
 

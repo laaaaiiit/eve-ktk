@@ -112,6 +112,11 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     $rootScope.tenant = response.data.data.tenant;
                     $scope.userfolder = response.data.folder;
 
+                    if (path === '/syslog' && $rootScope.role !== 'admin') {
+                        $location.path('/main');
+                        return;
+                    }
+
                     if ($rootScope.role !== 'editor') {
                         localStorage.clear();
                         getGuacTokenFromAPI();

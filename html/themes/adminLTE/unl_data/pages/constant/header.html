@@ -1,100 +1,98 @@
-<!-- Modern Header -->
-<header class="eve-header">
-  <nav class="navbar navbar-static-top eve-header__nav">
-    <div class="container eve-header__container">
-      <div class="eve-header__brand">
-        <div class="eve-header__logo-static">
-          <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo">
-          <div class="eve-header__brand-text">
-            <span class="eve-header__title">EVE-NG</span>
-            <span class="eve-header__version">v{{EVE_VERSION}}</span>
-          </div>
+<header class="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white shadow-2xl border-b border-white/10">
+  <div class="w-full px-8 py-6 flex flex-col gap-4">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-4">
+        <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo" class="w-28 h-auto drop-shadow-2xl">
+        <div class="leading-tight">
+          <p class="text-sm tracking-[0.2em] uppercase">EVE-NG</p>
+          <p class="text-sm text-slate-300 tracking-[0.15em]" data-ng-bind="'v' + EVE_VERSION"></p>
         </div>
-        <button type="button"
-                class="navbar-toggle collapsed eve-header__toggle"
-                data-toggle="collapse"
-                data-target="#eve-navbar">
-          <span class="sr-only">Toggle navigation</span>
-          <i class="fa fa-bars"></i>
-        </button>
       </div>
 
-      <div class="collapse navbar-collapse eve-header__menu-wrapper" id="eve-navbar">
-        <ul class="nav navbar-nav eve-header__menu">
-          <li class="eve-header__nav-item {{ (currentPath == '/main') ? activeClass : emptyClass}}"
-              data-ng-click="blockui('/main')">
-            <a href="#!/main">
+      <nav class="flex-1 flex justify-center">
+        <ul class="flex flex-wrap items-center justify-center gap-3 text-base font-semibold tracking-[0.08em] uppercase">
+          <li data-ng-click="blockui('/main')">
+            <a href="#!/main" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition"
+               ng-class="{ 'bg-white/20 text-blue-200': currentPath == '/main' }">
               <i class="fa fa-home"></i>
               <span>Main</span>
             </a>
           </li>
-          <li class="dropdown eve-header__nav-item {{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}"
-              ng-if="role !== 'editor'">
-            <a class="dropdown-toggle pointer" data-toggle="dropdown">
+
+          <li class="relative group" ng-if="role !== 'editor'">
+            <button class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition">
               <i class="fa fa-wrench"></i>
               <span>Management</span>
-              <i class="fa fa-angle-down eve-header__caret"></i>
-            </a>
-            <ul class="dropdown-menu eve-header__dropdown" role="menu">
+              <i class="fa fa-angle-down"></i>
+            </button>
+            <ul class="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:flex z-40 flex-col bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl min-w-[220px] overflow-hidden">
               <li data-ng-click="blockui('/usermgmt')"
-                  class="{{ (currentPath == '/usermgmt') ? activeClass : emptyClass}}">
-                <a href="#!/usermgmt"><i class="fa fa-group"></i> User management</a>
+                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+                  ng-class="{ 'text-blue-200': currentPath == '/usermgmt' }">
+                <a href="#!/usermgmt"><i class="fa fa-group mr-2"></i>User management</a>
               </li>
               <li data-ng-click="blockui('/nodemgmt')"
-                  class="{{ (currentPath == '/nodemgmt') ? activeClass : emptyClass}}">
-                <a href="#!/nodemgmt"><i class="glyphicon glyphicon-hdd"></i> Node management</a>
+                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+                  ng-class="{ 'text-blue-200': currentPath == '/nodemgmt' }">
+                <a href="#!/nodemgmt"><i class="fa fa-hdd-o mr-2"></i>Node management</a>
               </li>
               <li data-ng-click="blockui('/cloudmgmt')"
-                  class="{{ (currentPath == '/cloudmgmt') ? activeClass : emptyClass}}">
-                <a href="#!/cloudmgmt"><i class="glyphicon glyphicon-cloud"></i> Cloud management</a>
+                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+                  ng-class="{ 'text-blue-200': currentPath == '/cloudmgmt' }">
+                <a href="#!/cloudmgmt"><i class="fa fa-cloud mr-2"></i>Cloud management</a>
               </li>
             </ul>
           </li>
-          <li class="dropdown eve-header__nav-item {{ (currentPath == '/syslog' || currentPath == '/sysstat') ? activeClass : emptyClass}}">
-            <a class="dropdown-toggle pointer" data-toggle="dropdown">
+
+          <li class="relative group">
+            <button class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition">
               <i class="fa fa-book"></i>
               <span>System</span>
-              <i class="fa fa-angle-down eve-header__caret"></i>
-            </a>
-            <ul class="dropdown-menu eve-header__dropdown" role="menu">
+              <i class="fa fa-angle-down"></i>
+            </button>
+            <ul class="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:flex z-40 flex-col bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl min-w-[220px] overflow-hidden">
               <li data-ng-click="blockui('/sysstat')"
-                  class="{{ (currentPath == '/sysstat') ? activeClass : emptyClass}}">
-                <a href="#!/sysstat"><i class="fa fa-adjust"></i> System status</a>
+                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+                  ng-class="{ 'text-blue-200': currentPath == '/sysstat' }">
+                <a href="#!/sysstat"><i class="fa fa-adjust mr-2"></i>System status</a>
               </li>
               <li data-ng-click="blockui('/syslog')"
-                  class="{{ (currentPath == '/syslog') ? activeClass : emptyClass}}">
-                <a href="#!/syslog"><i class="fa fa-life-ring"></i> System logs</a>
+                  class="px-4 py-3 hover:bg-white/10 transition first:rounded-t-2xl last:rounded-b-2xl"
+                  ng-class="{ 'text-blue-200': currentPath == '/syslog' }"
+                  ng-if="role === 'admin'">
+                <a href="#!/syslog"><i class="fa fa-life-ring mr-2"></i>System logs</a>
               </li>
             </ul>
           </li>
-          <li class="eve-header__nav-item" ng-if="role === 'admin'">
-            <a ng-href="/html5/#?token={{guacToken}}">
+
+          <li ng-if="role === 'admin'">
+            <a ng-href="/html5/#?token={{guacToken}}" class="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 transition">
               <i class="fa fa-eye"></i>
               <span>Guacamole</span>
             </a>
           </li>
-          <li class="eve-header__nav-item">
-            <a href="http://www.eve-ng.net/">&copy;2024 EVE-NG</a>
-          </li>
-          <li class="eve-header__nav-item">
-            <a href="http://ktk-45.ru/">&copy;2025 KTK</a>
-          </li>
+          
         </ul>
+      </nav>
 
-        <div class="eve-header__actions">
-          <div class="eve-header__user">
-            <div class="eve-header__avatar">{{ ((username || '?')[0]) | uppercase }}</div>
-            <div class="eve-header__user-info">
-              <span class="eve-header__user-name">{{username}}</span>
-              <span class="eve-header__user-role">{{role || 'user'}}</span>
-            </div>
-          </div>
-          <button type="button" class="eve-header__logout" ng-click="logout()">
-            <i class="fa fa-sign-out"></i>
-            <span>Sign out</span>
-          </button>
+      <div class="flex items-center gap-5 flex-wrap justify-center">
+        <div class="text-xs uppercase tracking-[0.15em] text-slate-300 flex flex-col items-end gap-1">
+          <a href="http://www.eve-ng.net/" class="px-3 py-1 rounded-xl bg-white/5 hover:bg-white/15 transition">&copy;2024 EVE-NG</a>
+          <a href="http://ktk-45.ru/" class="px-3 py-1 rounded-xl bg-white/5 hover:bg-white/15 transition">&copy;2025 KTK</a>
         </div>
+        <div class="bg-white/10 rounded-2xl px-4 py-2 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-semibold" data-ng-bind="((username || '?')[0]) | uppercase"></div>
+          <div class="leading-tight text-left">
+            <p class="text-sm font-semibold" data-ng-bind="username || '—'"></p>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-300" data-ng-bind="role || 'user'"></p>
+          </div>
+        </div>
+        <button class="bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-4 py-2 rounded-xl text-sm font-semibold tracking-widest flex items-center gap-2 cursor-pointer hover:shadow-lg transition"
+                ng-click="logout()">
+          <i class="fa fa-sign-out"></i>
+          <span>Sign out</span>
+        </button>
       </div>
     </div>
-  </nav>
+  </div>
 </header>

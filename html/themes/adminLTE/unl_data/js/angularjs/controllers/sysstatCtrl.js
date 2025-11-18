@@ -87,8 +87,8 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
                 $timeout(function () {
                         ['#ToggleUKSM', '#ToggleKSM', '#ToggleCPULIMIT'].forEach(function (selector) {
                                 var $el = $(selector);
-                                if ($el.length && !$el.closest('.ToggleSwitch').length) {
-                                        $el.toggleSwitch({ width: "50px" });
+                                if ($el.length) {
+                                        $el.attr('role', 'switch');
                                 }
                         });
                 }, 0);
@@ -96,8 +96,8 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
 
         function setToggleState(selector, state) {
                 var $el = $(selector);
-                if ($el.length && $el.closest('.ToggleSwitch').length && $.isFunction($el.toggleCheckedState)) {
-                        $el.toggleCheckedState(state);
+                if ($el.length) {
+                        $el.prop('checked', !!state).attr('aria-checked', !!state);
                 }
         }
 
@@ -199,19 +199,21 @@ $scope.optionsDisk = {
                                         window.ksm = false;
                                         window.cpulimit = false;
                                         if ( response.data.data.uksm == "unsupported" )  $("#pUKSM").addClass('hidden')
+                                        else $("#pUKSM").removeClass('hidden');
                                         if ( response.data.data.ksm == "unsupported" )  $("#pKSM").addClass('hidden')
-                                        if ( response.data.data.uksm == "enabled" ) {
-                                                window.uksm = true;
-						setToggleState("#ToggleUKSM", true)
-                                        }
-                                        if ( response.data.data.ksm == "enabled" ) {
-                                                window.ksm = true;
-                                                setToggleState("#ToggleKSM", true)
-                                        }
-                                        if ( response.data.data.cpulimit == "enabled" ) {
-                                                window.cpulimit = true;
-                                                setToggleState("#ToggleCPULIMIT", true)
-                                        }
+                                        else $("#pKSM").removeClass('hidden');
+
+                                        var isUksmEnabled = (response.data.data.uksm == "enabled");
+                                        window.uksm = isUksmEnabled;
+                                        setToggleState("#ToggleUKSM", isUksmEnabled);
+
+                                        var isKsmEnabled = (response.data.data.ksm == "enabled");
+                                        window.ksm = isKsmEnabled;
+                                        setToggleState("#ToggleKSM", isKsmEnabled);
+
+                                        var isCpuLimitEnabled = (response.data.data.cpulimit == "enabled");
+                                        window.cpulimit = isCpuLimitEnabled;
+                                        setToggleState("#ToggleCPULIMIT", isCpuLimitEnabled);
 					$.unblockUI();
 				}, 
 				function errorCallback(response) {

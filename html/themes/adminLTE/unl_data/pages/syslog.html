@@ -1,70 +1,88 @@
-<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
-</div>
-<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
-<script src="/themes/adminLTE/dist/js/app.js"></script>
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
-<div class="wrapper syslog-wrapper">
-  <div class="content-wrapper syslog-content">
-    <section class="syslog">
-      <div class="syslog__hero">
-        <div class="syslog__hero-text">
-          <p class="syslog__eyebrow" data-ng-bind="t.heroEyebrow"></p>
-          <h1 data-ng-bind="t.heroTitle"></h1>
-          <p class="syslog__description" data-ng-bind="t.heroDescription"></p>
-        </div>
-        <div class="syslog__meta">
-          <div class="syslog__chip">
+<main class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10" ng-if="role === 'admin'">
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+      <div class="space-y-3">
+        <p class="text-xs uppercase tracking-[0.45em] text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <h1 class="text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
+        <p class="text-slate-300 text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-wrap gap-3">
+          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase tracking-[0.35em] flex items-center gap-3">
             <span data-ng-bind="t.chipSelectedLabel"></span>
-            <strong data-ng-bind="fileSelection || t.chipSelectedEmpty"></strong>
+            <strong class="text-base tracking-normal" data-ng-bind="fileSelection || t.chipSelectedEmpty"></strong>
           </div>
-          <div class="syslog__chip">
+          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase tracking-[0.35em] flex items-center gap-3">
             <span data-ng-bind="t.chipLinesLabel"></span>
-            <strong data-ng-bind="lineCount || 200"></strong>
+            <strong class="text-base tracking-normal" data-ng-bind="lineCount || 200"></strong>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="syslog__filters">
-        <div class="syslog__filter">
-          <label data-ng-bind="t.filterFileLabel"></label>
-          <select class="form-control"
-                  data-ng-init="fileSelection = logfiles[0]"
-                  data-ng-model="fileSelection"
-                  ng-options="x for x in logfiles"
-                  data-ng-change="readFile()"></select>
+    <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-8 space-y-6">
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div class="flex flex-col gap-3">
+          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterFileLabel"></label>
+          <div class="relative">
+            <select class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
+                    data-ng-init="fileSelection = logfiles[0]"
+                    data-ng-model="fileSelection"
+                    ng-options="x for x in logfiles"
+                    data-ng-change="readFile()"></select>
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><i class="fa fa-chevron-down"></i></span>
+          </div>
         </div>
-        <div class="syslog__filter">
-          <label data-ng-bind="t.filterLinesLabel"></label>
-          <input type="text" class="form-control" id="log_lines" placeholder="{{t.placeholderLines}}" data-ng-model="lineCount">
+        <div class="flex flex-col gap-3">
+          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterLinesLabel"></label>
+          <input type="text"
+                 class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 id="log_lines"
+                 placeholder="{{t.placeholderLines}}"
+                 data-ng-model="lineCount">
         </div>
-        <div class="syslog__filter">
-          <label data-ng-bind="t.filterSearchLabel"></label>
-          <input type="text" class="form-control" id="log_search" placeholder="{{t.placeholderSearch}}" data-ng-model="searchText">
+        <div class="flex flex-col gap-3">
+          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterSearchLabel"></label>
+          <input type="text"
+                 class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 id="log_search"
+                 placeholder="{{t.placeholderSearch}}"
+                 data-ng-model="searchText">
         </div>
-        <div class="syslog__filter syslog__filter--button">
+        <div class="flex flex-col gap-3">
+          <label class="text-xs uppercase tracking-[0.4em] text-transparent">.</label>
           <button type="button"
-                  class="btn btn-primary btn-block {{blockButtonsClass}}"
+                  class="w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-2xl py-3.5 tracking-[0.3em] uppercase shadow-xl hover:shadow-2xl transition disabled:opacity-50 disabled:cursor-not-allowed"
                   ng-disabled="blockButtons"
                   data-ng-click="readFile(fileSelection)">
             {{t.filterButton}}
           </button>
         </div>
       </div>
+    </div>
 
-      <div class="syslog__output-card">
-        <div class="syslog__output-header">
-          <div>
-            <p data-ng-bind="t.outputTitle"></p>
-            <small>{{fileselect ? fileSelection : t.choosePrompt}}</small>
-          </div>
-          <span class="syslog__output-pill">{{logInfo.length}} {{t.linesSuffix}}</span>
+    <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-8 space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <p class="text-2xl font-semibold tracking-[0.2em]" data-ng-bind="t.outputTitle"></p>
+          <small class="text-slate-300">{{fileselect ? fileSelection : t.choosePrompt}}</small>
         </div>
-        <div class="syslog__output-body" data-ng-class="{'syslog__output-body--empty': logInfo.length == 0}">
-          <h4 class="text-center" data-ng-show="!fileselect" data-ng-bind="t.choosePrompt"></h4>
-          <h4 class="text-center" data-ng-show="logInfo.length == 0 && fileselect" data-ng-bind="t.emptyPrompt"></h4>
-          <pre class="syslog__log-line" data-ng-repeat="x in logInfo track by $index">{{x}}</pre>
-        </div>
+        <span class="px-4 py-2 rounded-full bg-white/10 border border-white/10 text-sm uppercase tracking-[0.3em]">{{logInfo.length}} {{t.linesSuffix}}</span>
       </div>
-    </section>
-  </div>
-</div>
+      <div class="rounded-2xl border border-white/10 bg-slate-950/60 min-h-[320px] max-h-[540px] overflow-auto p-6 space-y-3"
+           data-ng-class="{'opacity-60': logInfo.length == 0}">
+        <h4 class="text-center text-slate-400" data-ng-show="!fileselect" data-ng-bind="t.choosePrompt"></h4>
+        <h4 class="text-center text-slate-400" data-ng-show="logInfo.length == 0 && fileselect" data-ng-bind="t.emptyPrompt"></h4>
+        <pre class="text-sm font-mono text-slate-100 whitespace-pre-wrap break-words border border-white/5 rounded-xl bg-slate-900/70 px-4 py-2"
+             data-ng-repeat="x in logInfo track by $index">{{x}}</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto w-full px-6 py-24 text-center text-red-300 space-y-4" ng-if="role !== 'admin'">
+    <p class="text-3xl font-semibold tracking-[0.2em] uppercase" data-ng-bind="t.accessDeniedTitle || 'Access restricted'"></p>
+    <p class="text-lg" data-ng-bind="t.accessDeniedDescription || 'System logs are available to administrators only.'"></p>
+  </section>
+</main>
