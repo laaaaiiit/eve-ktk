@@ -52,10 +52,9 @@
                       <input type="text"
                              class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                              data-ng-attr-placeholder="{{t.newFolderPlaceholder}}"
-                             data-ng-model="newElementName"
+                             data-ng-model="folderData.newElementName"
                              my-enter="createNewElement('Folder')"
-                             focus-on="foCreate"
-                             ng-focus="newElementName=''; elementToggleFun('Folder');">
+                             focus-on="foCreate">
                       <button type="button"
                               class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20"
                               ng-disabled="blockButtons"
@@ -79,13 +78,6 @@
                             data-ng-click="selectAll()"
                             data-ng-if="allCheckedFlag">
                       <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
-                    </button>
-                    <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
-                            data-ng-attr-title="{{t.toolbarRenameTitle}}"
-                            data-ng-click="editElementShow();"
-                            ng-disabled="!selectedItemsCanBeModified()">
-                      <i class="fa fa-pencil mr-2"></i><span data-ng-bind="t.toolbarRename"></span>
                     </button>
                     <button type="button"
                             class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"

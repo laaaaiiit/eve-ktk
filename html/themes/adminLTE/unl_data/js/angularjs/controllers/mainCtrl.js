@@ -5,7 +5,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.labViewMode = 'collaborate';
 	// шеринг
 	$scope.path = ($rootScope.folder === undefined || $rootScope.folder == '') ? '/' : $rootScope.folder;
-	$scope.newElementName = '';
+	$scope.folderData = { newElementName: '' };
 	$scope.newElementToggle = false;
 	$scope.fileSelected = false;
 	$scope.allCheckedFlag = false;
@@ -368,30 +368,29 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Toggle view for input file/folder creations ///END
 	///////////////////////////////////////////////////
 	//Create NEW Element Folder OR Lab //START
-		$scope.createNewElement = function (elementType) {
-	        $scope.newElementName = $scope.newElementName.trim(); // Add this line
-	        console.log("newElementName at start: '", $scope.newElementName, "'");
-			if ($scope.newElementName == '') {
-	            toastr["error"]("Folder name cannot be empty", "Error");
-	            return;
-	        }
+	$scope.createNewElement = function (elementType) {
+		if ($scope.folderData.newElementName == '') {
+            toastr["error"]("Folder name cannot be empty", "Error");
+            return;
+        }
+
 		//Create NEW Folder //START
 		if (elementType == 'Folder') {
 			$scope.blockButtons = true;
 			$scope.blockButtonsClass = 'm-progress';
-			$scope.newElementName = $scope.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
+			var newName = $scope.folderData.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
 			//$scope.newElementName = $scope.newElementName.replace(/[\s]+/g, '_');
 			$http({
 				method: 'POST',
 				url: '/api/folders',
-				data: { "path": $scope.path, "name": $scope.newElementName }
+				data: { "path": $scope.path, "name": newName }
 			})
 				.then(
 					function successCallback(response) {
 
 						$scope.fileMngDraw($scope.path);
 						$scope.newElementToggle = false;
-						$scope.newElementName = '';
+						$scope.folderData.newElementName = '';
 					},
 					function errorCallback(response) {
 						console.log(response)
@@ -411,7 +410,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		/////////////////////////
 		//Create NEW Lab //START
 		if (elementType == 'File') {
-			$scope.newElementName = $scope.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
+			$scope.folderData.newElementName = $scope.folderData.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
 			//$scope.newElementName = $scope.newElementName.replace(/[\s]+/g, '_');
 			$scope.openModal('addfile');
 		}
