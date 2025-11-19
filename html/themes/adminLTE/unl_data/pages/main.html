@@ -144,7 +144,7 @@
                               <input type="checkbox"
                                      class="sr-only"
                                      data-ng-model="checkboxArray['Fo_'+x.name].checked"
-                                     data-ng-click="falseForSelAll(); hideAllEdit();">
+                                     data-ng-click="falseForSelAll(); hideAllEdit(); $event.stopPropagation();">
                               <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                     data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name].checked}">
                                 <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
@@ -208,7 +208,7 @@
                             <input type="checkbox"
                                    class="sr-only"
                                    data-ng-model="checkboxArray['Fi_'+x.file].checked"
-                                   data-ng-click="falseForSelAll(); hideAllEdit();">
+                                   data-ng-click="falseForSelAll(); hideAllEdit(); $event.stopPropagation();">
                             <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                   data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
                               <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
