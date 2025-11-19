@@ -23,18 +23,7 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-400">
-        <li class="uppercase text-blue-200/80" data-ng-bind="t.pathLabel"></li>
-        <li class="text-slate-500">/</li>
-        <li data-ng-repeat="foldername in splitPath track by $index" class="flex items-center gap-2">
-          <a class="text-slate-200 hover:text-white transition cursor-pointer"
-             data-ng-click="fileMngDraw(splitPathArray[$index])">{{foldername}}</a>
-          <span class="text-slate-500" data-ng-if="!$last">/</span>
-        </li>
-      </ol>
-    </div>
+          </div>    </div>
 
     <input id="oneFileUploadInput"
            type="file"
