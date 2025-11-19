@@ -147,13 +147,12 @@
                                      data-ng-click="falseForSelAll(); hideAllEdit();">
                               <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                     data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name].checked}">
-                                <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
+                                <i class="fa fa-check text-sm text-white" ng-class="{'opacity-0': !checkboxArray['Fo_'+x.name].checked}"></i>
                               </span>
                             </label>
                           </div>
                         </td>
-                        <td class="px-4 py-3"
-                            data-ng-click="x.name != '..' && selectElbyTD(checkboxArray['Fo_'+x.name])">
+                        <td class="px-4 py-3">
                           <div class="flex flex-col gap-2">
                             <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fo_'+x.name].visibleEdit">
                               <div class="flex flex-col gap-1">
@@ -211,12 +210,11 @@
                                    data-ng-click="falseForSelAll(); hideAllEdit();">
                             <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                   data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
-                              <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
+                              <i class="fa fa-check text-sm text-white" ng-class="{'opacity-0': !checkboxArray['Fi_'+x.file].checked}"></i>
                             </span>
                           </label>
                         </td>
-                        <td class="px-4 py-3 space-y-2"
-                            data-ng-click="selectElbyTD(checkboxArray['Fi_'+x.file]); getLabInfo(x.path, x.file)">
+                        <td class="px-4 py-3 space-y-2">
                           <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
                             <div class="space-y-1">
                               <div class="flex flex-wrap items-center gap-2">
