@@ -368,9 +368,13 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Toggle view for input file/folder creations ///END
 	///////////////////////////////////////////////////
 	//Create NEW Element Folder OR Lab //START
-	$scope.createNewElement = function (elementType) {
-		if ($scope.newElementName == '') return;
-
+		$scope.createNewElement = function (elementType) {
+	        $scope.newElementName = $scope.newElementName.trim(); // Add this line
+	        console.log("newElementName at start: '", $scope.newElementName, "'");
+			if ($scope.newElementName == '') {
+	            toastr["error"]("Folder name cannot be empty", "Error");
+	            return;
+	        }
 		//Create NEW Folder //START
 		if (elementType == 'Folder') {
 			$scope.blockButtons = true;
@@ -388,16 +392,20 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 						$scope.fileMngDraw($scope.path);
 						$scope.newElementToggle = false;
 						$scope.newElementName = '';
-						$scope.blockButtons = false;
-						$scope.blockButtonsClass = '';
 					},
 					function errorCallback(response) {
-						//console.log(response)
-						if (response.status == 400) { toastr["error"]("Name already exist", "Error"); $scope.blockButtons = false; $scope.blockButtonsClass = ''; return; }
-						console.log("Unknown Error. Why did API doesn't respond?");
-						$location.path("/login");
+						console.log(response)
+						if (response.status == 400) { 
+                            toastr["error"](response.data.message || "Name already exist", "Error"); 
+                        } else {
+						    console.log("Unknown Error. Why did API doesn't respond?");
+						    $location.path("/login");
+                        }
 					}
-				);
+				).finally(function() {
+                    $scope.blockButtons = false;
+                    $scope.blockButtonsClass = '';
+                });
 		}
 		//Create NEW Folder //END
 		/////////////////////////

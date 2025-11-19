@@ -46,7 +46,7 @@
                   </div>
                 </div>
       
-                <div data-ng-if="role === 'admin'" class="flex-1 space-y-1">
+                <div data-ng-if="role === 'admin' || role === 'editor'" class="flex-1 space-y-1">
                     <label class="text-sm uppercase text-slate-400" data-ng-bind="t.newFolderLabel"></label>
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <input type="text"

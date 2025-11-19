@@ -586,7 +586,7 @@ $app->post('/api/folders', function () use ($app, $db) {
 		$app->response->setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], array('admin'))) {
+	if (!in_array($user['role'], array('admin', 'editor'))) {
 		$app->response->setStatus($GLOBALS['forbidden']['code']);
 		$app->response->setBody(json_encode($GLOBALS['forbidden']));
 		return;
