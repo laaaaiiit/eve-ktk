@@ -274,6 +274,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	////////////////////////////////
 	//Drawing files tree ///START
 	$scope.fileMngDraw = function (path, folder) {
+		$.blockUI();
 		$scope.path = path;
 		if (folder !== undefined) {
 			$scope.fileManagerItem['Fo_' + folder]['img'] = true;
@@ -826,13 +827,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			//console.info('onBeforeUploadItem', item);
 			item.formData.push({ 'path': $scope.path });
 		};
-		uploader.onSuccessItem = function (fileItem, response, status, headers) {
-			//console.info('onSuccessItem', fileItem, response, status, headers);
-			$scope.fileMngDraw($scope.path)
-		};
-		uploader.onCompleteItem = function (fileItem, response, status, headers) {
-			$scope.fileMngDraw($scope.path)
-			//console.info('onCompleteItem', fileItem, response, status, headers);
+		uploader.onCompleteAll = function() {
+			$scope.fileMngDraw($scope.path);
 		};
 		uploader.onErrorItem = function (fileItem, response, status, headers) {
 			//console.info('onErrorItem', fileItem, response, status, headers);
