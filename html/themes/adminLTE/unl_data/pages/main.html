@@ -41,10 +41,6 @@
                   <div class="space-y-0">
                     <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
                     <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
-                    <p class="text-sm uppercase text-slate-500 tracking-[0.35em]">
-                      <span data-ng-bind="t.pathLabel"></span>
-                      <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
-                    </p>
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button type="button"
@@ -129,6 +125,13 @@
                             data-ng-click="exportFiles()">
                       <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
                     </button>
+                  </div>
+
+                  <div class="pt-2">
+                    <p class="text-sm uppercase text-slate-500">
+                      <span data-ng-bind="t.pathLabel"></span>
+                      <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
+                    </p>
                   </div>
       
                 <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
