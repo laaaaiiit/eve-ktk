@@ -511,11 +511,11 @@ $app->get('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	$relativePath = normalizeUserLabRelativePath('/' . implode('/', $path));
-	$absolutePath = buildUserLabAbsolutePath($user['username'], $relativePath);
+	$absolutePath = buildUserLabAbsolutePath($user, $relativePath);
 	$output = apiGetFolders($absolutePath);
 
 	if ($output['status'] === 'success') {
-		$output['data'] = transformUserLabListing($user['username'], $output['data'], $relativePath);
+		$output['data'] = transformUserLabListing($user, $output['data'], $relativePath);
 		// Setting folder as last viewed
 		if (isset($user['role']) && strtolower($user['role']) === 'editor') {
 			if (isset($output['data']['labs']) && is_array($output['data']['labs'])) {
@@ -570,8 +570,8 @@ $app->put('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 	$sRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
 	$p = json_decode(json_encode($event), True);
 	$dRelative = normalizeUserLabRelativePath(isset($p['path']) ? $p['path'] : '/');
-	$sAbsolute = buildUserLabAbsolutePath($user['username'], $sRelative);
-	$dAbsolute = buildUserLabAbsolutePath($user['username'], $dRelative);
+	$sAbsolute = buildUserLabAbsolutePath($user, $sRelative);
+	$dAbsolute = buildUserLabAbsolutePath($user, $dRelative);
 	$output = apiEditFolder($sAbsolute, $dAbsolute);
 
 	$app->response->setStatus($output['code']);
@@ -597,7 +597,7 @@ $app->post('/api/folders', function () use ($app, $db) {
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);
 	$targetRelative = normalizeUserLabRelativePath(isset($p['path']) ? $p['path'] : '/');
-	$targetAbsolute = buildUserLabAbsolutePath($user['username'], $targetRelative);
+	$targetAbsolute = buildUserLabAbsolutePath($user, $targetRelative);
 	$output = apiAddFolder($p['name'], $targetAbsolute);
 
 	$app->response->setStatus($output['code']);
@@ -620,7 +620,7 @@ $app->delete('/api/folders/(:path+)', function ($path = array()) use ($app, $db)
 
 	$s = '/' . implode('/', $path);
 	$targetRelative = normalizeUserLabRelativePath($s);
-	$targetAbsolute = buildUserLabAbsolutePath($user['username'], $targetRelative);
+	$targetAbsolute = buildUserLabAbsolutePath($user, $targetRelative);
 	$output = apiDeleteFolder($targetAbsolute);
 
 	$app->response->setStatus($output['code']);
@@ -716,7 +716,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $labFileRelative);
 	$id = preg_replace($patterns[1], $replacements[1], $labFileRelative);	// Interfere after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	if (!is_file($lab_file_full)) {
@@ -738,7 +738,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$privateFilename = $basename . '_' . $user['username'] . '.unl';
 		$relativePrefix = ($dirname == '/' ? '' : $dirname);
 		$privateLabRelative = normalizeUserLabRelativePath($relativePrefix . '/' . $privateFilename);
-		$privateLabAbsolute = buildUserLabAbsolutePath($user['username'], $privateLabRelative);
+		$privateLabAbsolute = buildUserLabAbsolutePath($user, $privateLabRelative);
 		$privateLabAbsoluteFull = BASE_LAB . $privateLabAbsolute;
 
 		// Если приватная копия не существует, клонируем её
@@ -958,7 +958,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);	// Reading options from POST/PUT
 	if (isset($p['path'])) {
-		$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['path']));
+		$p['path'] = buildUserLabAbsolutePath($user, normalizeUserLabRelativePath($p['path']));
 	}
 	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
 
@@ -969,7 +969,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	if (!is_file($lab_file_full)) {
@@ -1169,9 +1169,9 @@ $app->post('/api/labs', function () use ($app, $db) {
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);
 	$basePathRelative = isset($p['path']) ? $p['path'] : '/';
-	$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($basePathRelative));
+	$p['path'] = buildUserLabAbsolutePath($user, normalizeUserLabRelativePath($basePathRelative));
 	if (isset($p['source'])) {
-		$p['source'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['source']));
+		$p['source'] = buildUserLabAbsolutePath($user, normalizeUserLabRelativePath($p['source']));
 	}
 
 	if (isset($p['source'])) {
@@ -1262,7 +1262,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	// Reading options from POST/PUT
@@ -1399,7 +1399,7 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	if (!is_file($lab_file_full)) {
@@ -1645,7 +1645,7 @@ $app->post('/api/export', function () use ($app, $db) {
 	$p = json_decode(json_encode($event), True);;
 	if (isset($p['path'])) {
 		$baseRelative = normalizeUserLabRelativePath($p['path']);
-		$p['path'] = buildUserLabAbsolutePath($user['username'], $baseRelative);
+		$p['path'] = buildUserLabAbsolutePath($user, $baseRelative);
 		foreach ($p as $key => $value) {
 			if ($key === 'path') {
 				continue;
@@ -1654,7 +1654,7 @@ $app->post('/api/export', function () use ($app, $db) {
 				continue;
 			}
 			$itemRelative = normalizeUserLabRelativePath($value);
-			$p[$key] = buildUserLabAbsolutePath($user['username'], $itemRelative);
+			$p[$key] = buildUserLabAbsolutePath($user, $itemRelative);
 		}
 	}
 
@@ -1687,7 +1687,7 @@ $app->post('/api/import', function () use ($app, $db) {
 		}
 	}
 	if (isset($p['path'])) {
-		$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['path']));
+		$p['path'] = buildUserLabAbsolutePath($user, normalizeUserLabRelativePath($p['path']));
 	}
 	$output = apiImportLabs($p, $user);
 	$app->response->setStatus($output['code']);

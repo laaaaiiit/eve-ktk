@@ -1500,10 +1500,15 @@ function normalizeUserLabRelativePath($path)
  * @param string $relativePath
  * @return string
  */
-function buildUserLabAbsolutePath($username, $relativePath)
+function buildUserLabAbsolutePath($user, $relativePath)
 {
-	$username = trim((string) $username, '/');
+	$username = trim((string) $user['username'], '/');
+    $role = trim((string) $user['role']);
 	$relative = normalizeUserLabRelativePath($relativePath);
+
+    if ($role === 'admin') {
+        return $relative;
+    }
 
 	if ($username === '') {
 		return $relative;
@@ -1525,7 +1530,7 @@ function buildUserLabAbsolutePath($username, $relativePath)
  * @param string $path
  * @return string
  */
-function stripUserLabPathPrefix($username, $path)
+function stripUserLabPathPrefix($user, $path)
 {
 	if (!is_string($path) || $path === '') {
 		return '/';
@@ -1534,7 +1539,13 @@ function stripUserLabPathPrefix($username, $path)
 		return $path;
 	}
 
-	$username = trim((string) $username, '/');
+    $username = trim((string) $user['username'], '/');
+    $role = trim((string) $user['role']);
+
+    if ($role === 'admin') {
+        return $path;
+    }
+
 	if ($username === '') {
 		return $path;
 	}
@@ -1560,7 +1571,7 @@ function stripUserLabPathPrefix($username, $path)
  * @param string $relativePath
  * @return array
  */
-function transformUserLabListing($username, $data, $relativePath)
+function transformUserLabListing($user, $data, $relativePath)
 {
 	if (!isset($data['folders']) || !is_array($data['folders'])) {
 		$data['folders'] = array();
@@ -1572,11 +1583,12 @@ function transformUserLabListing($username, $data, $relativePath)
 	$folders = array();
 	foreach ($data['folders'] as $folder) {
 		if (isset($folder['path'])) {
-			$folder['path'] = stripUserLabPathPrefix($username, $folder['path']);
+			$folder['path'] = stripUserLabPathPrefix($user, $folder['path']);
 		}
 		$folders[] = $folder;
 	}
-	if ($relativePath === '/') {
+    
+    if ($user['role'] !== 'admin' && $relativePath === '/') {
 		$folders = array_values(array_filter($folders, function ($folder) {
 			return !isset($folder['name']) || $folder['name'] !== '..';
 		}));
@@ -1585,7 +1597,7 @@ function transformUserLabListing($username, $data, $relativePath)
 	$labs = array();
 	foreach ($data['labs'] as $lab) {
 		if (isset($lab['path'])) {
-			$lab['path'] = stripUserLabPathPrefix($username, $lab['path']);
+			$lab['path'] = stripUserLabPathPrefix($user, $lab['path']);
 		}
 		$labs[] = $lab;
 	}

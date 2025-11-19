@@ -4,7 +4,7 @@
   <section class="max-w-[95rem] mx-auto w-full px-4 lg:px-8 py-10 space-y-10">
     <div class="space-y-6">
       <div class="flex flex-col gap-3">
-        <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <p class="text-sm uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="space-y-3">
             <h1 class="text-3xl lg:text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
@@ -12,12 +12,12 @@
           </div>
           <div class="flex flex-wrap gap-3">
             <button type="button"
-                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-xs border border-white/20"
+                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-sm border border-white/20"
                     data-ng-click="openModal('addfile', null,'megalg');">
               <i class="fa fa-file mr-2"></i><span data-ng-bind="t.newLabButton"></span>
             </button>
             <button type="button"
-                    class="px-6 py-3 rounded-2xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-xs uppercase"
+                    class="px-6 py-3 rounded-2xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-sm uppercase"
                     data-ng-click="fileMngDraw(path); falseForSelAll();">
               <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
             </button>
@@ -41,20 +41,20 @@
                   <div class="space-y-1">
                     <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
                     <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
-                    <p class="text-xs uppercase text-slate-500 tracking-[0.35em] pt-2">
+                    <p class="text-sm uppercase text-slate-500 tracking-[0.35em] pt-2">
                       <span data-ng-bind="t.pathLabel"></span>
                       <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
                     </p>
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button type="button"
-                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-sm uppercase"
                             data-ng-attr-title="{{t.orderTooltip}}"
                             data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
                       <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
                     </button>
                     <button type="button"
-                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-sm uppercase"
                             data-ng-attr-title="{{t.refreshTooltip}}"
                             data-ng-click="fileMngDraw(path); falseForSelAll();">
                       <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
@@ -64,7 +64,7 @@
       
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
                   <div class="flex-1 space-y-2" data-ng-if="role === 'admin'">
-                    <label class="text-xs uppercase text-slate-400" data-ng-bind="t.newFolderLabel"></label>
+                    <label class="text-sm uppercase text-slate-400" data-ng-bind="t.newFolderLabel"></label>
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <input type="text"
                              class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -74,7 +74,7 @@
                              focus-on="foCreate"
                              ng-focus="newElementName=''; elementToggleFun('Folder');">
                       <button type="button"
-                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-xs uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20"
+                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20"
                               ng-disabled="blockButtons"
                               data-ng-click="createNewElement('Folder')">
                         <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
@@ -83,58 +83,58 @@
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarSelectTitle}}"
                             data-ng-click="selectAll()"
                             data-ng-if="!allCheckedFlag">
                       <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarClearTitle}}"
                             data-ng-click="selectAll()"
                             data-ng-if="allCheckedFlag">
                       <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarRenameTitle}}"
                             data-ng-click="editElementShow();"
                             ng-disabled="!selectedItemsCanBeModified()">
                       <i class="fa fa-pencil mr-2"></i><span data-ng-bind="t.toolbarRename"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarMoveTitle}}"
                             data-ng-click="moveto()"
                             ng-disabled="!selectedItemsCanBeModified()">
                       <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-rose-500/50 text-xs uppercase text-rose-200 hover:bg-rose-500/10 transition"
+                            class="px-4 py-2 rounded-xl border border-rose-500/50 text-sm uppercase text-rose-200 hover:bg-rose-500/10 transition"
                             data-ng-attr-title="{{t.toolbarDeleteTitle}}"
                             data-ng-click="deleteALLElement(); hideAllEdit()"
                             ng-disabled="!selectedItemsCanBeModified()">
                       <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarImportTitle}}"
                             data-ng-click="selectOneFileUplad(); falseForSelAll();">
                       <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarExportTitle}}"
                             data-ng-click="exportFiles()">
-                      <i class="fa fa-upload mr-2"></i><span data-ng-bindt.toolbarExport"></span>
+                      <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
                     </button>
                   </div>
                 </div>
       
                 <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
-                  <table class="w-full text-sm text-left">
-                    <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
+                  <table class="w-full text-base text-left">
+                    <thead class="text-sm uppercase text-slate-300 bg-slate-900/60">
                       <tr>
                         <th class="px-4 py-3 w-12"></th>
                         <th class="px-4 py-3" data-ng-bind="t.treeColumnName"></th>
@@ -155,7 +155,7 @@
                                      data-ng-click="falseForSelAll(); hideAllEdit();">
                               <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                     data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name].checked}">
-                                <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
+                                <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
                               </span>
                             </label>
                           </div>
@@ -168,11 +168,10 @@
                                 <button type="button"
                                         class="text-left text-white font-semibold hover:text-blue-200 transition"
                                         data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();">
-                                  <i class="fa fa-folder mr-2 text-amber-300"></i>{{x.name}}
+                                  <i class="fa fa-folder mr-2 text-amber-300"></i>
+                                  <span data-ng-if="x.name !== '..'">{{x.name}}</span>
+                                  <span data-ng-if="x.name === '..'">{{t.treeParentLabel || '..'}}</span>
                                 </button>
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500" data-ng-if="x.name == '..'">
-                                  {{t.treeParentLabel || '..'}}
-                                </p>
                               </div>
                               <div class="flex items-center gap-2" data-ng-if="x.name != '..'">
                                 <button type="button"
@@ -220,7 +219,7 @@
                                    data-ng-click="falseForSelAll(); hideAllEdit();">
                             <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                   data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
-                              <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
+                              <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
                             </span>
                           </label>
                         </td>
@@ -232,10 +231,9 @@
                                 <span class="font-semibold text-white hover:text-blue-200 cursor-pointer" data-ng-click="$event.stopPropagation(); getLabInfo(x.path, x.file)">
                                   <i class="fa fa-file-text-o mr-2 text-slate-400"></i>{{x.file}}
                                 </span>
-                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-white/10 text-slate-300 uppercase tracking-[0.3em]">{{t.listAuthorPrefix}} {{x.author}}</span>
-                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-emerald-500/30 text-emerald-50 uppercase tracking-[0.3em]" data-ng-if="x.shared" data-ng-bind="t.listSharedBadge"></span>
-                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-indigo-500/30 text-indigo-50 uppercase tracking-[0.3em]" data-ng-if="x.isMirror" data-ng-bind="t.listMirrorBadge"></span>
-                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-purple-500/30 text-purple-50 uppercase tracking-[0.3em]" data-ng-if="privateCopyMap[x.file]" data-ng-bind="t.listPrivateBadge"></span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-emerald-500/30 text-emerald-50 uppercase tracking-[0.3em]" data-ng-if="x.shared" data-ng-bind="t.listSharedBadge"></span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-indigo-500/30 text-indigo-50 uppercase tracking-[0.3em]" data-ng-if="x.isMirror" data-ng-bind="t.listMirrorBadge"></span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-purple-500/30 text-purple-50 uppercase tracking-[0.3em]" data-ng-if="privateCopyMap[x.file]" data-ng-bind="t.listPrivateBadge"></span>
                               </div>
                               <p class="text-xs text-slate-400" data-ng-if="x.sharedWith">{{t.previewSharedWithLabel}}: {{x.sharedWith}}</p>
                             </div>
@@ -288,7 +286,7 @@
                       <h3 class="text-xl font-semibold" data-ng-bind="t.uploadQueueTitle"></h3>
                       <p class="text-sm text-slate-400" data-ng-bind="t.uploadQueueSubtitle"></p>
                     </div>
-                    <div class="flex flex-wrap gap-2 text-xs uppercase">
+                    <div class="flex flex-wrap gap-2 text-sm uppercase">
                       <button type="button"
                               class="px-4 py-2 rounded-xl bg-emerald-500/40 text-white hover:bg-emerald-500/60 transition border border-white/20"
                               data-ng-click="uploader.uploadAll()"
@@ -317,7 +315,7 @@
                     <p class="text-xs text-slate-500 mt-2">.unl / .zip</p>
                     <div class="mt-4 flex justify-center">
                       <button type="button"
-                              class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-xs uppercase border border-white/20"
+                              class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm uppercase border border-white/20"
                               data-ng-click="selectOneFileUplad(); falseForSelAll();">
                         <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
                       </button>
@@ -352,7 +350,7 @@
                             <span data-ng-if="!item.isReady && !item.isUploading && !item.isSuccess && !item.isError" class="text-slate-400">—</span>
                           </td>
                           <td class="px-4 py-3">
-                            <div class="flex justify-end gap-2 text-xs uppercase">
+                            <div class="flex justify-end gap-2 text-sm uppercase">
                               <button type="button"
                                       class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition border border-white/20"
                                       data-ng-click="item.upload()"
@@ -394,7 +392,7 @@
                    data-ng-include="'/themes/adminLTE/unl_data/pages/constant/labView.html'" class="flex-1"></div>
               <div class="flex flex-col items-center justify-center text-center h-full space-y-3" data-ng-if="!fileSelected">
                 <div class="h-16 w-16 rounded-full border border-dashed border-white/20 flex items-center justify-center">
-                  <i class="fa fa-sitemap text-2xl text-slate-500"></i>
+                  <i class="fa fa-sitemap text-3xl text-slate-500"></i>
                 </div>
                 <p class="text-lg font-semibold" data-ng-bind="t.previewPlaceholderTitle"></p>
                 <p class="text-slate-400 max-w-sm" data-ng-bind="t.previewPlaceholderDescription"></p>
@@ -408,11 +406,11 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center px-4" data-ng-if="deleteDialog.open">
   <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
   <div class="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-950/90 p-6 text-slate-100 space-y-5">
-    <p class="text-xs uppercase tracking-[0.35em] text-rose-200" data-ng-bind="t.deleteDialogEyebrow"></p>
+    <p class="text-sm uppercase tracking-[0.35em] text-rose-200" data-ng-bind="t.deleteDialogEyebrow"></p>
     <div class="space-y-2">
       <h3 class="text-2xl font-semibold" data-ng-bind="deleteDialog.title"></h3>
       <p class="text-sm text-slate-300" data-ng-bind="deleteDialog.message"></p>
-      <p class="text-xs uppercase text-rose-300" data-ng-bind="t.deleteDialogWarning"></p>
+      <p class="text-sm uppercase text-rose-300" data-ng-bind="t.deleteDialogWarning"></p>
     </div>
     <ul class="space-y-2 text-sm text-slate-300" data-ng-if="deleteDialog.items.length">
       <li data-ng-repeat="item in deleteDialog.items track by $index" class="flex items-start gap-2">
@@ -422,11 +420,11 @@
     </ul>
     <div class="flex flex-wrap justify-end gap-3 pt-4">
       <button type="button"
-              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-xs uppercase"
+              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-sm uppercase"
               data-ng-click="closeDeleteDialog()"
               data-ng-bind="t.deleteDialogCancel"></button>
       <button type="button"
-              class="px-4 py-2 rounded-xl bg-rose-500/70 text-white hover:bg-rose-500 transition text-xs uppercase border border-white/20"
+              class="px-4 py-2 rounded-xl bg-rose-500/70 text-white hover:bg-rose-500 transition text-sm uppercase border border-white/20"
               data-ng-click="confirmDeleteDialog()"
               data-ng-bind="deleteDialog.confirmLabel"></button>
     </div>
