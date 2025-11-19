@@ -12,7 +12,7 @@
           </div>
           <div class="flex flex-wrap gap-3">
             <button type="button"
-                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-xs"
+                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-xs border border-white/20"
                     data-ng-click="openModal('addfile', null,'megalg');">
               <i class="fa fa-file mr-2"></i><span data-ng-bind="t.newLabButton"></span>
             </button>
@@ -45,368 +45,382 @@
            uploader="uploader"
            data-ng-init="fileNameChanged()">
 
-    <div class="grid gap-8 lg:grid-cols-[1.35fr_0.65fr]">
-      <section class="space-y-6">
-        <div class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-6 space-y-8">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div class="space-y-1">
-              <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
-              <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
-              <p class="text-xs uppercase text-slate-500 tracking-[0.35em] pt-2">
-                <span data-ng-bind="t.pathLabel"></span>
-                <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button type="button"
-                      class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
-                      data-ng-attr-title="{{t.orderTooltip}}"
-                      data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
-                <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
-              </button>
-              <button type="button"
-                      class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
-                      data-ng-attr-title="{{t.refreshTooltip}}"
-                      data-ng-click="fileMngDraw(path); falseForSelAll();">
-                <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
-              </button>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
-            <div class="flex-1 space-y-2" data-ng-if="role === 'admin'">
-              <label class="text-xs uppercase text-slate-400" data-ng-bind="t.newFolderLabel"></label>
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input type="text"
-                       class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                       data-ng-attr-placeholder="{{t.newFolderPlaceholder}}"
-                       data-ng-model="newElementName"
-                       my-enter="createNewElement('Folder')"
-                       focus-on="foCreate"
-                       ng-focus="newElementName=''; elementToggleFun('Folder');">
-                <button type="button"
-                        class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-xs uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}}"
-                        ng-disabled="blockButtons"
-                        data-ng-click="createNewElement('Folder')">
-                  <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
-                </button>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarSelectTitle}}"
-                      data-ng-click="selectAll()"
-                      data-ng-if="!allCheckedFlag">
-                <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarClearTitle}}"
-                      data-ng-click="selectAll()"
-                      data-ng-if="allCheckedFlag">
-                <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarRenameTitle}}"
-                      data-ng-click="editElementShow();"
-                      ng-disabled="!selectedItemsCanBeModified()">
-                <i class="fa fa-pencil mr-2"></i><span data-ng-bind="t.toolbarRename"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarMoveTitle}}"
-                      data-ng-click="moveto()"
-                      ng-disabled="!selectedItemsCanBeModified()">
-                <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-rose-500/50 text-xs uppercase text-rose-200 hover:bg-rose-500/10 transition"
-                      data-ng-attr-title="{{t.toolbarDeleteTitle}}"
-                      data-ng-click="deleteALLElement(); hideAllEdit()"
-                      ng-disabled="!selectedItemsCanBeModified()">
-                <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarImportTitle}}"
-                      data-ng-click="selectOneFileUplad(); falseForSelAll();">
-                <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
-              </button>
-              <button type="button"
-                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
-                      data-ng-attr-title="{{t.toolbarExportTitle}}"
-                      data-ng-click="exportFiles()">
-                <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
-              </button>
-            </div>
-          </div>
-
-          <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
-            <table class="w-full text-sm text-left">
-              <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
-                <tr>
-                  <th class="px-4 py-3 w-12"></th>
-                  <th class="px-4 py-3" data-ng-bind="t.treeColumnName"></th>
-                  <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.treeColumnUpdated"></th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-white/5 text-slate-100" data-ng-if="rootDir">
-                <tr data-ng-repeat="x in rootDir.folders | orderBy:'name' track by x.path"
-                    ng-class="{'bg-white/5': checkboxArray['Fo_'+x.name] && checkboxArray['Fo_'+x.name].checked}"
-                    class="hover:bg-white/5 transition"
-                    data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder' }">
-                  <td class="px-4 py-3 align-top">
-                    <div class="flex items-center justify-center" data-ng-if="x.name != '..'">
-                      <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox"
-                               class="sr-only"
-                               data-ng-model="checkboxArray['Fo_'+x.name].checked"
-                               data-ng-click="falseForSelAll(); hideAllEdit();">
-                        <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
-                              data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name].checked}">
-                          <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
-                        </span>
-                      </label>
+    <div class="grid gap-8 lg:grid-cols-2">
+            <section class="space-y-6 card-glow">
+              <div class="h-full rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800/50 to-slate-900 shadow-2xl p-6 space-y-8 backdrop-blur-sm">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="space-y-1">
+                    <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
+                    <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
+                    <p class="text-xs uppercase text-slate-500 tracking-[0.35em] pt-2">
+                      <span data-ng-bind="t.pathLabel"></span>
+                      <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button"
+                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                            data-ng-attr-title="{{t.orderTooltip}}"
+                            data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
+                      <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
+                    </button>
+                    <button type="button"
+                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                            data-ng-attr-title="{{t.refreshTooltip}}"
+                            data-ng-click="fileMngDraw(path); falseForSelAll();">
+                      <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
+                    </button>
+                  </div>
+                </div>
+      
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+                  <div class="flex-1 space-y-2" data-ng-if="role === 'admin'">
+                    <label class="text-xs uppercase text-slate-400" data-ng-bind="t.newFolderLabel"></label>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input type="text"
+                             class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                             data-ng-attr-placeholder="{{t.newFolderPlaceholder}}"
+                             data-ng-model="newElementName"
+                             my-enter="createNewElement('Folder')"
+                             focus-on="foCreate"
+                             ng-focus="newElementName=''; elementToggleFun('Folder');">
+                      <button type="button"
+                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-xs uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20"
+                              ng-disabled="blockButtons"
+                              data-ng-click="createNewElement('Folder')">
+                        <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
+                      </button>
                     </div>
-                  </td>
-                  <td class="px-4 py-3"
-                      data-ng-click="x.name != '..' && selectElbyTD(checkboxArray['Fo_'+x.name])">
-                    <div class="flex flex-col gap-2">
-                      <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fo_'+x.name].visibleEdit">
-                        <div class="flex flex-col gap-1">
-                          <button type="button"
-                                  class="text-left text-white font-semibold hover:text-blue-200 transition"
-                                  data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();">
-                            <i class="fa fa-folder mr-2 text-amber-300"></i>{{x.name}}
-                          </button>
-                          <p class="text-xs uppercase tracking-[0.3em] text-slate-500" data-ng-if="x.name == '..'">
-                            {{t.treeParentLabel || '..'}}
-                          </p>
-                        </div>
-                        <div class="flex items-center gap-2" data-ng-if="x.name != '..'">
-                          <button type="button"
-                                  class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
-                                  data-ng-click="openRename(fileManagerItem['Fo_'+x.name], $event)">
-                            <i class="fa fa-pencil"></i>
-                          </button>
-                        </div>
-                      </div>
-                      <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fo_'+x.name].visibleEdit">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <input type="text"
-                                 class="flex-1 rounded-xl bg-slate-900/60 border border-white/10 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                 data-ng-model="fileManagerItem['Fo_'+x.name].value"
-                                 focus-on="{{'Fo_'+x.name}}"
-                                 my-enter="editElementApply(fileManagerItem['Fo_'+x.name])">
-                          <div class="flex gap-2">
-                            <button type="button"
-                                    class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
-                                    data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name])">
-                              <span data-ng-bind="t.actionApply"></span>
-                            </button>
-                            <button type="button"
-                                    class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
-                                    data-ng-click="hideAllEdit()">
-                              <span data-ng-bind="t.deleteDialogCancel"></span>
-                            </button>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarSelectTitle}}"
+                            data-ng-click="selectAll()"
+                            data-ng-if="!allCheckedFlag">
+                      <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarClearTitle}}"
+                            data-ng-click="selectAll()"
+                            data-ng-if="allCheckedFlag">
+                      <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarRenameTitle}}"
+                            data-ng-click="editElementShow();"
+                            ng-disabled="!selectedItemsCanBeModified()">
+                      <i class="fa fa-pencil mr-2"></i><span data-ng-bind="t.toolbarRename"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarMoveTitle}}"
+                            data-ng-click="moveto()"
+                            ng-disabled="!selectedItemsCanBeModified()">
+                      <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-rose-500/50 text-xs uppercase text-rose-200 hover:bg-rose-500/10 transition"
+                            data-ng-attr-title="{{t.toolbarDeleteTitle}}"
+                            data-ng-click="deleteALLElement(); hideAllEdit()"
+                            ng-disabled="!selectedItemsCanBeModified()">
+                      <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarImportTitle}}"
+                            data-ng-click="selectOneFileUplad(); falseForSelAll();">
+                      <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                            data-ng-attr-title="{{t.toolbarExportTitle}}"
+                            data-ng-click="exportFiles()">
+                      <i class="fa fa-upload mr-2"></i><span data-ng-bindt.toolbarExport"></span>
+                    </button>
+                  </div>
+                </div>
+      
+                <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
+                  <table class="w-full text-sm text-left">
+                    <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
+                      <tr>
+                        <th class="px-4 py-3 w-12"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.treeColumnName"></th>
+                        <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.treeColumnUpdated"></th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5 text-slate-100" data-ng-if="rootDir">
+                      <tr data-ng-repeat="x in rootDir.folders | orderBy:'name' track by x.path"
+                          ng-class="{'bg-white/5': checkboxArray['Fo_'+x.name] && checkboxArray['Fo_'+x.name].checked}"
+                          class="hover:bg-white/5 transition"
+                          data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder' }">
+                        <td class="px-4 py-3 align-top">
+                          <div class="flex items-center justify-center" data-ng-if="x.name != '..'">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                              <input type="checkbox"
+                                     class="sr-only"
+                                     data-ng-model="checkboxArray['Fo_'+x.name].checked"
+                                     data-ng-click="falseForSelAll(); hideAllEdit();">
+                              <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
+                                    data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name].checked}">
+                                <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
+                              </span>
+                            </label>
                           </div>
-                        </div>
-                      </div>
+                        </td>
+                        <td class="px-4 py-3"
+                            data-ng-click="x.name != '..' && selectElbyTD(checkboxArray['Fo_'+x.name])">
+                          <div class="flex flex-col gap-2">
+                            <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fo_'+x.name].visibleEdit">
+                              <div class="flex flex-col gap-1">
+                                <button type="button"
+                                        class="text-left text-white font-semibold hover:text-blue-200 transition"
+                                        data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();">
+                                  <i class="fa fa-folder mr-2 text-amber-300"></i>{{x.name}}
+                                </button>
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500" data-ng-if="x.name == '..'">
+                                  {{t.treeParentLabel || '..'}}
+                                </p>
+                              </div>
+                              <div class="flex items-center gap-2" data-ng-if="x.name != '..'">
+                                <button type="button"
+                                        class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                                        data-ng-click="openRename(fileManagerItem['Fo_'+x.name], $event)">
+                                  <i class="fa fa-pencil"></i>
+                                </button>
+                              </div>
+                            </div>
+                            <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fo_'+x.name].visibleEdit">
+                              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <input type="text"
+                                       class="flex-1 rounded-xl bg-slate-900/60 border border-white/10 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                       data-ng-model="fileManagerItem['Fo_'+x.name].value"
+                                       focus-on="{{'Fo_'+x.name}}"
+                                       my-enter="editElementApply(fileManagerItem['Fo_'+x.name])">
+                                <div class="flex gap-2">
+                                  <button type="button"
+                                          class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
+                                          data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name])">
+                                    <span data-ng-bind="t.actionApply"></span>
+                                  </button>
+                                  <button type="button"
+                                          class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
+                                          data-ng-click="hideAllEdit()">
+                                    <span data-ng-bind="t.deleteDialogCancel"></span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
+                      </tr>
+      
+                      <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder track by x.path"
+                          ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
+                          class="hover:bg-white/5 transition"
+                          data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author }">
+                        <td class="px-4 py-3 align-top">
+                          <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox"
+                                   class="sr-only"
+                                   data-ng-model="checkboxArray['Fi_'+x.file].checked"
+                                   data-ng-click="falseForSelAll(); hideAllEdit();">
+                            <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
+                                  data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
+                              <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
+                            </span>
+                          </label>
+                        </td>
+                        <td class="px-4 py-3 space-y-2"
+                            data-ng-click="selectElbyTD(checkboxArray['Fi_'+x.file]); getLabInfo(x.path, x.file)">
+                          <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
+                            <div class="space-y-1">
+                              <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-semibold text-white hover:text-blue-200 cursor-pointer" data-ng-click="$event.stopPropagation(); getLabInfo(x.path, x.file)">
+                                  <i class="fa fa-file-text-o mr-2 text-slate-400"></i>{{x.file}}
+                                </span>
+                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-white/10 text-slate-300 uppercase tracking-[0.3em]">{{t.listAuthorPrefix}} {{x.author}}</span>
+                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-emerald-500/30 text-emerald-50 uppercase tracking-[0.3em]" data-ng-if="x.shared" data-ng-bind="t.listSharedBadge"></span>
+                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-indigo-500/30 text-indigo-50 uppercase tracking-[0.3em]" data-ng-if="x.isMirror" data-ng-bind="t.listMirrorBadge"></span>
+                                <span class="text-[0.65rem] px-2 py-1 rounded-full bg-purple-500/30 text-purple-50 uppercase tracking-[0.3em]" data-ng-if="privateCopyMap[x.file]" data-ng-bind="t.listPrivateBadge"></span>
+                              </div>
+                              <p class="text-xs text-slate-400" data-ng-if="x.sharedWith">{{t.previewSharedWithLabel}}: {{x.sharedWith}}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <div class="text-slate-400" data-ng-show="fileManagerItem['Fi_'+x.file].img">
+                                <i class="fa fa-circle-o-notch fa-spin"></i>
+                              </div>
+                              <button type="button"
+                                      class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                                      data-ng-click="openRename(fileManagerItem['Fi_'+x.file], $event)">
+                                <i class="fa fa-pencil"></i>
+                              </button>
+                            </div>
+                          </div>
+                          <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fi_'+x.file].visibleEdit">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <input type="text"
+                                     class="flex-1 rounded-xl bg-slate-900/60 border border-white/10 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                     data-ng-model="fileManagerItem['Fi_'+x.file].value"
+                                     focus-on="{{'Fi_'+x.file}}"
+                                     my-enter="editElementApply(fileManagerItem['Fi_'+x.file])">
+                              <div class="flex gap-2">
+                                <button type="button"
+                                        class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
+                                        data-ng-click="editElementApply(fileManagerItem['Fi_'+x.file])">
+                                  <span data-ng-bind="t.actionApply"></span>
+                                </button>
+                                <button type="button"
+                                        class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
+                                        data-ng-click="hideAllEdit()">
+                                  <span data-ng-bind="t.deleteDialogCancel"></span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
+                      </tr>
+      
+                      <tr data-ng-if="rootDir.folders.length === 0 && rootDir.labs.length === 0">
+                        <td colspan="3" class="px-4 py-6 text-center text-slate-400" data-ng-bind="t.treeEmptyState"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+      
+                <div class="space-y-5 border-t border-white/10 pt-6">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 class="text-xl font-semibold" data-ng-bind="t.uploadQueueTitle"></h3>
+                      <p class="text-sm text-slate-400" data-ng-bind="t.uploadQueueSubtitle"></p>
                     </div>
-                  </td>
-                  <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
-                </tr>
-
-                <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder track by x.path"
-                    ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
-                    class="hover:bg-white/5 transition"
-                    data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author }">
-                  <td class="px-4 py-3 align-top">
-                    <label class="inline-flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox"
-                             class="sr-only"
-                             data-ng-model="checkboxArray['Fi_'+x.file].checked"
-                             data-ng-click="falseForSelAll(); hideAllEdit();">
-                      <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
-                            data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
-                        <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
-                      </span>
-                    </label>
-                  </td>
-                  <td class="px-4 py-3 space-y-2"
-                      data-ng-click="selectElbyTD(checkboxArray['Fi_'+x.file]); getLabInfo(x.path, x.file)">
-                    <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
-                      <div class="space-y-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                          <span class="font-semibold text-white hover:text-blue-200 cursor-pointer" data-ng-click="$event.stopPropagation(); getLabInfo(x.path, x.file)">
-                            <i class="fa fa-file-text-o mr-2 text-slate-400"></i>{{x.file}}
-                          </span>
-                          <span class="text-[0.65rem] px-2 py-1 rounded-full bg-white/10 text-slate-300 uppercase tracking-[0.3em]">{{t.listAuthorPrefix}} {{x.author}}</span>
-                          <span class="text-[0.65rem] px-2 py-1 rounded-full bg-emerald-500/30 text-emerald-50 uppercase tracking-[0.3em]" data-ng-if="x.shared" data-ng-bind="t.listSharedBadge"></span>
-                          <span class="text-[0.65rem] px-2 py-1 rounded-full bg-indigo-500/30 text-indigo-50 uppercase tracking-[0.3em]" data-ng-if="x.isMirror" data-ng-bind="t.listMirrorBadge"></span>
-                          <span class="text-[0.65rem] px-2 py-1 rounded-full bg-purple-500/30 text-purple-50 uppercase tracking-[0.3em]" data-ng-if="privateCopyMap[x.file]" data-ng-bind="t.listPrivateBadge"></span>
-                        </div>
-                        <p class="text-xs text-slate-400" data-ng-if="x.sharedWith">{{t.previewSharedWithLabel}}: {{x.sharedWith}}</p>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <div class="text-slate-400" data-ng-show="fileManagerItem['Fi_'+x.file].img">
-                          <i class="fa fa-circle-o-notch fa-spin"></i>
-                        </div>
-                        <button type="button"
-                                class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
-                                data-ng-click="openRename(fileManagerItem['Fi_'+x.file], $event)">
-                          <i class="fa fa-pencil"></i>
-                        </button>
-                      </div>
+                    <div class="flex flex-wrap gap-2 text-xs uppercase">
+                      <button type="button"
+                              class="px-4 py-2 rounded-xl bg-emerald-500/40 text-white hover:bg-emerald-500/60 transition border border-white/20"
+                              data-ng-click="uploader.uploadAll()"
+                              ng-disabled="!uploader.getNotUploadedItems().length">
+                        <i class="fa fa-cloud-upload mr-2"></i><span data-ng-bind="t.uploadAllButton"></span>
+                      </button>
+                      <button type="button"
+                              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
+                              data-ng-click="uploader.cancelAll()"
+                              ng-disabled="!uploader.isUploading">
+                        <i class="fa fa-ban mr-2"></i><span data-ng-bind="t.cancelUploadButton"></span>
+                      </button>
+                      <button type="button"
+                              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
+                              data-ng-click="uploader.clearQueue()"
+                              ng-disabled="!uploader.queue.length">
+                        <i class="fa fa-times mr-2"></i><span data-ng-bind="t.clearUploadButton"></span>
+                      </button>
                     </div>
-                    <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fi_'+x.file].visibleEdit">
-                      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <input type="text"
-                               class="flex-1 rounded-xl bg-slate-900/60 border border-white/10 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                               data-ng-model="fileManagerItem['Fi_'+x.file].value"
-                               focus-on="{{'Fi_'+x.file}}"
-                               my-enter="editElementApply(fileManagerItem['Fi_'+x.file])">
-                        <div class="flex gap-2">
-                          <button type="button"
-                                  class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
-                                  data-ng-click="editElementApply(fileManagerItem['Fi_'+x.file])">
-                            <span data-ng-bind="t.actionApply"></span>
-                          </button>
-                          <button type="button"
-                                  class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
-                                  data-ng-click="hideAllEdit()">
-                            <span data-ng-bind="t.deleteDialogCancel"></span>
-                          </button>
-                        </div>
-                      </div>
+                  </div>
+      
+                  <div class="rounded-2xl border border-dashed border-white/30 bg-slate-900/40 p-5 text-center"
+                       nv-file-drop=""
+                       uploader="uploader">
+                    <p class="text-sm text-slate-300" data-ng-bind="t.uploadQueueSubtitle"></p>
+                    <p class="text-xs text-slate-500 mt-2">.unl / .zip</p>
+                    <div class="mt-4 flex justify-center">
+                      <button type="button"
+                              class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-xs uppercase border border-white/20"
+                              data-ng-click="selectOneFileUplad(); falseForSelAll();">
+                        <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
+                      </button>
                     </div>
-                  </td>
-                  <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
-                </tr>
-
-                <tr data-ng-if="rootDir.folders.length === 0 && rootDir.labs.length === 0">
-                  <td colspan="3" class="px-4 py-6 text-center text-slate-400" data-ng-bind="t.treeEmptyState"></td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+      
+                  <div class="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden" data-ng-if="uploader.queue.length">
+                    <table class="w-full text-sm text-left">
+                      <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
+                        <tr>
+                          <th class="px-4 py-3" data-ng-bind="t.uploaderColumnName"></th>
+                          <th class="px-4 py-3 w-24" data-ng-bind="t.uploaderColumnSize"></th>
+                          <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnProgress"></th>
+                          <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnStatus"></th>
+                          <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.uploaderColumnActions"></th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-white/5 text-slate-100">
+                        <tr data-ng-repeat="item in uploader.queue track by item.$hashKey" class="hover:bg-white/5 transition">
+                          <td class="px-4 py-3">{{ item.file.name }}</td>
+                          <td class="px-4 py-3">{{ (item.file.size / 1024 / 1024) | number:2 }} {{t.sizeUnit}}</td>
+                          <td class="px-4 py-3">
+                            <div class="h-2 rounded-full bg-white/10 overflow-hidden">
+                              <div class="h-full bg-blue-500" ng-style="{'width': item.progress + '%'}"></div>
+                            </div>
+                          </td>
+                          <td class="px-4 py-3">
+                            <span data-ng-if="item.isSuccess" class="text-emerald-300" data-ng-bind="t.uploadStatusSuccess"></span>
+                            <span data-ng-if="item.isCancel" class="text-amber-300" data-ng-bind="t.uploadStatusCancel"></span>
+                            <span data-ng-if="item.isError" class="text-rose-300" data-ng-bind="t.uploadStatusError"></span>
+                            <span data-ng-if="item.isUploading" class="text-blue-300">{{item.progress | number:0}}%</span>
+                            <span data-ng-if="!item.isReady && !item.isUploading && !item.isSuccess && !item.isError" class="text-slate-400">—</span>
+                          </td>
+                          <td class="px-4 py-3">
+                            <div class="flex justify-end gap-2 text-xs uppercase">
+                              <button type="button"
+                                      class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition border border-white/20"
+                                      data-ng-click="item.upload()"
+                                      ng-disabled="item.isUploading || item.isSuccess">
+                                <span data-ng-bind="t.uploadActionUpload"></span>
+                              </button>
+                              <button type="button"
+                                      class="px-3 py-2 rounded-xl border border-white/20 hover:bg-white/10 transition"
+                                      data-ng-click="item.remove();"
+                                      data-ng-attr-title="{{t.uploadRemoveTooltip}}">
+                                <span data-ng-bind="t.uploadActionRemove"></span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="text-sm text-slate-400" data-ng-if="!uploader.queue.length" data-ng-bind="t.uploadQueueEmpty"></p>
+                  <div class="space-y-2" data-ng-if="uploader.queue.length">
+                    <p class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.uploadTotalProgress"></p>
+                    <div class="h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div class="h-full bg-emerald-500" ng-style="{'width': uploader.progress + '%'}"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section class="h-full rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800/50 to-slate-900 shadow-2xl p-6 card-glow flex flex-col backdrop-blur-sm">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="space-y-1">
+                    <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
+                    <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button"
+                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                            data-ng-attr-title="{{t.orderTooltip}}"
+                            data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
+                      <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
+                    </button>
+                  </div>
+              </div>
+              <div data-ng-if="fileSelected"
+                   data-ng-include="'/themes/adminLTE/unl_data/pages/constant/labView.html'" class="flex-1"></div>
+              <div class="flex flex-col items-center justify-center text-center h-full space-y-3" data-ng-if="!fileSelected">
+                <div class="h-16 w-16 rounded-full border border-dashed border-white/20 flex items-center justify-center">
+                  <i class="fa fa-sitemap text-2xl text-slate-500"></i>
+                </div>
+                <p class="text-lg font-semibold" data-ng-bind="t.previewPlaceholderTitle"></p>
+                <p class="text-slate-400 max-w-sm" data-ng-bind="t.previewPlaceholderDescription"></p>
+              </div>
+            </section>
           </div>
-
-          <div class="space-y-5 border-t border-white/10 pt-6">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 class="text-xl font-semibold" data-ng-bind="t.uploadQueueTitle"></h3>
-                <p class="text-sm text-slate-400" data-ng-bind="t.uploadQueueSubtitle"></p>
-              </div>
-              <div class="flex flex-wrap gap-2 text-xs uppercase">
-                <button type="button"
-                        class="px-4 py-2 rounded-xl bg-emerald-500/40 text-white hover:bg-emerald-500/60 transition"
-                        data-ng-click="uploader.uploadAll()"
-                        ng-disabled="!uploader.getNotUploadedItems().length">
-                  <i class="fa fa-cloud-upload mr-2"></i><span data-ng-bind="t.uploadAllButton"></span>
-                </button>
-                <button type="button"
-                        class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
-                        data-ng-click="uploader.cancelAll()"
-                        ng-disabled="!uploader.isUploading">
-                  <i class="fa fa-ban mr-2"></i><span data-ng-bind="t.cancelUploadButton"></span>
-                </button>
-                <button type="button"
-                        class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
-                        data-ng-click="uploader.clearQueue()"
-                        ng-disabled="!uploader.queue.length">
-                  <i class="fa fa-times mr-2"></i><span data-ng-bind="t.clearUploadButton"></span>
-                </button>
-              </div>
-            </div>
-
-            <div class="rounded-2xl border border-dashed border-white/30 bg-slate-900/40 p-5 text-center"
-                 nv-file-drop=""
-                 uploader="uploader">
-              <p class="text-sm text-slate-300" data-ng-bind="t.uploadQueueSubtitle"></p>
-              <p class="text-xs text-slate-500 mt-2">.unl / .zip</p>
-              <div class="mt-4 flex justify-center">
-                <button type="button"
-                        class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-xs uppercase"
-                        data-ng-click="selectOneFileUplad(); falseForSelAll();">
-                  <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
-                </button>
-              </div>
-            </div>
-
-            <div class="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden" data-ng-if="uploader.queue.length">
-              <table class="w-full text-sm text-left">
-                <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
-                  <tr>
-                    <th class="px-4 py-3" data-ng-bind="t.uploaderColumnName"></th>
-                    <th class="px-4 py-3 w-24" data-ng-bind="t.uploaderColumnSize"></th>
-                    <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnProgress"></th>
-                    <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnStatus"></th>
-                    <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.uploaderColumnActions"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-white/5 text-slate-100">
-                  <tr data-ng-repeat="item in uploader.queue track by item.$$hashKey" class="hover:bg-white/5 transition">
-                    <td class="px-4 py-3">{{ item.file.name }}</td>
-                    <td class="px-4 py-3">{{ (item.file.size / 1024 / 1024) | number:2 }} {{t.sizeUnit}}</td>
-                    <td class="px-4 py-3">
-                      <div class="h-2 rounded-full bg-white/10 overflow-hidden">
-                        <div class="h-full bg-blue-500" ng-style="{'width': item.progress + '%'}"></div>
-                      </div>
-                    </td>
-                    <td class="px-4 py-3">
-                      <span data-ng-if="item.isSuccess" class="text-emerald-300" data-ng-bind="t.uploadStatusSuccess"></span>
-                      <span data-ng-if="item.isCancel" class="text-amber-300" data-ng-bind="t.uploadStatusCancel"></span>
-                      <span data-ng-if="item.isError" class="text-rose-300" data-ng-bind="t.uploadStatusError"></span>
-                      <span data-ng-if="item.isUploading" class="text-blue-300">{{item.progress | number:0}}%</span>
-                      <span data-ng-if="!item.isReady && !item.isUploading && !item.isSuccess && !item.isError" class="text-slate-400">—</span>
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="flex justify-end gap-2 text-xs uppercase">
-                        <button type="button"
-                                class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition"
-                                data-ng-click="item.upload()"
-                                ng-disabled="item.isUploading || item.isSuccess">
-                          <span data-ng-bind="t.uploadActionUpload"></span>
-                        </button>
-                        <button type="button"
-                                class="px-3 py-2 rounded-xl border border-white/20 hover:bg-white/10 transition"
-                                data-ng-click="item.remove();"
-                                data-ng-attr-title="{{t.uploadRemoveTooltip}}">
-                          <span data-ng-bind="t.uploadActionRemove"></span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="text-sm text-slate-400" data-ng-if="!uploader.queue.length" data-ng-bind="t.uploadQueueEmpty"></p>
-            <div class="space-y-2" data-ng-if="uploader.queue.length">
-              <p class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.uploadTotalProgress"></p>
-              <div class="h-2 rounded-full bg-white/10 overflow-hidden">
-                <div class="h-full bg-emerald-500" ng-style="{'width': uploader.progress + '%'}"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-3xl border border-white/10 bg-slate-950/50 shadow-2xl p-6">
-        <div data-ng-if="fileSelected"
-             data-ng-include="'/themes/adminLTE/unl_data/pages/constant/labView.html'"></div>
-        <div class="flex flex-col items-center justify-center text-center h-full space-y-3" data-ng-if="!fileSelected">
-          <div class="h-16 w-16 rounded-full border border-dashed border-white/20 flex items-center justify-center">
-            <i class="fa fa-sitemap text-2xl text-slate-500"></i>
-          </div>
-          <p class="text-lg font-semibold" data-ng-bind="t.previewPlaceholderTitle"></p>
-          <p class="text-slate-400 max-w-sm" data-ng-bind="t.previewPlaceholderDescription"></p>
-        </div>
-      </section>
-    </div>
-  </section>
-</main>
+        </section>
+      </main>
+      
 
 <div class="fixed inset-0 z-50 flex items-center justify-center px-4" data-ng-if="deleteDialog.open">
   <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
@@ -429,7 +443,7 @@
               data-ng-click="closeDeleteDialog()"
               data-ng-bind="t.deleteDialogCancel"></button>
       <button type="button"
-              class="px-4 py-2 rounded-xl bg-rose-500/70 text-white hover:bg-rose-500 transition text-xs uppercase"
+              class="px-4 py-2 rounded-xl bg-rose-500/70 text-white hover:bg-rose-500 transition text-xs uppercase border border-white/20"
               data-ng-click="confirmDeleteDialog()"
               data-ng-bind="deleteDialog.confirmLabel"></button>
     </div>
