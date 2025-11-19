@@ -27,3 +27,125 @@
     background: linear-gradient(180deg, rgba(59, 130, 246, 0.8), rgba(14, 165, 233, 0.8));
   }
 }
+
+@layer components {
+  body.modal-open {
+    padding-right: 0 !important;
+    @apply overflow-hidden;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-slate-950/80 backdrop-blur-sm;
+  }
+
+  .modal {
+    @apply fixed inset-0 z-[2000] flex items-start justify-center overflow-y-auto px-4 py-10;
+  }
+
+  .modal-dialog {
+    @apply w-full max-w-4xl;
+  }
+
+  .modal-content {
+    @apply rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl ring-1 ring-white/5 overflow-hidden;
+  }
+
+  .modal-header {
+    @apply flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5;
+  }
+
+  .modal-title {
+    @apply text-xl font-semibold tracking-[0.2em] uppercase text-white;
+  }
+
+  .modal-body {
+    @apply px-6 py-6 space-y-5;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end gap-3 border-t border-white/10 px-6 py-4 bg-transparent;
+  }
+
+  .modal .close {
+    @apply text-slate-400 hover:text-white transition text-2xl leading-none;
+  }
+
+  .modal .form-horizontal,
+  .modal form {
+    @apply space-y-4;
+  }
+
+  .modal .row {
+    @apply grid gap-5 lg:grid-cols-2;
+  }
+
+  .modal .col-md-2,
+  .modal .col-md-3,
+  .modal .col-md-4,
+  .modal .col-md-5,
+  .modal .col-md-8,
+  .modal .col-md-10,
+  .modal .col-md-12 {
+    @apply w-full space-y-2;
+  }
+
+  .modal .control-label,
+  .modal .control-label_custom,
+  .modal .control-label_custom_pos {
+    @apply block text-xs font-semibold uppercase tracking-[0.3em] text-slate-400;
+  }
+
+  .modal .form-group {
+    @apply space-y-2;
+  }
+
+  .modal .form-control,
+  .modal textarea,
+  .modal select {
+    @apply w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+
+  .modal textarea {
+    @apply min-h-[6rem];
+  }
+
+  .modal input[type="checkbox"],
+  .modal input[type="radio"] {
+    @apply h-4 w-4 rounded border-white/30 text-emerald-400 focus:ring-emerald-400;
+  }
+
+  .modal .btn {
+    @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition;
+  }
+
+  .modal .btn-success,
+  .modal .btn-primary {
+    @apply bg-gradient-to-r from-emerald-500 to-cyan-400 text-white shadow-lg hover:shadow-2xl;
+  }
+
+  .modal .btn-warning {
+    @apply bg-amber-500 text-white hover:bg-amber-600;
+  }
+
+  .modal .btn-grey,
+  .modal .btn-default {
+    @apply border border-white/20 text-slate-100 hover:bg-white/10;
+  }
+
+  .modal .btn-flat {
+    @apply uppercase tracking-[0.3em];
+  }
+
+  .modal .chars {
+    @apply text-xs text-slate-500;
+  }
+
+  .modal .chars--active,
+  .modal .input--error {
+    @apply text-rose-400 border-rose-500 focus:ring-rose-500;
+  }
+
+  .modal .parent-required {
+    @apply text-xs text-slate-400;
+  }
+}

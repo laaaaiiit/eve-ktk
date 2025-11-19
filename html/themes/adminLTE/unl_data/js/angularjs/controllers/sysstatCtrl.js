@@ -167,7 +167,7 @@ $scope.optionsSwap = {
 };
 	
 	
-$scope.optionsDisk = {
+	$scope.optionsDisk = {
     unit: "%",
     readOnly: true,
     size: 175,
@@ -212,13 +212,11 @@ $scope.optionsDisk = {
                                         setToggleState("#ToggleKSM", isKsmEnabled);
 
                                         var isCpuLimitEnabled = (response.data.data.cpulimit == "enabled");
-                                        window.cpulimit = isCpuLimitEnabled;
-                                        setToggleState("#ToggleCPULIMIT", isCpuLimitEnabled);
-					$.unblockUI();
-				}, 
-				function errorCallback(response) {
-					$.unblockUI();
-					console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");}	
+				window.cpulimit = isCpuLimitEnabled;
+				setToggleState("#ToggleCPULIMIT", isCpuLimitEnabled);
+			}, 
+			function errorCallback(response) {
+				console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");}	
 		);
 	}
 	$scope.systemstat()

@@ -1,104 +1,146 @@
- <!-- sidebar: style can be found in sidebar.less -->
-    <section class="sidebar" style="height: auto;z-index: 1048;" data-ng-controller="HeaderController">
-      <!-- sidebar menu: : style can be found in sidebar.less -->
-      <ul class="sidebar-menu">
-        <li class="header">MAIN NAVIGATION</li>
-        <li class="treeview {{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">
-          <a class="pointer">
-            <i class="glyphicon glyphicon-plus"></i> <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Add an object</span> <i class="fa fa-angle-left pull-right"></i>
-          </a>
-          <ul class="treeview-menu">
-            <li><a class="pointer" ng-click="addNewCursor('node')"><i class="glyphicon glyphicon-hdd"></i> Node</a></li>
-            <li><a class="pointer" ng-click="addNewCursor('network')"><i class="glyphicon glyphicon-transfer"></i> Network</a></li>
-            <li><a class="pointer" ng-click="addNewCursor('image')"><i class="glyphicon glyphicon-picture"></i> Picture</a></li>
-            <li><a class="pointer" ng-click="addNewCursor('shape')"><i class="glyphicon glyphicon-unchecked"></i> Custom Shape</a></li>
-            <li><a class="pointer" ng-click="addNewCursor('text')"><i class="glyphicon glyphicon-font"></i> Text</a></li>
-          </ul>
-        </li>
-        
-		 <li>
-          <a class="pointer" ng-click="openModal('nodeList', 'megalg')">
-            <i class="glyphicon glyphicon-hdd"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Nodes</span>
-          </a>
-        </li>
-		 <li>
-          <a class="pointer" ng-click="openModal('netList', 'megalg')">
-            <i class="glyphicon glyphicon-transfer"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Networks</span>
-          </a>
-        </li>
-		 <li>
-          <a class="pointer" ng-click="openModal('startUpConfig', 'megalg')">
-            <i class="glyphicon glyphicon-align-left"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Startup-configs</span>
-          </a>
-        </li>
-		 <li>
-          <a class="pointer">
-            <i class="glyphicon glyphicon-picture"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Pictures</span>
-          </a>
-        </li>
-		 <li>
-          <a class="pointer" ng-click="openModal('configObject', 'megalg')">
-            <i class="glyphicon glyphicon-text-background"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Configured objects</span>
-          </a>
-        </li>
-        <li class="treeview {{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">
-          <a class="pointer">
-            <i class="glyphicon glyphicon-th"></i>
-            <span style="width:228px; z-index: 10000;" class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">More actions</span>
-            <i class="fa fa-angle-left pull-right"></i>
-          </a>
-          <ul class="treeview-menu {{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}" style="width:228px">
-            <li><a class="pointer" ng-click="startAllNode()"><i class="glyphicon glyphicon-play"></i> Start all nodes</a></li>
-            <li><a class="pointer" ng-click="stopAllNode()"><i class="glyphicon glyphicon-stop"></i> Stop all nodes</a></li>
-            <li><a class="pointer" ng-click="wipeAllNode()"><i class="glyphicon glyphicon-erase"></i> Wipe all nodes</a></li>
-            <li><a class="pointer" ng-click="exportAllCFG()"><i class="glyphicon glyphicon-save"></i> Export all CFGs</a></li>
-            <li><a class="pointer" ng-click="openModal('editLab', 'megalg')"><i class="glyphicon glyphicon-pencil"></i> Edit lab</a></li>
-            <li><a class="pointer" ng-click="setAllStartupExport()"><i class="glyphicon glyphicon-floppy-saved" ></i> Set all startup-cfg to exported</a></li>
-            <li><a class="pointer" ng-click="setAllStartupNone()"><i class="glyphicon glyphicon-floppy-save"></i> Set all startup-cfg to none</a></li>
-            <li><a class="pointer" ng-click="deleteAllStartupConfig()"><i class="glyphicon glyphicon-floppy-remove"></i> Delete all startup-cfg</a></li>
-          </ul>
-        </li>
-		<li>
-          <a class="pointer" data-ng-click="topologyRefresh()">
-            <i class="glyphicon glyphicon-refresh"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Refresh topology</span>
-          </a>
-        </li>
-		<li>
-          <a id="freeSelect" class="pointer noneActive" data-ng-click="freeSelect()">
-            <i class="glyphicon glyphicon-check"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Free Select</span>
-          </a>
-        </li>
-		<li>
-          <a class="pointer" ng-click="openModal('sysStat', 'megalg')">
-            <i class="glyphicon glyphicon-info-sign"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Status</span>
-          </a>
-        </li>
-    <li>
-          <a class="pointer" ng-click="openModal('labDetails', 'megalg')">
-            <i class="glyphicon glyphicon-list-alt"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Lab details</span>
-          </a>
-        </li>
-		<li>
-          <a class="pointer" data-ng-click="closeLab()">
-            <i class="glyphicon glyphicon-off"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Close lab</span>
-          </a>
-        </li>
-    <li>
-          <a class="pointer" ng-click="logout()">
-            <i class="fa fa-sign-out"></i>
-            <span class="{{(!changedCursorNode && !changedCursorNet) ? 'openright' : ''}}">Logout</span>
-          </a>
-        </li>
-      </ul>
-    </section>
-    <!-- /.sidebar -->
+<section class="flex h-full flex-col bg-slate-950/80 text-slate-100" data-ng-controller="HeaderController">
+  <div class="border-b border-white/10 px-5 py-6">
+    <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Lab controls</p>
+    <p class="text-sm text-slate-300">Add nodes, manage networks, and tune startup configs from here.</p>
+  </div>
+
+  <div class="flex-1 space-y-8 overflow-y-auto px-5 py-6">
+    <div class="space-y-3">
+      <p class="text-xs uppercase tracking-[0.4em] text-slate-400">Add an object</p>
+      <div class="grid gap-2">
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="addNewCursor('node')">
+          Node
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="addNewCursor('network')">
+          Network
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="addNewCursor('image')">
+          Picture
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="addNewCursor('shape')">
+          Custom shape
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="addNewCursor('text')">
+          Text label
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <p class="text-xs uppercase tracking-[0.4em] text-slate-400">Inventory panels</p>
+      <div class="space-y-2">
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/15"
+                ng-click="openModal('nodeList', 'megalg')">
+          Nodes
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/15"
+                ng-click="openModal('netList', 'megalg')">
+          Networks
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/15"
+                ng-click="openModal('startUpConfig', 'megalg')">
+          Startup-configs
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/15"
+                ng-click="openModal('configObject', 'megalg')">
+          Configured objects
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <p class="text-xs uppercase tracking-[0.4em] text-slate-400">More actions</p>
+      <div class="space-y-2">
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-emerald-100 transition hover:bg-emerald-500/30"
+                ng-click="startAllNode()">
+          Start all nodes
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-amber-100 transition hover:bg-amber-500/30"
+                ng-click="stopAllNode()">
+          Stop all nodes
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-rose-100 transition hover:bg-rose-500/30"
+                ng-click="wipeAllNode()">
+          Wipe all nodes
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="exportAllCFG()">
+          Export all CFGs
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+                ng-click="openModal('editLab', 'megalg')">
+          Edit lab
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-sky-400/40 bg-sky-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-sky-100 transition hover:bg-sky-500/30"
+                ng-click="setAllStartupExport()">
+          Set startup-cfg exported
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-slate-400/40 bg-slate-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-slate-100 transition hover:bg-slate-500/30"
+                ng-click="setAllStartupNone()">
+          Set startup-cfg none
+        </button>
+        <button type="button"
+                class="pointer w-full rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] text-rose-100 transition hover:bg-rose-500/30"
+                ng-click="deleteAllStartupConfig()">
+          Delete all startup-cfg
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <p class="text-xs uppercase tracking-[0.4em] text-slate-400">Utilities</p>
+      <button type="button"
+              class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              data-ng-click="topologyRefresh()">
+        Refresh topology
+      </button>
+      <button type="button"
+              id="freeSelect"
+              class="pointer noneActive w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              data-ng-click="freeSelect()">
+        Free select
+      </button>
+      <button type="button"
+              class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              ng-click="openModal('sysStat', 'megalg')">
+        Status
+      </button>
+      <button type="button"
+              class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              ng-click="openModal('labDetails', 'megalg')">
+        Lab details
+      </button>
+      <button type="button"
+              class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              data-ng-click="closeLab()">
+        Close lab
+      </button>
+      <button type="button"
+              class="pointer w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-left text-sm font-semibold uppercase tracking-[0.2em] transition hover:bg-white/10"
+              ng-click="logout()">
+        Logout
+      </button>
+    </div>
+  </div>
+</section>

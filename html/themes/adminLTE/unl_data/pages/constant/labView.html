@@ -1,164 +1,177 @@
-<div>
-	<div style="padding:15px">
-		<div class="col-xs-12">
-			<h3 style="margin-top:0px">{{labInfo.name}}</h3>
-			<div style="height:400px; overflow: auto; position:relative;" id="divPreview">
-				<h4 class="text-center" style="padding-top: 180px;" data-ng-show="zeroNodes">No one node inside lab</h4>
-				<div data-ng-show="!zeroNodes">
-					<div class="scale-menu-helper">
-						<div class="{{(scaleMenu) ? 'scale-menu' : 'scale-menu-collapsed'}}">
-							<div class="scale-menu-inside">
-								<p class="text-center" style="margin-bottom:0px">Scale</p>
-								<div class="btn-group-vertical" data-ng-show="scaleMenu">
-									<button type="button"
-										class="btn btn-flat {{ (scale == 2) ? 'btn-warning active' : 'btn-default'}}"
-										data-ng-click="schemecontrol(2)">1:2</button>
-									<button type="button"
-										class="btn btn-flat {{ (scale == 3) ? 'btn-warning active' : 'btn-default'}}"
-										data-ng-click="schemecontrol(3)">1:3</button>
-									<button type="button"
-										class="btn btn-flat {{ (scale == 4) ? 'btn-warning active' : 'btn-default'}}"
-										data-ng-click="schemecontrol(4)">1:4</button>
-									<button type="button"
-										class="btn btn-flat {{ (scale == 5) ? 'btn-warning active' : 'btn-default'}}"
-										data-ng-click="schemecontrol(5)">1:5</button>
-								</div>
-								<h4 class="text-center" style="margin-top:5px;" data-ng-show="scaleMenu"
-									data-ng-click="scaleMenu=!scaleMenu"><a class="pointer"><i class="fa fa-caret-up"
-											aria-hidden="true"></i> </a></h4>
-								<h4 class="text-center" style="margin-top:0px;" data-ng-show="!scaleMenu"
-									data-ng-click="scaleMenu=!scaleMenu"><a class="pointer"><i class="fa fa-caret-down"
-											aria-hidden="true"></i> </a></h4>
-							</div>
-						</div>
-					</div>
-					<div data-ng-repeat="(x,y) in nodelist" class="pv_element"
-						ng-attr-style="top:{{y.top/scale*2}}px; left:{{y.left/scale*2}}px; position:absolute;"
-						data-toggle="tooltip" title="{{y.name}}">
-						<img data-ng-src="/images/icons/{{y.icon}}"
-							class="{{y.icon.replace('.png','').replace(' ','')+'_s'+scale}}">
-					</div>
-					<div data-ng-repeat="x in networksList" class="pv_element"
-						style="top:{{networksObject[x].top/scale*2}}px; left:{{networksObject[x].left/scale*2}}px; position:absolute;"
-						data-toggle="tooltip" title="{{networksObject[x].name}}">
-						<img data-ng-src="/images/icons/{{ (networksObject[x].type == 'bridge') ? 'Switch' : 'Cloud'; }}.png"
-							class="{{ (networksObject[x].type == 'bridge') ? 'Switch_s'+scale : 'Cloud_s'+scale; }}">
-					</div>
-					<div data-ng-repeat="x in lineList" class="line"
-						style="position:absolute; transform: {{linkLinesAttr(x.x1,x.y1,x.x2,x.y2,scale*2)[1]}};width: {{linkLinesAttr(x.x1,x.y1,x.x2,x.y2,scale*2)[0]}}px; top: {{x.y1}}px; left: {{((x.x1)-(45/scale))}}px;">
-					</div>
-				</div>
-			</div>
-		</div>
-		<p></p>
-		<hr style="color: #000 !important;">
-		<div class="col-xs-7 col-sm-5 col-lg-5" style="padding-top:10px">
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Lab Path: </label>
-						{{fullPathToFile}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Version: </label>
-						{{labInfo.version}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>UUID: </label>
-						{{labInfo.id}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Author:</label>
-						{{labInfo.author}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Shared:</label>
-						{{labInfo.shared ? 'Yes' : 'No'}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12" ng-if="labInfo.shared">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Shared With:</label>
-						{{labInfo.sharedWith}}
-					</div>
-				</div>
-			</div>
-			<div class="col-xs-12" ng-if="labInfo.shared">
-				<div class="row">
-					<div class="col-xs-12">
-						<label>Collaborate Allowed:</label>
-						{{labInfo.collaborateAllowed ? 'Yes' : 'No'}}
-					</div>
-				</div>
-			</div>
-			<!--</p>
-		<p class="text-muted"> Full path: {{fullPathToFile}} </p>-->
-			<div class="col-xs-12">
-				<div class="btn-group" style="margin-bottom:15px; margin-top: 25px;">
-					<button ng-if="!labInfo.isMirror && labInfo.author !== username && role !== 'admin'" type="button"
-						class="btn btn-primary btn-flat" ng-click="openLab('private')">Private</button>
-					
-						<button type="button" class="btn btn-primary btn-flat"
-						ng-if="labInfo.collaborateAllowed || role === 'admin' || labInfo.author === username"
-						ng-click="openLab('collaborate')">Collaborate</button>
-				</div>
-				<!--<hr style="margin:10px">-->
-				<div class="btn-group" style="margin-bottom:15px; margin-top: 25px;">
-					<button ng-if="!UIlegacy" type="button" class="btn btn-primary btn-flat"
-						data-ng-click="legacylabopen(fullPathToFile)">Open Legacy</button>
-					<button ng-if="!UIlegacy" type="button" class="btn btn-primary btn-flat"
-						data-ng-click="labopen(fullPathToFile)">Open</button>
-					<button ng-if="!UIlegacy" type="button" class="btn btn-primary btn-flat disabled"
-						data-ng-click="legacylabopen(fullPathToFile)">Open</button>
-					<button type="button" class="btn btn-primary btn-flat disabled"
-						ng-if="labInfo.author === username || role === 'admin'"
-						data-ng-click="openModal('editfile',null,'megalg')">Edit</button>
-					<button type="button" class="btn btn-danger btn-flat disabled"
-						ng-if="labInfo.author === username || role === 'admin'"
-						data-ng-click="deleteElement(fullPathToFile, 'File', 'true')">Delete</button>
+<div class="space-y-6 text-slate-100">
+  <div class="space-y-4">
+    <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h3 class="text-2xl font-semibold text-white">{{labInfo.name}}</h3>
+        <p class="text-sm text-slate-400 break-all">Path: {{fullPathToFile}}</p>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em]">
+        <span class="px-4 py-1 rounded-full bg-white/10 text-slate-200">Version {{labInfo.version}}</span>
+        <span class="px-4 py-1 rounded-full bg-white/10 text-slate-200">UUID {{labInfo.id}}</span>
+      </div>
+    </div>
 
-					<button type="button" class="btn btn-danger btn-flat"
-						ng-if="privateCopyMap[labInfo.name + '.unl'] && (( !labInfo.isMirror && labInfo.author !== username && role !== 'admin') || (labInfo.isMirror && role !== 'admin'))"
-						data-ng-click="deletePrivateLab(fullPathToFile)">
-						Delete Private Copy
-					</button>
-				</div>
-			</div>
-		</div>
-		<div class="col-xs-11 col-sm-7 col-lg-7">
-			<div class="col-xs-12">
-				<div class="row">
-					<div class="col-xs-12"
-						style="height: 30vh ; overflow: auto; border: 5px solid rgba(255, 255, 255, .5);">
-						<label>Description: </label>
-						<span style="white-space:pre-wrap;"><br> {{labInfo.description}}</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+    <div class="rounded-3xl border border-white/10 bg-slate-950/60 p-5 space-y-5">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Topology preview</p>
+          <p class="text-sm text-slate-300" data-ng-if="!zeroNodes">
+            {{previewNodes.length}} nodes · {{previewNetworks.length}} networks · {{previewLinks.length}} connections
+          </p>
+          <p class="text-sm text-slate-300" data-ng-if="zeroNodes">No nodes inside lab.</p>
+        </div>
+        <div class="relative" data-ng-if="!zeroNodes">
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl bg-white/10 border border-white/20 text-xs font-semibold uppercase tracking-[0.15em] text-slate-100 hover:bg-white/15 transition"
+                  data-ng-click="scaleMenu = !scaleMenu">
+            <i class="fa fa-search-plus mr-2"></i>Scale 1:{{scale}}
+          </button>
+          <div class="absolute right-0 mt-3 z-20 bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl w-40 p-3 space-y-2"
+               data-ng-if="scaleMenu">
+            <p class="text-xs uppercase text-slate-300 tracking-[0.2em] text-center">Zoom</p>
+            <div class="space-y-2">
+              <button type="button"
+                      class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
+                      ng-class="(scale == 2) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      data-ng-click="schemecontrol(2)">1:2</button>
+              <button type="button"
+                      class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
+                      ng-class="(scale == 3) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      data-ng-click="schemecontrol(3)">1:3</button>
+              <button type="button"
+                      class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
+                      ng-class="(scale == 4) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      data-ng-click="schemecontrol(4)">1:4</button>
+              <button type="button"
+                      class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
+                      ng-class="(scale == 5) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      data-ng-click="schemecontrol(5)">1:5</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="space-y-5">
+        <div class="relative rounded-2xl border border-white/5 bg-gradient-to-br from-slate-900/60 to-slate-950/80 h-[20rem] lg:h-[26rem] overflow-hidden">
+          <div class="absolute inset-0 flex items-center justify-center bg-slate-950/40" data-ng-show="zeroNodes">
+            <h4 class="text-center text-slate-400 text-sm">No nodes inside lab</h4>
+          </div>
+          <div data-ng-show="!zeroNodes" class="absolute inset-0">
+            <div id="divPreview" class="absolute inset-0 overflow-auto eve-scroll">
+              <div class="relative" data-ng-style="previewCanvasTransform()">
+              <div data-ng-repeat="(x,y) in nodelist" class="pv_element"
+                   ng-attr-style="top:{{ (y.renderTop !== undefined ? y.renderTop : previewTop(y.top)) }}px; left:{{ (y.renderLeft !== undefined ? y.renderLeft : previewLeft(y.left)) }}px; position:absolute;"
+                   data-toggle="tooltip" title="{{y.name}}">
+                <img data-ng-src="/images/icons/{{y.icon}}"
+                     class="{{y.icon.replace('.png','').replace(' ','')+'_s2'}}">
+              </div>
+              <div data-ng-repeat="id in networksList" class="pv_element"
+                   ng-attr-style="top:{{ (networksObject[id].renderTop !== undefined ? networksObject[id].renderTop : previewTop(networksObject[id].top)) }}px; left:{{ (networksObject[id].renderLeft !== undefined ? networksObject[id].renderLeft : previewLeft(networksObject[id].left)) }}px; position:absolute;"
+                   data-toggle="tooltip" title="{{networksObject[id].name || ('Cloud ' + id)}}">
+                <img data-ng-src="/images/icons/{{ (networksObject[id].type == 'bridge') ? 'Switch' : 'Cloud'; }}.png"
+                     class="{{ (networksObject[id].type == 'bridge') ? 'Switch_s2' : 'Cloud_s2'; }}">
+              </div>
+              <div data-ng-repeat="x in lineList" class="line"
+                   style="position:absolute; transform: {{linkLinesAttr(x.x1,x.y1,x.x2,x.y2)[1]}};width: {{linkLinesAttr(x.x1,x.y1,x.x2,x.y2)[0]}}px; top: {{x.y1}}px; left: {{x.x1}}px;">
+              </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
+            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Nodes</p>
+            <p class="text-2xl font-semibold text-white">{{previewNodes.length}}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
+            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Networks</p>
+            <p class="text-2xl font-semibold text-white">{{previewNetworks.length}}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
+            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Connections</p>
+            <p class="text-2xl font-semibold text-white">{{previewLinks.length}}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <div class="space-y-4">
+      <div class="rounded-2xl border border-white/10 bg-slate-950/50 p-5 space-y-3 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Author</span>
+          <span class="font-semibold text-white">{{labInfo.author}}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Shared</span>
+          <span class="font-semibold text-white">{{labInfo.shared ? 'Yes' : 'No'}}</span>
+        </div>
+        <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
+          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Shared with</span>
+          <span class="font-semibold text-white break-all">{{labInfo.sharedWith}}</span>
+        </div>
+        <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
+          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Collaborate allowed</span>
+          <span class="font-semibold text-white">{{labInfo.collaborateAllowed ? 'Yes' : 'No'}}</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex flex-wrap gap-2">
+          <button ng-if="!labInfo.isMirror && labInfo.author !== username && role !== 'admin'"
+                  type="button"
+                  class="px-4 py-2 rounded-2xl bg-purple-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-purple-500/60 transition"
+                  ng-click="openLab('private')">
+            Private
+          </button>
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl bg-emerald-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-emerald-500/60 transition"
+                  ng-if="labInfo.collaborateAllowed || role === 'admin' || labInfo.author === username"
+                  ng-click="openLab('collaborate')">
+            Collaborate
+          </button>
+          <button ng-if="!UIlegacy"
+                  type="button"
+                  class="px-4 py-2 rounded-2xl bg-cyan-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-cyan-500/60 transition"
+                  data-ng-click="labopen(fullPathToFile)">
+            Open
+          </button>
+          <button ng-if="!UIlegacy"
+                  type="button"
+                  class="px-4 py-2 rounded-2xl border border-white/20 text-sm font-semibold uppercase tracking-[0.2em] text-slate-100 hover:bg-white/10 transition"
+                  data-ng-click="legacylabopen(fullPathToFile)">
+            Legacy
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl bg-white/10 text-sm font-semibold uppercase tracking-[0.2em] text-slate-100 hover:bg-blue-500/30 transition"
+                  ng-if="labInfo.author === username || role === 'admin'"
+                  data-ng-click="openModal('editfile',null,'megalg')">
+            Edit
+          </button>
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl bg-rose-500/30 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-rose-500/50 transition"
+                  ng-if="labInfo.author === username || role === 'admin'"
+                  data-ng-click="deleteElement(fullPathToFile, 'File', 'true')">
+            Delete
+          </button>
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl border border-rose-400/60 text-sm font-semibold uppercase tracking-[0.2em] text-rose-200 hover:bg-rose-500/10 transition"
+                  ng-if="privateCopyMap[labInfo.name + '.unl'] && (( !labInfo.isMirror && labInfo.author !== username && role !== 'admin') || (labInfo.isMirror && role !== 'admin'))"
+                  data-ng-click="deletePrivateLab(fullPathToFile)">
+            Delete Private Copy
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-white/10 bg-slate-950/50 p-5 space-y-3">
+      <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Description</p>
+      <div class="max-h-[20rem] overflow-auto rounded-xl border border-white/5 bg-slate-950/40 p-4">
+        <span class="whitespace-pre-wrap text-sm text-slate-100">{{labInfo.description}}</span>
+      </div>
+    </div>
+  </div>
 </div>
-
-<script>
-	$('#divPreview').on('scroll', function (e) {
-		$(".scale-menu-helper").css({ 'top': $('#divPreview').scrollTop(), 'left': $('#divPreview').scrollLeft() })
-	})
-</script>

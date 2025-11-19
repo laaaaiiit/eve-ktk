@@ -1,66 +1,73 @@
-<div id="labCtrl">
+<div id="labCtrl" class="flex min-h-screen flex-col bg-slate-950 text-slate-100">
 	<script src="/themes/adminLTE/dist/js/app.js"></script>
-	<!-- unl_lab.css-->
+	<link rel="stylesheet" href="/themes/adminLTE/unl_data/css/main.output.css">
 	<link rel="stylesheet" href="/themes/adminLTE/unl_data/css/unl_lab.css">
-	<!-- Content Wrapper. Contains page content 
 
-	<header class="main-header" data-ng-include="'/themes/adminLTE/unl_data/pages/lab/constant/header.html'" data-ng-controller="HeaderController"></header>-->
-	<header class="main-header" style="z-index: 1049;">
-	<a href="#/lab" class="logo">
-      <!-- mini logo for sidebar mini 50x50 pixels -->
-      <span class="logo-mini" style="z-index: 1049;"><img class="hidden-xs" src="/themes/adminLTE/unl_data/img/mainLogo.png" style="width:50px;height:19px"></span>
-      <!-- logo for regular state and mobile devices -->
-      <span class="logo-lg" style="z-index: 1049;"><img class="hidden-xs" src="/themes/adminLTE/unl_data/img/mainLogo.png" style="width:104px;height:40px"></span>
-    </a>
-	 <nav class="navbar" style="width: 42px; position: absolute;">
-      <!-- Sidebar toggle button-->
-      <a href="" class="sidebar-toggle" data-toggle="offcanvas" role="button">
-        <span class="sr-only">Toggle tools</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </a>
-	 </nav>
-	</header>
-	<aside class="main-sidebar" style="z-index: 1048;" data-ng-include="'/themes/adminLTE/unl_data/pages/lab/constant/sidebar.html'"></aside>
+	<div class="flex flex-1 overflow-hidden">
+		<aside class="flex w-80 flex-shrink-0 border-r border-white/10 bg-slate-950/80 text-white"
+		       style="z-index: 1048;"
+		       data-ng-include="'/themes/adminLTE/unl_data/pages/lab/constant/sidebar.html'"></aside>
 
-	
-   
-		<!-- Content Header (Page header) 
-		<section class="content-header">
-			<h1>
-				UNL Lab
-				<small>here you can manage you lab</small>
-			</h1>
-		</section> -->
-		<!-- Main content 
-		<section class="content">-->
-		
-			<!-- /.content -->
-			<div 	class="grid mainDiv-menu {{ (changedCursor == 'node') ? ' router-cursor ':'' }} {{ (changedCursor == 'network') ? ' network-cursor ':'' }} 
-			{{(changedCursor == 'text') ? ' router-cursor ' : ''}} {{(changedCursor == 'image') ? ' router-cursor ' : ''}} {{(changedCursor == 'shape') ? ' router-cursor ' : ''}}" 	
-					style="	margin-left:50px; width:calc(100% - 50px); height:100%; position:absolute; overflow-x: scroll; overflow-y: scroll; background-color:#fff;" id="mainDIV" 
-					ng-click="mainFieldClick($event)"
-					ng-mousemove="mouseOverMainDiv($event)">
-					
-				<div id="canvas" class="statemachine-demo" style="position:relative; display:node">
-					
+		<div class="flex flex-1 flex-col">
+			<header class="flex flex-col gap-4 border-b border-white/10 bg-slate-900/80 px-6 py-4 text-white shadow-lg shadow-black/20 backdrop-blur md:flex-row md:items-center md:justify-between"
+			        style="z-index: 1049;">
+				<div class="flex items-center gap-4">
+					<a href="#/lab" class="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-2 text-white">
+						<img src="/themes/adminLTE/unl_data/img/mainLogo.png" alt="EVE-NG" class="h-8 w-auto">
+						<div>
+							<p class="text-xs uppercase tracking-[0.3em] text-slate-300">Lab workspace</p>
+							<p class="text-base font-semibold text-white break-all">{{fullPathToFile || 'Loading...'}}</p>
+						</div>
+					</a>
+					<p class="text-xs uppercase tracking-[0.3em] text-slate-400 hidden lg:block">Use the panel on the left to add nodes, networks, or modify your topology.</p>
+				</div>
+				<div class="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.3em]">
+					<button type="button"
+					        class="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-slate-100 transition hover:bg-white/20"
+					        data-ng-click="topologyRefresh()">
+						Refresh
+					</button>
+					<button type="button"
+					        class="rounded-2xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 text-emerald-50 transition hover:bg-emerald-500/40"
+					        data-ng-click="startAllNode()">
+						Start all
+					</button>
+					<button type="button"
+					        class="rounded-2xl border border-rose-400/50 bg-rose-500/20 px-4 py-2 text-rose-100 transition hover:bg-rose-500/40"
+					        data-ng-click="stopAllNode()">
+						Stop all
+					</button>
+					<button type="button"
+					        class="rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-white transition hover:bg-white/15"
+					        data-ng-click="closeLab()">
+						Close lab
+					</button>
+				</div>
+			</header>
+
+			<div class="flex-1 bg-slate-950/70">
+				<div id="mainDIV"
+				     class="mainDiv-menu relative h-full w-full overflow-auto border-t border-white/5 bg-slate-950/60"
+				     ng-class="{
+				     	'router-cursor': changedCursor === 'node' || changedCursor === 'text' || changedCursor === 'image' || changedCursor === 'shape',
+				     	'network-cursor': changedCursor === 'network'
+				     }"
+				     ng-click="mainFieldClick($event)"
+				     ng-mousemove="mouseOverMainDiv($event)">
+					<div id="canvas" class="statemachine-demo relative min-h-full min-w-full" style="position:relative;">
+					</div>
 				</div>
 			</div>
-			
-			<span ng-init="init()"></span>
-		<!--</section> -->
-		<div class="notifications" id="messages">
-			<p> <i class="fa fa-bell-o"></i><span>Notifications</span></p>
-			<div class="inner">
-				
-			</div>
 		</div>
+	</div>
 
-	</div><!-- /.content-wrapper --> 
-	<!-- Main Footer 
-	<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/footer.html'"></div> -->
-</div><!-- ./wrapper -->
+	<span ng-init="init()"></span>
+	<div class="notifications" id="messages">
+		<p> <i class="fa fa-bell-o"></i><span>Notifications</span></p>
+		<div class="inner">
+		</div>
+	</div>
+</div>
 
 <nav id="context-menu_conn" class="context-menu_conn">
   <ul class="context-menu__items_conn">

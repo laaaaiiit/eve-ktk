@@ -1,59 +1,99 @@
-<div class="modal-header">
-            <h3 class="modal-title">Move files to ... </h3>
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-3xl rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-slate-100 shadow-2xl">
+    <div class="flex items-start justify-between gap-4 border-b border-white/10 px-8 py-6">
+      <div>
+        <p class="text-xs uppercase tracking-[0.4em] text-blue-200/80">Workspace</p>
+        <h3 class="text-2xl font-semibold text-white">Move files</h3>
+        <p class="text-sm text-slate-300">Select a destination folder for the chosen labs and directories.</p>
+      </div>
+      <button type="button"
+              class="text-slate-400 hover:text-white transition text-2xl leading-none"
+              ng-click="closeModal()">&times;</button>
+    </div>
+
+    <div class="px-8 py-6 space-y-6">
+      <div class="space-y-4">
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Selected items</p>
+        <div class="rounded-2xl border border-white/10 bg-slate-900/50 overflow-hidden">
+          <table class="w-full text-sm text-slate-200">
+            <tbody class="divide-y divide-white/5">
+              <tr data-ng-repeat="folder in folderdata" class="hover:bg-white/5 transition">
+                <td class="px-4 py-2 flex items-center gap-3">
+                  <i class="fa fa-folder text-amber-300"></i>
+                  <span>{{folder}}</span>
+                </td>
+              </tr>
+              <tr data-ng-repeat="file in filedata" class="hover:bg-white/5 transition">
+                <td class="px-4 py-2 flex items-center gap-3">
+                  <i class="fa fa-file text-slate-200"></i>
+                  <span>{{file}}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-slate-400">Current location: <span class="text-white">{{path}}</span></p>
+      </div>
+
+      <div class="space-y-3" ng-class="{'text-rose-400': errorMessage != ''}">
+        <label class="text-xs uppercase tracking-[0.35em] text-slate-400">New path</label>
+        <div class="relative">
+          <input type="text"
+                 id="newPathInput"
+                 class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="newpath"
+                 data-ng-keyup="fastSearch(newpath)"
+                 data-ng-focus="inputSlash()"
+                 autocomplete="off"
+                 placeholder="e.g. /labs/projects/">
+          <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+            <i class="fa fa-search" data-ng-if="apiSearch"></i>
+            <i class="fa fa-check text-emerald-400" data-ng-if="!apiSearch"></i>
+          </span>
+        </div>
+        <p class="text-xs text-rose-400" ng-show="errorMessage" data-ng-bind="errorMessage"></p>
+        <p class="text-xs text-slate-500">Type a path and pick from suggestions below.</p>
+
+        <div class="max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/40 eve-scroll" data-ng-show="folderSearchList.length">
+          <ul class="divide-y divide-white/5 text-sm">
+            <li data-ng-repeat="folderFound in folderSearchList | filter : localSearch">
+              <button type="button"
+                      class="w-full text-left px-4 py-2 hover:bg-white/10 transition"
+                      data-ng-show="folderFound.name != '..'"
+                      data-ng-click="fastSearchFast(folderFound.name)">
+                {{folderFound.name}}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 border-t border-white/10 px-8 py-4">
+      <button class="rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 hover:bg-white/10 transition"
+              type="button"
+              ng-click="closeModal()">
+        Cancel
+      </button>
+      <button class="rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-lg hover:shadow-2xl transition {{blockButtonsClass}}"
+              type="button"
+              ng-disabled="blockButtons"
+              ng-click="move()">
+        Move
+      </button>
+    </div>
+  </div>
 </div>
-<div class="modal-body">
-            <form role="form">
-				<div class="form-group">
-					<h3>Files selected to move:</h3>
-					<table class="table table-hover table-striped tablefont" id="filesTree">
-						<tbody>
-							<tr data-ng-repeat="folder in folderdata">
-								<td><i class="fa fa-folder" style="color:#dfba49"></i> {{folder}}</td>
-							</tr>
-							<tr data-ng-repeat="file in filedata">
-								<td><i class="fa fa-file"></i> {{file}}</td>
-							</tr>
-						</tbody>
-					</table>
-					<p class="text-muted"><small>Current files position {{path}}</small></p>
-                </div>
-				
-				<div class="form-group {{(errorMessage != '') ? 'has-error' : ''}}">
-					<label>New path</label>
-					<div class="dropdown {{openDropdown}}">
-						<div class="input-group">
-							<input type="text" class="form-control dropdown-toggle" data-ng-keyup="fastSearch(newpath)" data-toggle="dropup" data-ng-model="newpath" id="newPathInput" placeholder="Enter new path" autocomplete="off" data-ng-focus="inputSlash()" />
-							<span class="input-group-addon pointer">
-							<i class="fa fa-check" data-ng-show="!apiSearch" data-ng-click="openDropdown=''"></i>
-							<img src="/themes/adminLTE/dist/img/waiting.gif" data-ng-show="apiSearch" style="width:14px;height:14px;">
-							</span>
-						</div>
-						<ul class="dropdown-menu">
-							<li data-ng-repeat="folderFound in folderSearchList | filter : localSearch">
-							<a class="pointer" data-ng-show="folderFound.name != '..'" data-ng-click="fastSearchFast(folderFound.name)">{{folderFound.name}}</a>
-							</li>
-						</ul>
-					</div>
-					<script>
-						setTimeout(function(){
-							$('#newPathInput').focus();
-							var inputSlash = $('#newPathInput');
-							inputSlash.val("/").focus();
-							//angular.element($("body")).scope().fastSearch("/");
-							var scope = angular.element($('#newPathInput')).scope();
-							scope.$apply(function(){
-								scope.newpath = "/"
-								scope.fastSearch("//");
-								console.log("ab")
-							})
-						}, 500)
-					</script>
-					<p class="help-block" data-ng-show="errorMessage != ''">{{errorMessage}}</p>
-					<p class="help-block">For example, /myFolder/testFolder/</p>
-                </div>
-            </form>
-</div>
-<div class="modal-footer">
-            <button class="btn btn-success btn-flat {{blockButtonsClass}}" ng-disabled="blockButtons" type="button" ng-click="move()">Move</button>
-            <button class="btn btn-default btn-flat" type="button" ng-click="closeModal()">Cancel</button>
-</div>
+
+<script>
+  setTimeout(function () {
+    var inputSlash = $('#newPathInput');
+    inputSlash.val("/").focus();
+    var scope = angular.element($('#newPathInput')).scope();
+    scope.$apply(function () {
+      scope.newpath = "/";
+      scope.fastSearch("//");
+    });
+  }, 300);
+</script>

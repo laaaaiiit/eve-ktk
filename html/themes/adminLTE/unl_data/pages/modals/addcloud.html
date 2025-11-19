@@ -1,42 +1,68 @@
-<div class="modal-header">
-    <h3 class="modal-title">Add New Cloud</h3>
-</div>
-<div class="modal-body">
-    <form role="form" name="cloudForm">
-        <div class="form-group required">
-            <label class="control-label">Cloud Name</label>
-            <input type="text" name="cloudname" class="form-control" ng-model="cloud.cloudname"
-                placeholder="Enter cloud name" required ng-pattern="/^[A-Za-z0-9_-]+$/"
-                ng-class="{'input--error': cloudForm.cloudname.$invalid && cloudForm.cloudname.$touched}">
-            <span class="help-block" ng-show="cloudForm.cloudname.$invalid && cloudForm.cloudname.$touched">
-                Use only A-Z, a-z, 0-9, _ and -
-            </span>
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-xl rounded-3xl border border-white/10 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-slate-100 shadow-2xl">
+    <div class="flex flex-col gap-2 px-8 pt-8 pb-4 border-b border-white/10">
+      <div>
+        <h3 class="text-2xl font-semibold" data-ng-bind="t.modalAddTitle"></h3>
+        <p class="text-slate-300 text-sm" data-ng-bind="t.modalAddSubtitle"></p>
+      </div>
+    </div>
+
+    <div class="px-8 py-6">
+      <form name="cloudForm" class="space-y-5" novalidate>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalCloudNameLabel"></label>
+          <input type="text"
+                 name="cloudname"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="cloud.cloudname"
+                 ng-pattern="/^[A-Za-z0-9_-]+$/"
+                 required
+                 placeholder="{{t.modalCloudNameLabel}}">
+          <p class="text-xs text-slate-400 mt-1" data-ng-bind="t.modalCloudNameHint"></p>
+          <p class="text-xs text-rose-400 mt-1" ng-show="cloudForm.cloudname.$invalid && cloudForm.cloudname.$touched"
+             data-ng-bind="t.modalValidationCloudName"></p>
         </div>
 
-        <div class="form-group required">
-            <label class="control-label">Username</label>
-            <input type="text" name="username" class="form-control" ng-model="cloud.username"
-                placeholder="Enter associated username" required>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalUserLabel"></label>
+          <input type="text"
+                 name="username"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="cloud.username"
+                 required
+                 placeholder="{{t.modalUserLabel}}">
+          <p class="text-xs text-slate-400 mt-1" data-ng-bind="t.modalUserHint"></p>
         </div>
 
-        <div class="form-group required">
-            <label class="control-label">Pnet</label>
-            <input type="text" name="pnet" class="form-control" ng-model="cloud.pnet" placeholder="Enter pnet" required
-                ng-pattern="/^pnet((0[1-9])|([1-9][0-9]{0,3}))$/"
-                ng-class="{'input--error': cloudForm.pnet.$invalid && cloudForm.pnet.$touched}">
-            <span class="help-block" ng-show="cloudForm.pnet.$invalid && cloudForm.pnet.$touched">
-                Must start with <code>pnet</code> followed by a number from <code>01</code> to <code>9999</code> (but
-                not <code>0</code>).
-            </span>
+        <div>
+          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPnetLabel"></label>
+          <input type="text"
+                 name="pnet"
+                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 data-ng-model="cloud.pnet"
+                 required
+                 ng-pattern="/^pnet((0[1-9])|([1-9][0-9]{0,3}))$/"
+                 placeholder="pnet1">
+          <p class="text-xs text-slate-400 mt-1" data-ng-bind="t.modalPnetHint"></p>
+          <p class="text-xs text-rose-400 mt-1" ng-show="cloudForm.pnet.$invalid && cloudForm.pnet.$touched"
+             data-ng-bind="t.modalValidationPnet"></p>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-success btn-flat" type="button" ng-disabled="cloudForm.$invalid"
-                ng-click="addCloud(cloud)">
-                Add Cloud
-            </button>
-            <button class="btn btn-default btn-flat" type="button" ng-click="closeModal()">
-                Cancel
-            </button>
-        </div>
-    </form>
+      </form>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 px-8 pb-8 pt-2">
+      <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+              type="button"
+              ng-click="closeModal()"
+              data-ng-bind="t.modalCancel">
+      </button>
+      <button class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white uppercase tracking-[0.25em] shadow-lg hover:shadow-2xl transition cursor-pointer"
+              type="button"
+              ng-disabled="cloudForm.$invalid"
+              ng-click="addCloud(cloud)"
+              data-ng-bind="t.modalCreate">
+      </button>
+    </div>
+  </div>
 </div>

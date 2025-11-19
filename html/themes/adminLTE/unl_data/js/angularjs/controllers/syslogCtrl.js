@@ -61,6 +61,14 @@ angular.module("unlMainApp").controller('syslogController',function syslogContro
 		}
 	});
 	$scope.testAUTH("/syslog"); //TEST AUTH
+	$scope.role = null;
+	$scope.roleResolved = false;
+	$scope.$watch(function () { return $rootScope.role; }, function (role) {
+		if (role) {
+			$scope.role = role;
+			$scope.roleResolved = true;
+		}
+	});
 	$('body').removeClass().addClass('hold-transition skin-blue layout-top-nav');
 	$scope.fileselect=false;
 	$scope.lineCount=20;
@@ -79,21 +87,19 @@ angular.module("unlMainApp").controller('syslogController',function syslogContro
 		//console.log(filename)
 		filename = (filename === undefined) ? $scope.fileSelection : filename
 		$scope.blockButtons=true;
-		$scope.blockButtonsClass='m-progress';
+		$scope.blockButtonsClass='';
 		$scope.logInfo=[];
 		$http.get('/api/logs/'+filename+'/'+$scope.lineCount+'/'+$scope.searchText).then(
 			function successCallback(response) {
 				//console.log(response.data)
 				$scope.fileselect=true;	
 				$scope.logInfo=response.data;
-				$.unblockUI();
 				$scope.blockButtons=false;
 				$scope.blockButtonsClass='';
 			}, 
 			function errorCallback(response) {
 				console.log(response)
 				console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");
-				$.unblockUI();
 				$scope.blockButtons=false;
 				$scope.blockButtonsClass='';
 				}	

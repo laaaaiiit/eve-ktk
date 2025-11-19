@@ -99,3 +99,7 @@ Nov 18 17:23:00 INFO: starting /opt/unetlab/wrappers/iol_wrapper -T 101 -D 2 -t 
 Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/1 > /dev/null 2>&1
 Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/2 > /dev/null 2>&1
 Nov 18 17:23:23 INFO: stopping fuser -k -TERM /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3 > /dev/null 2>&1
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/jail: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/qemu-*: no mount point specified.
+umount: /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/3/opt/unetlab/addons/qemu: no mount point specified.
+rm -rf /opt/unetlab/tmp/101/b8a5917f-68fc-4070-97a4-d32905322ab4/

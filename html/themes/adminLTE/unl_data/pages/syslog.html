@@ -1,20 +1,20 @@
 <div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
 <main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-900 text-slate-100">
-  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10" ng-if="role === 'admin'">
+  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10" ng-if="!roleResolved || role === 'admin'">
     <div class="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
       <div class="space-y-3">
-        <p class="text-xs uppercase tracking-[0.45em] text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
         <h1 class="text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
         <p class="text-slate-300 text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
       </div>
       <div class="flex flex-col gap-3">
         <div class="flex flex-wrap gap-3">
-          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase tracking-[0.35em] flex items-center gap-3">
+          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase flex items-center gap-3">
             <span data-ng-bind="t.chipSelectedLabel"></span>
             <strong class="text-base tracking-normal" data-ng-bind="fileSelection || t.chipSelectedEmpty"></strong>
           </div>
-          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase tracking-[0.35em] flex items-center gap-3">
+          <div class="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur text-sm uppercase flex items-center gap-3">
             <span data-ng-bind="t.chipLinesLabel"></span>
             <strong class="text-base tracking-normal" data-ng-bind="lineCount || 200"></strong>
           </div>
@@ -25,7 +25,7 @@
     <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-8 space-y-6">
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <div class="flex flex-col gap-3">
-          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterFileLabel"></label>
+          <label class="text-xs uppercase text-slate-400" data-ng-bind="t.filterFileLabel"></label>
           <div class="relative">
             <select class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                     data-ng-init="fileSelection = logfiles[0]"
@@ -36,7 +36,7 @@
           </div>
         </div>
         <div class="flex flex-col gap-3">
-          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterLinesLabel"></label>
+          <label class="text-xs uppercase text-slate-400" data-ng-bind="t.filterLinesLabel"></label>
           <input type="text"
                  class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
                  id="log_lines"
@@ -44,7 +44,7 @@
                  data-ng-model="lineCount">
         </div>
         <div class="flex flex-col gap-3">
-          <label class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.filterSearchLabel"></label>
+          <label class="text-xs uppercase text-slate-400" data-ng-bind="t.filterSearchLabel"></label>
           <input type="text"
                  class="w-full bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
                  id="log_search"
@@ -52,9 +52,9 @@
                  data-ng-model="searchText">
         </div>
         <div class="flex flex-col gap-3">
-          <label class="text-xs uppercase tracking-[0.4em] text-transparent">.</label>
+          <label class="text-xs uppercase text-transparent">.</label>
           <button type="button"
-                  class="w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-2xl py-3.5 tracking-[0.3em] uppercase shadow-xl hover:shadow-2xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-2xl py-3.5 uppercase shadow-xl hover:shadow-2xl transition disabled:opacity-50 disabled:cursor-not-allowed"
                   ng-disabled="blockButtons"
                   data-ng-click="readFile(fileSelection)">
             {{t.filterButton}}
@@ -66,10 +66,10 @@
     <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-8 space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <p class="text-2xl font-semibold tracking-[0.2em]" data-ng-bind="t.outputTitle"></p>
+          <p class="text-2xl font-semibold" data-ng-bind="t.outputTitle"></p>
           <small class="text-slate-300">{{fileselect ? fileSelection : t.choosePrompt}}</small>
         </div>
-        <span class="px-4 py-2 rounded-full bg-white/10 border border-white/10 text-sm uppercase tracking-[0.3em]">{{logInfo.length}} {{t.linesSuffix}}</span>
+        <span class="px-4 py-2 rounded-full bg-white/10 border border-white/10 text-sm uppercase">{{logInfo.length}} {{t.linesSuffix}}</span>
       </div>
       <div class="rounded-2xl border border-white/10 bg-slate-950/60 min-h-[320px] max-h-[540px] overflow-auto p-6 space-y-3 eve-scroll"
            data-ng-class="{'opacity-60': logInfo.length == 0}">
@@ -81,7 +81,7 @@
     </div>
   </section>
 
-  <section class="max-w-4xl mx-auto w-full px-6 py-24 text-center text-red-300 space-y-4" ng-if="role !== 'admin'">
+  <section class="max-w-4xl mx-auto w-full px-6 py-24 text-center text-red-300 space-y-4" ng-if="roleResolved && role !== 'admin'">
     <p class="text-3xl font-semibold tracking-[0.2em] uppercase" data-ng-bind="t.accessDeniedTitle || 'Access restricted'"></p>
     <p class="text-lg" data-ng-bind="t.accessDeniedDescription || 'System logs are available to administrators only.'"></p>
   </section>

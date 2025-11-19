@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus) {
+angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $cookies) {
 	$rootScope.openLaba = false;
 	$scope.testAUTH("/main"); //TEST AUTH
 	// шеринг
@@ -14,7 +14,196 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.fileManagerItem = [];
 	$scope.checkboxArray = [];
 	$scope.fileOrder = 'file';
+	$scope.deleteDialog = {
+		open: false,
+		title: '',
+		message: '',
+		items: [],
+		confirmLabel: 'Delete',
+		action: null
+	};
 	//Default variables ///END
+
+	var translations = {
+		en: {
+			heroEyebrow: 'Workspace',
+			heroTitle: 'File manager',
+			heroDescription: 'Browse folders, import/export labs, and preview a topology before launching it into a POD.',
+			pathLabel: 'Path',
+			newLabButton: 'New lab',
+			refreshButton: 'Refresh',
+			labsCardTitle: 'Labs and folders',
+			labsCardSubtitle: 'Select folders or .unl labs to rename, move, export, or delete.',
+			orderButton: 'Order',
+			orderTooltip: 'Toggle order',
+			refreshTooltip: 'Refresh list',
+			newFolderLabel: 'New folder',
+			newFolderPlaceholder: 'Folder name',
+			createButton: 'Create',
+			toolbarSelect: 'Select',
+			toolbarSelectTitle: 'Select all',
+			toolbarClear: 'Clear',
+			toolbarClearTitle: 'Deselect all',
+			toolbarRename: 'Rename',
+			toolbarRenameTitle: 'Rename selected',
+			toolbarMove: 'Move',
+			toolbarMoveTitle: 'Move selected',
+			toolbarDelete: 'Delete',
+			toolbarDeleteTitle: 'Delete selected',
+			toolbarImport: 'Import',
+			toolbarImportTitle: 'Import labs',
+			toolbarExport: 'Export',
+			toolbarExportTitle: 'Export labs',
+			treeColumnName: 'Name',
+			treeColumnUpdated: 'Updated',
+			renameFolderLabel: 'Rename folder',
+			renameLabLabel: 'Rename lab',
+			actionApply: 'Apply',
+			actionRename: 'Rename',
+			actionDelete: 'Delete',
+			actionMove: 'Move',
+			actionImport: 'Import',
+			actionExport: 'Export',
+			uploaderColumnName: 'Name',
+			uploaderColumnSize: 'Size',
+			uploaderColumnProgress: 'Progress',
+			uploaderColumnStatus: 'Status',
+			uploaderColumnActions: 'Actions',
+			uploadStatusSuccess: 'Success',
+			uploadStatusCancel: 'Cancelled',
+			uploadStatusError: 'Error',
+			uploadActionUpload: 'Upload',
+			uploadActionRemove: 'Remove',
+			uploadRemoveTooltip: 'Remove from upload list',
+			uploadQueueTitle: 'Upload queue',
+			uploadQueueSubtitle: 'Drop .unl files here or use Import.',
+			uploadAllButton: 'Upload all',
+			cancelUploadButton: 'Cancel',
+			clearUploadButton: 'Clear',
+			uploadTotalProgress: 'Total progress',
+			sizeUnit: 'MB',
+			previewPlaceholderTitle: 'Select a lab',
+			previewPlaceholderDescription: 'Choose a .unl file from the list to display its preview.',
+			deleteDialogEyebrow: 'Confirm deletion',
+			deleteDialogWarning: 'This action cannot be undone.',
+			deleteDialogCancel: 'Cancel',
+			deleteDialogDefaultAction: 'Delete',
+			deleteFolderTitle: 'Delete folder',
+			deleteFolderMessage: 'Deleting this folder removes all nested labs. This action cannot be undone.',
+			deleteFolderItemPrefix: 'Folder: ',
+			deleteLabTitle: 'Delete lab',
+			deleteLabMessage: 'Deleting this lab permanently removes its definition.',
+			deleteLabItemPrefix: 'Lab: ',
+			deleteMultiTitle: 'Delete selected items',
+			deleteMultiMessage: 'These folders and labs will be permanently removed.',
+			deleteSummaryMore: '+{{count}} more…',
+			deleteSelectionWarning: 'Please select items to delete.',
+			warningTitle: 'Warning'
+		},
+		ru: {
+			heroEyebrow: 'Рабочая зона',
+			heroTitle: 'Файловый менеджер',
+			heroDescription: 'Просматривайте каталоги, импортируйте/экспортируйте лаборатории и смотрите превью перед запуском в POD.',
+			pathLabel: 'Путь',
+			newLabButton: 'Новая лаборатория',
+			refreshButton: 'Обновить',
+			labsCardTitle: 'Лабы и папки',
+			labsCardSubtitle: 'Выберите папки или .unl файлы, чтобы переименовать, переместить, экспортировать или удалить.',
+			orderButton: 'Сортировка',
+			orderTooltip: 'Переключить порядок',
+			refreshTooltip: 'Обновить список',
+			newFolderLabel: 'Новая папка',
+			newFolderPlaceholder: 'Название папки',
+			createButton: 'Создать',
+			toolbarSelect: 'Выбрать',
+			toolbarSelectTitle: 'Выбрать все',
+			toolbarClear: 'Снять выбор',
+			toolbarClearTitle: 'Очистить выбор',
+			toolbarRename: 'Переименовать',
+			toolbarRenameTitle: 'Переименовать выбранные',
+			toolbarMove: 'Переместить',
+			toolbarMoveTitle: 'Переместить выбранные',
+			toolbarDelete: 'Удалить',
+			toolbarDeleteTitle: 'Удалить выбранные',
+			toolbarImport: 'Импорт',
+			toolbarImportTitle: 'Импорт лабораторий',
+			toolbarExport: 'Экспорт',
+			toolbarExportTitle: 'Экспорт лабораторий',
+			treeColumnName: 'Имя',
+			treeColumnUpdated: 'Обновлено',
+			renameFolderLabel: 'Переименовать папку',
+			renameLabLabel: 'Переименовать лабораторию',
+			actionApply: 'Применить',
+			actionRename: 'Переименовать',
+			actionDelete: 'Удалить',
+			actionMove: 'Переместить',
+			actionImport: 'Импорт',
+			actionExport: 'Экспорт',
+			uploaderColumnName: 'Имя',
+			uploaderColumnSize: 'Размер',
+			uploaderColumnProgress: 'Прогресс',
+			uploaderColumnStatus: 'Статус',
+			uploaderColumnActions: 'Действия',
+			uploadStatusSuccess: 'Готово',
+			uploadStatusCancel: 'Отменено',
+			uploadStatusError: 'Ошибка',
+			uploadActionUpload: 'Загрузить',
+			uploadActionRemove: 'Удалить',
+			uploadRemoveTooltip: 'Убрать из очереди загрузки',
+			uploadQueueTitle: 'Очередь загрузки',
+			uploadQueueSubtitle: 'Перетащите файлы .unl сюда или воспользуйтесь импортом.',
+			uploadAllButton: 'Загрузить все',
+			cancelUploadButton: 'Отмена',
+			clearUploadButton: 'Очистить',
+			uploadTotalProgress: 'Совокупный прогресс',
+			sizeUnit: 'МБ',
+			previewPlaceholderTitle: 'Выберите лабораторию',
+			previewPlaceholderDescription: 'Выберите .unl файл из списка, чтобы показать превью.',
+			deleteDialogEyebrow: 'Подтверждение удаления',
+			deleteDialogWarning: 'Действие необратимо.',
+			deleteDialogCancel: 'Отмена',
+			deleteDialogDefaultAction: 'Удалить',
+			deleteFolderTitle: 'Удаление папки',
+			deleteFolderMessage: 'Удаление папки также удалит вложенные лаборатории. Действие необратимо.',
+			deleteFolderItemPrefix: 'Папка: ',
+			deleteLabTitle: 'Удаление лаборатории',
+			deleteLabMessage: 'Лаборатория будет полностью удалена.',
+			deleteLabItemPrefix: 'Лаборатория: ',
+			deleteMultiTitle: 'Удаление выбранных объектов',
+			deleteMultiMessage: 'Эти папки и лаборатории будут удалены без возможности восстановления.',
+			deleteSummaryMore: '+ ещё {{count}}',
+			deleteSelectionWarning: 'Сначала выберите элементы для удаления.',
+			warningTitle: 'Предупреждение'
+		}
+	};
+
+	function resolveLanguage() {
+		var cookieLang = ($cookies && $cookies.get('eve_login_lang')) || null;
+		var lang = cookieLang || $rootScope.lang || 'ru';
+		if (!translations[lang]) {
+			lang = 'ru';
+		}
+		return lang;
+	}
+
+	function refreshTranslations() {
+		$scope.lang = resolveLanguage();
+		$scope.t = translations[$scope.lang] || translations['ru'];
+		$rootScope.lang = $scope.lang;
+		$scope.deleteDialog.confirmLabel = $scope.t.deleteDialogDefaultAction;
+	}
+
+	function currentTranslations() {
+		return $scope.t || translations[resolveLanguage()] || translations['ru'];
+	}
+
+	refreshTranslations();
+
+	$scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
+		if (newVal && newVal !== oldVal) {
+			refreshTranslations();
+		}
+	});
 
 	//console.log('here')
 
@@ -27,6 +216,30 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		else
 			$scope.fileOrder = 'umtime'
 	}
+
+	$scope.openDeleteDialog = function (config) {
+		var t = currentTranslations();
+		config = config || {};
+		$scope.deleteDialog.open = true;
+		$scope.deleteDialog.title = config.title || t.deleteMultiTitle;
+		$scope.deleteDialog.message = config.message || t.deleteMultiMessage;
+		$scope.deleteDialog.items = config.items || [];
+		$scope.deleteDialog.confirmLabel = config.confirmLabel || t.deleteDialogDefaultAction;
+		$scope.deleteDialog.action = config.action || null;
+	};
+
+	$scope.closeDeleteDialog = function () {
+		$scope.deleteDialog.open = false;
+		$scope.deleteDialog.items = [];
+		$scope.deleteDialog.action = null;
+	};
+
+	$scope.confirmDeleteDialog = function () {
+		if (typeof $scope.deleteDialog.action === 'function') {
+			$scope.deleteDialog.action();
+		}
+		$scope.closeDeleteDialog();
+	};
 
 
 	$('body').removeClass().addClass('hold-transition skin-blue layout-top-nav');
@@ -218,50 +431,43 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Delete selected elements //START
 	$scope.deleteElement = function (elementName, thatis, hide) {
 		$scope.hideAllEdit()
-		var tempVal = (hide === undefined) ? false : true;
+		var skipConfirm = (hide !== undefined && hide !== null) ? true : false;
+		var t = currentTranslations();
 		//Delete folder//START
 		if (thatis == 'Folder') {
-			if (tempVal) if (!confirm('Are you sure you want to delete this folder: ' + elementName)) return;
-			console.log('deleting folder ' + elementName)
-			$http({
-				method: 'DELETE',
-				url: '/api/folders' + elementName + '\ '
-			})
-				.then(
-					function successCallback(response) {
-						//console.log(response)
-						$scope.fileMngDraw($scope.path);
-					},
-					function errorCallback(response) {
-						//console.log(response)
-						console.log("Unknown Error. Why did API doesn't respond?");
-						$location.path("/login");
+			if (!skipConfirm) {
+				var folderLabel = elementName || '';
+				$scope.openDeleteDialog({
+					title: t.deleteFolderTitle,
+					message: t.deleteFolderMessage,
+					items: [t.deleteFolderItemPrefix + folderLabel],
+					confirmLabel: t.deleteDialogDefaultAction,
+					action: function () {
+						deleteFolderRequest(elementName);
 					}
-				);
+				});
+				return;
+			}
+			deleteFolderRequest(elementName);
 		}
 		//Delete folder//END
 		////////////////////
 		//Delete file//START
 		if (thatis == 'File') {
-			if (tempVal) if (!confirm('Are you sure you want to delete this lab: ' + elementName)) return;
-			console.log('delete file')
-			console.log(elementName)
-			$http({
-				method: 'DELETE',
-				url: '/api/labs' + elementName
-			})
-				.then(
-					function successCallback(response) {
-						//console.log(response)
-						$scope.fileSelected = (hide === undefined) ? $scope.fileSelected : false;
-						$scope.fileMngDraw($scope.path);
-					},
-					function errorCallback(response) {
-						//console.log(response)
-						console.log("Unknown Error. Why did API doesn't respond?");
-						$location.path("/login");
+			if (!skipConfirm) {
+				var labLabel = elementName || '';
+				$scope.openDeleteDialog({
+					title: t.deleteLabTitle,
+					message: t.deleteLabMessage,
+					items: [t.deleteLabItemPrefix + labLabel],
+					confirmLabel: t.deleteDialogDefaultAction,
+					action: function () {
+						deleteLabRequest(elementName);
 					}
-				);
+				});
+				return;
+			}
+			deleteLabRequest(elementName, hide);
 		}
 		//Delete file//END
 		//$scope.fileMngDraw($scope.path); //recreate tree
@@ -281,8 +487,51 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	};
 	//Delete selected elements //END
 	//////////////////////////////////////////////////
+	function deleteFolderRequest(elementName) {
+		if (!elementName) {
+			return;
+		}
+		console.log('deleting folder ' + elementName);
+		$http({
+			method: 'DELETE',
+			url: '/api/folders' + elementName + '\ '
+		})
+			.then(
+				function successCallback() {
+					$scope.fileMngDraw($scope.path);
+				},
+				function errorCallback() {
+					console.log("Unknown Error. Why did API doesn't respond?");
+					$location.path("/login");
+				}
+			);
+	}
+
+	function deleteLabRequest(elementName, hide) {
+		if (!elementName) {
+			return;
+		}
+		console.log('delete file');
+		console.log(elementName);
+		$http({
+			method: 'DELETE',
+			url: '/api/labs' + elementName
+		})
+			.then(
+				function successCallback() {
+					$scope.fileSelected = (hide === undefined || hide === false) ? $scope.fileSelected : false;
+					$scope.fileMngDraw($scope.path);
+				},
+				function errorCallback() {
+					console.log("Unknown Error. Why did API doesn't respond?");
+					$location.path("/login");
+				}
+			);
+	}
+
 	//Delete ALL selected elements //START
 	$scope.deleteALLElement = function () {
+		var t = currentTranslations();
 		var folderArray = [];
 		var lastFolder = '';
 		var lastFile = '';
@@ -299,36 +548,47 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				}
 			}
 		}
-		if (ObjectLength(folderArray) == 0 && ObjectLength(fileArray) == 0) { toastr["warning"]("Please select items to delete", "Warning"); return; }
-		var folderCount = 1;
-		var fileCount = 1;
-		var tempAllNames = '';
-		if (ObjectLength(folderArray) > 0)
-			for (var foldername in folderArray) {
-				if (folderCount !== ObjectLength(folderArray) || ObjectLength(fileArray) != 0) { commaChar = ','; } else commaChar = '';
-				tempAllNames += ' ' + foldername + commaChar;
-				folderCount++
-			}
-		commaChar = '';
-		if (ObjectLength(fileArray) > 0)
-			for (var filename in fileArray) {
-				if (fileCount !== ObjectLength(fileArray)) commaChar = ','; else commaChar = '';
-				tempAllNames += ' ' + filename + commaChar;
-				fileCount++
-			}
-		console.log(tempAllNames)
-		if (confirm('Are you sure you want to delete this item: ' + tempAllNames + '?')) {
-			for (var foldername in folderArray) {
-				if (folderArray[foldername] != '/') fullpath = folderArray[foldername] + '/' + foldername
-				else fullpath = '/' + foldername
-				$scope.deleteElement(fullpath, 'Folder')
-			}
+		if (ObjectLength(folderArray) == 0 && ObjectLength(fileArray) == 0) { toastr["warning"](t.deleteSelectionWarning, t.warningTitle); return; }
+		var foldersToDelete = [];
+		for (var foldername in folderArray) {
+			var folderBase = folderArray[foldername];
+			var fullpath = (folderBase != '/') ? folderBase + '/' + foldername : '/' + foldername;
+			foldersToDelete.push({ label: t.deleteFolderItemPrefix + foldername, fullpath: fullpath });
+		}
 
-			for (var filename in fileArray) {
-				filename = ($scope.path === '/') ? $scope.path + filename : $scope.path + '/' + filename;
-				$scope.deleteElement(filename, 'File')
+		var filesToDelete = [];
+		for (var filename in fileArray) {
+			var fullFilePath = ($scope.path === '/') ? $scope.path + filename : $scope.path + '/' + filename;
+			filesToDelete.push({ label: t.deleteLabItemPrefix + filename, fullpath: fullFilePath });
+		}
+
+		var summary = [];
+		var combined = foldersToDelete.map(function (item) { return item.label; }).concat(filesToDelete.map(function (item) { return item.label; }));
+		for (var i = 0; i < Math.min(combined.length, 4); i++) {
+			summary.push(combined[i]);
+		}
+		if (combined.length > 4) {
+			summary.push(formatString(t.deleteSummaryMore, { count: combined.length - 4 }));
+		}
+
+		var foldersCopy = angular.copy(foldersToDelete);
+		var filesCopy = angular.copy(filesToDelete);
+
+		$scope.openDeleteDialog({
+			title: t.deleteMultiTitle,
+			message: t.deleteMultiMessage,
+			items: summary,
+			confirmLabel: t.deleteDialogDefaultAction,
+			action: function () {
+				angular.forEach(foldersCopy, function (folder) {
+					deleteFolderRequest(folder.fullpath);
+				});
+				angular.forEach(filesCopy, function (file) {
+					deleteLabRequest(file.fullpath, true);
+				});
+				$scope.allCheckedFlag = false;
 			}
-		} else return;
+		});
 	}
 	//Delete ALL selected elements //END
 	//////////////////////////////////////////
@@ -651,34 +911,264 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	};
 
 
-	/////////////////////////////////////////////	
-	////////////////////////////////////////////
-	///////PREVIEW FUNCTIONS////////////////START
-	/////////////////////////////////////////////	
-	////////////////////////////////////////////
-	$scope.zeroNodes = false;
+/////////////////////////////////////////////	
+////////////////////////////////////////////
+///////PREVIEW FUNCTIONS////////////////START
+/////////////////////////////////////////////	
+////////////////////////////////////////////
+var BASE_PREVIEW_SCALE = 5;
+var PREVIEW_BASE_WIDTH = 1200;
+var PREVIEW_BASE_HEIGHT = 800;
+var PREVIEW_VIEWPORT_FALLBACK_WIDTH = 640;
+var PREVIEW_VIEWPORT_FALLBACK_HEIGHT = 420;
+var PREVIEW_NODE_WIDTH = 60;
+var PREVIEW_NODE_HEIGHT = 60;
+var PREVIEW_NETWORK_WIDTH = 60;
+var PREVIEW_NETWORK_HEIGHT = 50;
+var previewFitTimeout = null;
+$scope.zeroNodes = false;
+$scope.previewCanvasStyle = { width: PREVIEW_BASE_WIDTH + 'px', height: PREVIEW_BASE_HEIGHT + 'px' };
+$scope.previewOffset = { x: 0, y: 0 };
+$scope.scaleMenu = false;
+$scope.nodelist = [];
+$scope.networksList = [];
+$scope.linkLinesArray = [];
+$scope.lineList = [];
+$scope.scale = BASE_PREVIEW_SCALE;
+$scope.previewZoom = 1;
+$scope.previewFitZoom = 1;
+$scope.previewNodes = [];
+$scope.previewNetworks = [];
+$scope.previewLinks = [];
+
+function updatePreviewZoom() {
+	var denom = $scope.scale || BASE_PREVIEW_SCALE;
+	var scaleZoom = BASE_PREVIEW_SCALE / denom;
+	$scope.previewZoom = scaleZoom * ($scope.previewFitZoom || 1);
+}
+
+function schedulePreviewFit() {
+	if (previewFitTimeout) {
+		$timeout.cancel(previewFitTimeout);
+	}
+	previewFitTimeout = $timeout(function () {
+		applyPreviewFit();
+	}, 0);
+}
+
+function measurePreviewViewport() {
+	var viewportElement = document.getElementById('divPreview');
+	if (!viewportElement) {
+		return {
+			width: PREVIEW_VIEWPORT_FALLBACK_WIDTH,
+			height: PREVIEW_VIEWPORT_FALLBACK_HEIGHT
+		};
+	}
+	return {
+		width: viewportElement.clientWidth || PREVIEW_VIEWPORT_FALLBACK_WIDTH,
+		height: viewportElement.clientHeight || PREVIEW_VIEWPORT_FALLBACK_HEIGHT
+	};
+}
+
+function applyPreviewFit() {
+	var canvasWidth = parseFloat($scope.previewCanvasStyle.width) || PREVIEW_BASE_WIDTH;
+	var canvasHeight = parseFloat($scope.previewCanvasStyle.height) || PREVIEW_BASE_HEIGHT;
+	if (!canvasWidth || !canvasHeight) {
+		$scope.previewFitZoom = 1;
+		updatePreviewZoom();
+		return;
+	}
+	var viewport = measurePreviewViewport();
+	var zoomX = viewport.width / canvasWidth;
+	var zoomY = viewport.height / canvasHeight;
+	var fitZoom = Math.min(zoomX, zoomY);
+	if (!isFinite(fitZoom) || fitZoom <= 0) {
+		fitZoom = 1;
+	}
+	$scope.previewFitZoom = fitZoom;
+	updatePreviewZoom();
+}
+
+function clearPreviewCollections() {
+	$scope.previewNodes = [];
+	$scope.previewNetworks = [];
+	$scope.previewLinks = [];
+}
+
+function isNetworkVisible(network) {
+	if (!network) {
+		return true;
+	}
+	var visibility = network.visibility;
+	if (visibility === undefined || visibility === null || visibility === '') {
+		return true;
+	}
+	if (typeof visibility === 'string') {
+		var normalized = visibility.trim().toLowerCase();
+		if (normalized === '' || normalized === 'undefined') {
+			return true;
+		}
+		return !(normalized === '0' || normalized === 'false');
+	}
+	if (typeof visibility === 'number') {
+		return visibility !== 0;
+	}
+	if (typeof visibility === 'boolean') {
+		return visibility;
+	}
+	return true;
+}
+
+function linkTouchesHiddenNetwork(link) {
+	if (!link || !$scope.networksObject) {
+		return false;
+	}
+	if (link.source && link.source.includes("network")) {
+		var sourceNet = link.source.replace("network", '');
+		if (!isNetworkVisible($scope.networksObject[sourceNet])) {
+			return true;
+		}
+	}
+	if (link.destination && link.destination.includes("network")) {
+		var destNet = link.destination.replace("network", '');
+		if (!isNetworkVisible($scope.networksObject[destNet])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function addVisibleNetworkId(netId) {
+	if (!$scope.networksObject) {
+		return;
+	}
+	var network = $scope.networksObject[netId];
+	if (!network || !isNetworkVisible(network)) {
+		return;
+	}
+	if ($scope.networksList.indexOf(netId) === -1) {
+		$scope.networksList.push(netId);
+	}
+}
+
+function toSortedArray(items, mapper) {
+	var collection = [];
+	if (!items) {
+		return collection;
+	}
+	angular.forEach(items, function (value, key) {
+		var mapped = mapper(value, key);
+		if (mapped) {
+			collection.push(mapped);
+		}
+	});
+	collection.sort(function (a, b) {
+		var left = (a.name || '').toLowerCase();
+		var right = (b.name || '').toLowerCase();
+		if (left < right) { return -1; }
+		if (left > right) { return 1; }
+		return 0;
+	});
+	return collection;
+}
+
+function endpointLabel(endpoint) {
+	if (!endpoint) {
+		return '';
+	}
+	if (endpoint.indexOf('node') === 0) {
+		var nodeId = endpoint.replace('node', '');
+		var node = $scope.nodelist[parseInt(nodeId)];
+		return node ? node.name : ('Node ' + nodeId);
+	}
+	if (endpoint.indexOf('network') === 0) {
+		var netId = endpoint.replace('network', '');
+		if ($scope.networksObject && $scope.networksObject[netId]) {
+			return $scope.networksObject[netId].name || ('Network ' + netId);
+		}
+		return 'Network ' + netId;
+	}
+	return endpoint;
+}
+
+function refreshPreviewCollections() {
+	$scope.previewNodes = toSortedArray($scope.nodelist, function (node, id) {
+		if (!node) {
+			return null;
+		}
+		return {
+			id: id,
+			name: node.name || ('Node ' + id),
+			description: node.template || node.image || node.type || ''
+		};
+	});
+	$scope.previewNetworks = toSortedArray($scope.networksObject, function (network, id) {
+		if (!network) {
+			return null;
+		}
+		if (!isNetworkVisible(network)) {
+			return null;
+		}
+		return {
+			id: id,
+			name: network.name || ('Network ' + id),
+			description: network.type || ''
+		};
+	});
+	var links = [];
+	if ($scope.topologyObject && $scope.topologyObject.length) {
+		for (var i = 0; i < $scope.topologyObject.length; i++) {
+			var link = $scope.topologyObject[i];
+			if (!link) {
+				continue;
+			}
+			if (linkTouchesHiddenNetwork(link)) {
+				continue;
+			}
+			var sourceLabel = endpointLabel(link.source);
+			var destinationLabel = endpointLabel(link.destination);
+			if (link.source_label) {
+				sourceLabel += ' (' + link.source_label + ')';
+			}
+			if (link.destination_label) {
+				destinationLabel += ' (' + link.destination_label + ')';
+			}
+			links.push({
+				id: i + 1,
+				name: sourceLabel + ' -> ' + destinationLabel
+			});
+		}
+	}
+	$scope.previewLinks = links;
+}
+
+updatePreviewZoom();
+$scope.previewFun = function (path) {
+	$(".btn-flat").addClass('disabled');
+	$scope.pathToLab = path;
 	$scope.nodelist = [];
-	$scope.networksList = [];
-	$scope.linkLinesArray = [];
-	$scope.lineList = [];
-	$scope.scale = 5;
-	$scope.previewFun = function (path) {
-		$(".btn-flat").addClass('disabled');
-		$scope.pathToLab = path;
-		$scope.nodelist = [];
-		$scope.networksList = []
-		$scope.lineList = []
-		$scope.scale = 5;
-		//console.log(path)
-		$scope.zeroNodes = false;
+	$scope.networksList = []
+	$scope.lineList = []
+	$scope.scale = BASE_PREVIEW_SCALE;
+	clearPreviewCollections();
+	updatePreviewZoom();
+	//console.log(path)
+	$scope.zeroNodes = false;
 		///Get all nodes ///START
 		$http.get('/api/labs' + path + '/nodes').then(
 			function successCallback(response) {
 				//console.log(response.data)
 				//console.log(ObjectLength(response.data.data))
-				if (ObjectLength(response.data.data) === 0) { $scope.zeroNodes = true; return; }
+				if (ObjectLength(response.data.data) === 0) {
+					$scope.zeroNodes = true;
+					$scope.previewCanvasStyle = { width: PREVIEW_BASE_WIDTH + 'px', height: PREVIEW_BASE_HEIGHT + 'px' };
+					$scope.previewOffset = { x: 0, y: 0 };
+					$scope.previewFitZoom = 1;
+					clearPreviewCollections();
+					schedulePreviewFit();
+					return;
+				}
 				$scope.nodelist = response.data.data;
-				$scope.schemecontrol($scope.scale)
 				//console.log($scope.nodelist)
 				//console.log(ObjectLength($scope.nodelist))
 			},
@@ -709,96 +1199,183 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//////////////////////////////
 
 	///Get all connection //START
+function recalcPreviewCanvasSize() {
+	var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	var updateBounds = function (left, top, width, height) {
+		if (left < minX) minX = left;
+		if (top < minY) minY = top;
+		if (left + width > maxX) maxX = left + width;
+		if (top + height > maxY) maxY = top + height;
+	};
+	angular.forEach($scope.nodelist, function (node) {
+		if (!node) { return; }
+		var left = parseFloat(node.left) || 0;
+		var top = parseFloat(node.top) || 0;
+		updateBounds(left, top, PREVIEW_NODE_WIDTH, PREVIEW_NODE_HEIGHT);
+	});
+	if ($scope.networksObject) {
+		angular.forEach($scope.networksObject, function (net) {
+			if (!net) { return; }
+			if (!isNetworkVisible(net)) { return; }
+			var left = parseFloat(net.left) || 0;
+			var top = parseFloat(net.top) || 0;
+			updateBounds(left, top, PREVIEW_NETWORK_WIDTH, PREVIEW_NETWORK_HEIGHT);
+		});
+	}
+	if (!isFinite(minX) || !isFinite(minY)) {
+		$scope.previewOffset = { x: 10, y: 10 };
+		$scope.previewCanvasStyle = {
+			width: PREVIEW_BASE_WIDTH + 'px',
+			height: PREVIEW_BASE_HEIGHT + 'px'
+		};
+		schedulePreviewFit();
+		return;
+	}
+	var padding = 10;
+	var width = (maxX - minX) + padding * 2;
+	var height = (maxY - minY) + padding * 2;
+	$scope.previewOffset = { x: padding - minX, y: padding - minY };
+	$scope.previewCanvasStyle = {
+		width: Math.max(width, 400) + 'px',
+		height: Math.max(height, 300) + 'px'
+	};
+	schedulePreviewFit();
+}
+
+$scope.previewLeft = function (value) {
+	return (parseFloat(value) || 0) + ($scope.previewOffset.x || 0);
+};
+
+$scope.previewTop = function (value) {
+	return (parseFloat(value) || 0) + ($scope.previewOffset.y || 0);
+};
+
+$scope.previewCanvasTransform = function () {
+	var zoom = $scope.previewZoom || 1;
+	return angular.extend({}, $scope.previewCanvasStyle, {
+		transform: 'scale(' + zoom + ')',
+		'transform-origin': 'top left'
+	});
+};
+
+function annotateRenderPositions() {
+	angular.forEach($scope.nodelist, function (node) {
+		if (!node) { return; }
+		node.renderLeft = $scope.previewLeft(node.left);
+		node.renderTop = $scope.previewTop(node.top);
+	});
+	if ($scope.networksObject) {
+		angular.forEach($scope.networksObject, function (network) {
+			if (!network) { return; }
+			network.renderLeft = $scope.previewLeft(network.left);
+			network.renderTop = $scope.previewTop(network.top);
+		});
+	}
+}
+
+function buildPreviewFromTopology() {
+	$scope.linkLinesArray = [];
+	$scope.lineList = [];
+	$scope.networksList = [];
+	if ($scope.networksObject) {
+		angular.forEach($scope.networksObject, function (network, id) {
+			addVisibleNetworkId(id);
+		});
+	}
+
+	var hasNodes = ObjectLength($scope.nodelist) > 0;
+	if (!hasNodes) {
+		$scope.zeroNodes = true;
+		$(".btn-flat.disabled").removeClass('disabled');
+		$http({ method: 'DELETE', url: '/api/labs/close' });
+		refreshPreviewCollections();
+		return;
+	}
+
+	$scope.zeroNodes = false;
+	recalcPreviewCanvasSize();
+	annotateRenderPositions();
+
+	var toCanvasX = function (val) { return (parseFloat(val) || 0) + ($scope.previewOffset.x || 0); };
+	var toCanvasY = function (val) { return (parseFloat(val) || 0) + ($scope.previewOffset.y || 0); };
+	var nodeCenterX = PREVIEW_NODE_WIDTH / 2;
+	var nodeCenterY = PREVIEW_NODE_HEIGHT / 2;
+	var networkCenterX = PREVIEW_NETWORK_WIDTH / 2;
+	var networkCenterY = PREVIEW_NETWORK_HEIGHT / 2;
+
+	var hasTopology = angular.isArray($scope.topologyObject) && $scope.topologyObject.length > 0;
+	if (hasTopology) {
+		var lineCounter = 0;
+		for (var i = 0; i < $scope.topologyObject.length; i++) {
+			var link = $scope.topologyObject[i];
+			if (!link) {
+				continue;
+			}
+			if (linkTouchesHiddenNetwork(link)) {
+				continue;
+			}
+			$scope.lineList[lineCounter] = [];
+			if (link.destination.includes("network")) {
+				var netNum = link.destination.replace("network", '');
+				addVisibleNetworkId(netNum);
+				$scope.lineList[lineCounter]['x1'] = toCanvasX((parseFloat($scope.networksObject[netNum].left) || 0) + networkCenterX);
+				$scope.lineList[lineCounter]['y1'] = toCanvasY((parseFloat($scope.networksObject[netNum].top) || 0) + networkCenterY);
+			}
+			if (link.destination.includes("node")) {
+				var nodeDest = link.destination.replace("node", '');
+				$scope.lineList[lineCounter]['x1'] = toCanvasX((parseFloat($scope.nodelist[parseInt(nodeDest)].left) || 0) + nodeCenterX);
+				$scope.lineList[lineCounter]['y1'] = toCanvasY((parseFloat($scope.nodelist[parseInt(nodeDest)].top) || 0) + nodeCenterY);
+			}
+			if (link.source.includes("network")) {
+				var netSource = link.source.replace("network", '');
+				addVisibleNetworkId(netSource);
+				$scope.lineList[lineCounter]['x2'] = toCanvasX((parseFloat($scope.networksObject[netSource].left) || 0) + networkCenterX);
+				$scope.lineList[lineCounter]['y2'] = toCanvasY((parseFloat($scope.networksObject[netSource].top) || 0) + networkCenterY);
+			}
+			if (link.source.includes("node")) {
+				var nodeSrc = link.source.replace("node", '');
+				$scope.lineList[lineCounter]['y2'] = toCanvasY((parseFloat($scope.nodelist[parseInt(nodeSrc)].top) || 0) + nodeCenterY);
+				$scope.lineList[lineCounter]['x2'] = toCanvasX((parseFloat($scope.nodelist[parseInt(nodeSrc)].left) || 0) + nodeCenterX);
+			}
+			lineCounter++;
+		}
+	}
+
+	$(".btn-flat.disabled").removeClass('disabled');
+
+	$http({ method: 'DELETE', url: '/api/labs/close' });
+	refreshPreviewCollections();
+}
+
 	$scope.getTopologyInfo = function (path) {
-		$scope.linkLinesArray = []
-		$scope.lineList = []
 		$http.get('/api/labs' + path + '/topology').then(
 			function successCallback(response) {
-				//console.log(response.data.data)
-				$scope.topologyObject = response.data.data;
+				$scope.topologyObject = response.data.data || [];
 			},
 			function errorCallback(response) {
 				console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");
 			}
 		).finally(function () {
-			if ($scope.topologyObject.length === 0) {
-				$http({
-					method: 'DELETE',
-					url: '/api/labs/close'
-				})
-					.then(
-						function successCallback(response) {
-							console.log(response)
-						},
-						function errorCallback(response) {
-							console.log(response)
-						}
-					);
-				$(".btn-flat.disabled").removeClass('disabled');
-				return;
-			}
-			var lineCounter = 0;
-			for (i = 0; i < $scope.topologyObject.length; i++) {
-				$scope.lineList[lineCounter] = []
-				console.log($scope.topologyObject[i].destination)
-				console.log($scope.topologyObject[i].source)
-				if ($scope.topologyObject[i].destination.includes("network")) {
-					var netNum = $scope.topologyObject[i].destination.replace("network", '')
-					if ($scope.networksList.indexOf(netNum) == -1) $scope.networksList.push(netNum)
-					$scope.lineList[lineCounter]['x1'] = (parseFloat($scope.networksObject[netNum].left) + 50) / $scope.scale * 2
-					$scope.lineList[lineCounter]['y1'] = (parseFloat($scope.networksObject[netNum].top) + 30) / $scope.scale * 2
-
-				}
-				if ($scope.topologyObject[i].destination.includes("node")) {
-					var nodeNum = $scope.topologyObject[i].destination.replace("node", '')
-					console.log(nodeNum)
-					$scope.lineList[lineCounter]['x1'] = (parseFloat($scope.nodelist[parseInt(nodeNum)].left) + 50) / $scope.scale * 2
-					$scope.lineList[lineCounter]['y1'] = (parseFloat($scope.nodelist[parseInt(nodeNum)].top) + 30) / $scope.scale * 2
-				}
-				if ($scope.topologyObject[i].source.includes("network")) {
-					var netNum = $scope.topologyObject[i].source.replace("network", '')
-					$scope.lineList[lineCounter]['x2'] = (parseFloat($scope.networksObject[netNum].left) + 50) / $scope.scale * 2
-					$scope.lineList[lineCounter]['y2'] = (parseFloat($scope.networksObject[netNum].top) + 30) / $scope.scale * 2
-
-				}
-				if ($scope.topologyObject[i].source.includes("node")) {
-					var nodeNum = $scope.topologyObject[i].source.replace("node", '')
-					$scope.lineList[lineCounter]['y2'] = (parseFloat($scope.nodelist[parseInt(nodeNum)].top) + 20) / $scope.scale * 2
-					$scope.lineList[lineCounter]['x2'] = (parseFloat($scope.nodelist[parseInt(nodeNum)].left) + 40) / $scope.scale * 2
-					console.log(nodeNum)
-				}
-				lineCounter++
-				$(".btn-flat.disabled").removeClass('disabled');
-			}
-			console.log($scope.lineList)
-			console.log($scope.networksList)
-			console.log($scope.linkLinesAttr($scope.lineList[0].x1, $scope.lineList[0].y1, $scope.lineList[0].x2, $scope.lineList[0].y2, $scope.scale)[0])
-
-			$http({
-				method: 'DELETE',
-				url: '/api/labs/close'
-			})
-				.then(
-					function successCallback(response) {
-						console.log(response)
-					},
-					function errorCallback(response) {
-						console.log(response)
-					}
-				);
+			buildPreviewFromTopology();
 		});
 	}
 	///Get all connection //END
 	////////////////////////////
 	///Set scale //START
 	$scope.schemecontrol = function (scale) {
+		if ($scope.scale === scale) {
+			return;
+		}
 		$scope.scale = scale;
-		$scope.getTopologyInfo($scope.pathToLab)
+		$scope.scaleMenu = false;
+		updatePreviewZoom();
+		recalcPreviewCanvasSize();
+		buildPreviewFromTopology();
 	}
 	///Set scale //END
 	////////////////////
 	//Line calculator //START
-	$scope.linkLinesAttr = function (x1, y1, x2, y2, scale) {
+	$scope.linkLinesAttr = function (x1, y1, x2, y2) {
 
 		var length = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 		var angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
@@ -847,6 +1424,13 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	};
 });
 
+function formatString(template, params) {
+	if (!template) { return ''; }
+	return template.replace(/\{\{(\w+)\}\}/g, function (_, key) {
+		return (params && params[key] !== undefined) ? params[key] : '';
+	});
+}
+
 function ObjectLength(object) {
 	var length = 0;
 	for (var key in object) {
@@ -860,5 +1444,17 @@ function ObjectLength(object) {
 	///////PREVIEW FUNCTIONS////////////////END
 	/////////////////////////////////////////////	
 	////////////////////////////////////////////	
-}
 
+	var resizeHandler = function () {
+		$scope.$evalAsync(function () {
+			schedulePreviewFit();
+		});
+	};
+	angular.element($window).on('resize', resizeHandler);
+	$scope.$on('$destroy', function () {
+		if (previewFitTimeout) {
+			$timeout.cancel(previewFitTimeout);
+		}
+		angular.element($window).off('resize', resizeHandler);
+	});
+}

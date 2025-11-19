@@ -1,200 +1,204 @@
-<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
-</div>
-<div class="wrapper">
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <h1>
-        Node management
-        <small>here you can manage unl nodes</small>
-      </h1>
-      <ol class="breadcrumb">
-        <li><a href="#/main"><i class="fa fa-home"></i></a></li>
-        <li><i class="fa fa-wrench"></i> Management</li>
-        <li class="active"><i class="glyphicon glyphicon-hdd"></i> Node management</li>
-      </ol>
-    </section>
+<main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100">
+  <section class="max-w-[95rem] mx-auto w-full px-4 lg:px-8 py-12 flex flex-col gap-6">
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+      <div class="space-y-3">
+        <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <h1 class="text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
+        <p class="text-slate-300 text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
+      </div>
+      <div class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-6 space-y-3">
+        <button type="button"
+                class="w-full bg-gradient-to-r from-rose-600 to-orange-500 text-white font-semibold rounded-2xl px-6 py-3 uppercase shadow-xl hover:shadow-2xl transition text-sm cursor-pointer"
+                ng-click="stopAllNodes()">
+          <span data-ng-bind="t.stopAllButton"></span>
+        </button>
+        <p class="text-slate-300 text-sm" data-ng-bind="t.stopAllHint"></p>
+      </div>
+    </div>
 
-    <!-- Main content -->
-    <section class="content row">
-      <!-- /.content -->
-      <div class="col-xs-12">
-        <div class="box">
-          <div class="box-header">
-            <h3 class="box-title">Find of nodes</h3>
-            <div class="box-tools">
-              <div class="btn-group">
-                <button type="button" class="btn btn-danger btn-flat btn-sm" ng-click="stopAllNodes()">
-                  Stop all
-                </button>
+    <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-5 space-y-4 overflow-x-auto min-h-[320px]">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 class="text-2xl font-semibold" data-ng-bind="t.cardsTitle"></h2>
+          <p class="text-slate-400 text-sm" data-ng-bind="t.cardsSubtitle"></p>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-400 italic" data-ng-if="!userSummaries.length" data-ng-bind="t.emptyState"></p>
+
+      <div class="grid gap-4" data-ng-if="userSummaries.length">
+        <article data-ng-repeat="user in userSummaries track by user.username"
+                 class="rounded-3xl border border-white/10 bg-white/5 shadow-xl p-5 space-y-4">
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="min-w-[200px]">
+                <p class="text-xs uppercase text-slate-300">{{t.labCountLabel}}: {{user.labCount}}</p>
+                <h3 class="text-2xl font-semibold text-white mt-1">{{user.username}}</h3>
+              </div>
+              <div class="flex flex-wrap gap-2 flex-1 min-w-[260px]">
+                <div class="rounded-2xl bg-gradient-to-br border p-2.5 text-white shadow-sm w-[90px] h-[84px] flex flex-col items-center justify-center"
+                     ng-repeat="category in categoryLayout"
+                     ng-class="category.gradient">
+                  <p class="text-[0.55rem] uppercase text-white/70">{{category.label}}</p>
+                  <p class="text-xl font-semibold leading-tight">{{user.counts[category.key] || 0}}</p>
+              </div>
+              <div class="rounded-2xl bg-gradient-to-br border p-2.5 text-white shadow-sm w-[90px] h-[84px] flex flex-col items-center justify-center"
+                   ng-if="hasOtherCategory(user.counts)"
+                   ng-class="otherCategoryGradient">
+                <p class="text-[0.55rem] uppercase text-white/70">{{getOtherCategoryLabel()}}</p>
+                <p class="text-xl font-semibold leading-tight">{{user.counts.other}}</p>
+              </div>
+            </div>
+            <div class="flex flex-col items-center px-4">
+              <p class="text-xs uppercase text-slate-400" data-ng-bind="t.totalRunningLabel"></p>
+              <p class="text-3xl font-semibold text-emerald-300">{{user.totalRunning}}</p>
+            </div>
+            <div class="flex flex-col items-center px-4">
+              <p class="text-xs uppercase text-slate-400" data-ng-bind="t.totalNodesLabel"></p>
+              <p class="text-3xl font-semibold text-white">{{user.totalNodes}}</p>
+            </div>
+            <div class="flex flex-col gap-2 ml-auto min-w-[200px]">
+              <button type="button"
+                      class="px-4 py-2 rounded-2xl bg-amber-500/30 hover:bg-amber-500/50 transition text-sm font-medium cursor-pointer"
+                      ng-click="stopUserNodes(user)"
+                      ng-disabled="!user.totalNodes">
+                <span data-ng-bind="t.stopUserButton"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-2xl bg-white/10 hover:bg-blue-500/30 transition text-sm font-medium cursor-pointer"
+                      ng-click="toggleUserCard(user.username)">
+                <span ng-if="!isUserExpanded(user.username)" data-ng-bind="t.viewLabs"></span>
+                <span ng-if="isUserExpanded(user.username)" data-ng-bind="t.hideLabs"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-3" ng-if="isUserExpanded(user.username)">
+            <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.labSectionTitle"></p>
+            <p class="text-slate-400 text-sm" data-ng-if="!user.labs.length" data-ng-bind="t.noLabs"></p>
+
+            <div class="space-y-3" data-ng-if="user.labs.length">
+              <div class="rounded-2xl border border-white/10 bg-slate-900/50 p-4 space-y-3"
+                   data-ng-repeat="lab in user.labs track by lab.path">
+                <div class="flex flex-wrap items-center gap-6">
+                  <div class="min-w-[200px]">
+                    <p class="text-lg font-semibold text-white">{{lab.displayName}}</p>
+                    <p class="text-slate-400 text-sm">{{lab.path || t.unknownLabName}}</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2 flex-1 min-w-[240px]">
+                    <div class="rounded-2xl bg-gradient-to-br border p-2.5 text-white shadow-sm w-[90px] h-[84px] flex flex-col items-center justify-center"
+                         ng-repeat="category in categoryLayout"
+                         ng-class="category.gradient">
+                      <p class="text-[0.55rem] uppercase text-white/70">{{category.label}}</p>
+                      <p class="text-xl font-semibold leading-tight">{{lab.counts[category.key] || 0}}</p>
+                    </div>
+                    <div class="rounded-2xl bg-gradient-to-br border p-2.5 text-white shadow-sm w-[90px] h-[84px] flex flex-col items-center justify-center"
+                         ng-if="hasOtherCategory(lab.counts)"
+                         ng-class="otherCategoryGradient">
+                      <p class="text-[0.55rem] uppercase text-white/70">{{getOtherCategoryLabel()}}</p>
+                      <p class="text-xl font-semibold leading-tight">{{lab.counts.other}}</p>
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-center px-4">
+                    <p class="text-xs uppercase text-slate-400" data-ng-bind="t.labTotalLabel"></p>
+                    <p class="text-2xl font-semibold text-emerald-300">{{lab.totalRunning}}</p>
+                  </div>
+                  <div class="flex flex-col items-center px-4">
+                    <p class="text-xs uppercase text-slate-400" data-ng-bind="t.labAllNodesLabel"></p>
+                    <p class="text-xl font-semibold text-white">{{lab.nodes.length}}</p>
+                  </div>
+                  <div class="flex flex-col gap-2 ml-auto min-w-[200px]">
+                    <button type="button"
+                            class="px-4 py-2 rounded-2xl bg-amber-500/30 hover:bg-amber-500/50 transition text-sm font-medium cursor-pointer"
+                            ng-click="stopLabNodes(user, lab)"
+                            ng-disabled="!lab.nodes.length">
+                      <span data-ng-bind="t.stopLabButton"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-2xl bg-cyan-500/30 hover:bg-cyan-500/50 transition text-sm font-medium cursor-pointer"
+                            ng-click="wipeLabNodes(user, lab)"
+                            ng-disabled="!lab.nodes.length">
+                      <span data-ng-bind="t.wipeLabButton"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-2xl bg-white/10 hover:bg-blue-500/30 transition text-sm font-medium cursor-pointer"
+                            ng-click="toggleLabDetails(user.username, lab.path)">
+                      <span ng-if="!isLabExpanded(user.username, lab.path)" data-ng-bind="t.toggleNodesOpen"></span>
+                      <span ng-if="isLabExpanded(user.username, lab.path)" data-ng-bind="t.toggleNodesClose"></span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/70 mt-3 shadow-inner"
+                     ng-if="isLabExpanded(user.username, lab.path)">
+                  <table class="w-full min-w-[1100px] text-sm text-left text-slate-100">
+                    <thead class="text-xs uppercase bg-slate-900/60">
+                      <tr>
+                        <th class="px-4 py-3" data-ng-bind="t.tableName"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableType"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableTemplate"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableImage"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableCpuCount"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableNvram"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableRam"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableEth"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableSer"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableConsole"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tablePort"></th>
+                        <th class="px-4 py-3" data-ng-bind="t.tableStatus"></th>
+                        <th class="px-4 py-3 text-center" data-ng-bind="t.tableActions"></th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                      <tr data-ng-repeat="node in lab.nodes track by node.id" class="hover:bg-white/5 transition">
+                        <td class="px-4 py-3 font-semibold">{{node.name}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.type}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.template}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.image}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.cpucount}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.nvram}} MB</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.ram}} MB</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.eth}}</td>
+                        <td class="px-4 py-3 text-slate-300">{{node.ser}}</td>
+                        <td class="px-4 py-3 text-blue-300">
+                          <a ng-href="{{node.url}}" class="underline hover:text-blue-200">{{node.console}}</a>
+                        </td>
+                        <td class="px-4 py-3 text-slate-300">{{node.port}}</td>
+                        <td class="px-4 py-3">
+                          <span ng-switch="node.status">
+                            <span ng-switch-when="0" class="px-2 py-1 rounded-full bg-white/10 text-xs">Stopped</span>
+                            <span ng-switch-when="1" class="px-2 py-1 rounded-full bg-amber-500/30 text-xs">Stopped (locked)</span>
+                            <span ng-switch-when="2" class="px-2 py-1 rounded-full bg-emerald-500/30 text-xs">Running</span>
+                            <span ng-switch-when="3" class="px-2 py-1 rounded-full bg-emerald-500/50 text-xs">Running (locked)</span>
+                            <span ng-switch-default class="px-2 py-1 rounded-full bg-rose-500/40 text-xs">Unknown</span>
+                          </span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="flex items-center gap-2">
+                            <button class="px-3 py-2 w-10 h-10 rounded-xl bg-emerald-500/30 hover:bg-emerald-500/50 transition cursor-pointer flex items-center justify-center" title="Запустить" ng-click="startNode(node)">
+                              <i class="fa fa-play"></i>
+                            </button>
+                            <button class="px-3 py-2 w-10 h-10 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 transition cursor-pointer flex items-center justify-center" title="Остановить" ng-click="stopNode(node)">
+                              <i class="fa fa-stop"></i>
+                            </button>
+                            <button class="px-3 py-2 w-10 h-10 rounded-xl bg-cyan-500/30 hover:bg-cyan-500/50 transition cursor-pointer flex items-center justify-center" title="Очистить" ng-click="wipeNode(node)">
+                              <i class="fa fa-eraser"></i>
+                            </button>
+                            <button class="px-3 py-2 w-10 h-10 rounded-xl bg-rose-500/30 hover:bg-rose-500/50 transition cursor-pointer flex items-center justify-center" title="Удалить" ng-click="deleteNode(node)">
+                              <i class="fa fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
-          <!-- /.box-header -->
-          <div class="box-body table-responsive no-padding">
-            <table class="table table-hover table-striped">
-              <thead>
-                <tr>
-                  <th ng-click="sortData('lab')">
-                    Lab
-                    <span ng-if="sortColumn === 'lab'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('user')">
-                    User
-                    <span ng-if="sortColumn === 'user'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('name')">
-                    Name
-                    <span ng-if="sortColumn === 'name'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('type')">
-                    Type
-                    <span ng-if="sortColumn === 'type'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('template')">
-                    Template
-                    <span ng-if="sortColumn === 'template'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('image')">
-                    Image
-                    <span ng-if="sortColumn === 'image'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('cpulimit')">
-                    CPU Limit
-                    <span ng-if="sortColumn === 'cpulimit'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('cpucount')">
-                    CPU Count
-                    <span ng-if="sortColumn === 'cpucount'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('nvram')">
-                    NVRAM
-                    <span ng-if="sortColumn === 'nvram'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('ram')">
-                    RAM
-                    <span ng-if="sortColumn === 'ram'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('eth')">
-                    Ethernet
-                    <span ng-if="sortColumn === 'eth'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('ser')">
-                    Serial
-                    <span ng-if="sortColumn === 'ser'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('console')">
-                    Console
-                    <span ng-if="sortColumn === 'console'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('port')">
-                    Port
-                    <span ng-if="sortColumn === 'port'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th ng-click="sortData('status')">
-                    Status
-                    <span ng-if="sortColumn === 'status'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
-                  </th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr data-ng-repeat="node in nodedata | orderBy:sortColumn:reverseSort">
-                  <td>{{node.lab}}</td>
-                  <td>{{node.user}}</td>
-                  <td>{{node.name}}</td>
-                  <td>{{node.type}}</td>
-                  <td>{{node.template}}</td>
-                  <td>{{node.image}}</td>
-                  <td>
-                    <span ng-switch="node.cpulimit">
-                      <span ng-switch-when="0" class="label label-default">No limit</span>
-                      <span ng-switch-when="1" class="label label-warning">Limited</span>
-                      <span ng-switch-default class="label label-danger">Unknown</span>
-                    </span>
-                  </td>
-                  <td>{{node.cpucount}}</td>
-                  <td>{{node.nvram}} MB</td>
-                  <td>{{node.ram}} MB</td>
-                  <td>{{node.eth}}</td>
-                  <td>{{node.ser}}</td>
-                  <td>
-                    <a ng-href="{{node.url}}">
-                      {{node.console}}
-                    </a>
-                  </td>
-                  <td>{{node.port}}</td>
-                  <td>
-                    <span ng-switch="node.status">
-                      <span ng-switch-when="0" class="label label-default">Stopped</span>
-                      <span ng-switch-when="1" class="label label-warning">Stopped (locked)</span>
-                      <span ng-switch-when="2" class="label label-success">Running</span>
-                      <span ng-switch-when="3" class="label label-warning">Running (locked)</span>
-                      <span ng-switch-default class="label label-danger">Unknown</span>
-                    </span>
-                  </td>
-                  <td>
-                    <button class="btn btn-xs btn-success" ng-click="startNode(node)" title="Запустить">
-                      <i class="fa fa-play"></i>
-                    </button>
-                    <button class="btn btn-xs btn-warning" ng-click="stopNode(node)" title="Остановить">
-                      <i class="fa fa-stop"></i>
-                    </button>
-                    <button class="btn btn-xs btn-info" ng-click="wipeNode(node)" title="Wipe (очистить)">
-                      <i class="fa fa-eraser"></i>
-                    </button>
-                    <button class="btn btn-xs btn-danger" ng-click="deleteNode(node.id, node.lab)" title="Удалить">
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- /.box-body -->
-        </div>
-        <!-- /.box -->
+        </article>
       </div>
-      <!-- /.content -->
-    </section>
-  </div>
-  <!-- /.content-wrapper -->
-  <!-- Main Footer -->
-  <!-- <div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/footer.html'"> -->
-</div>
-<!-- ./wrapper -->
-<!-- AdminLTE App -->
-<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
-<script src="/themes/adminLTE/dist/js/app.js"></script>
+    </div>
+  </section>
+</main>

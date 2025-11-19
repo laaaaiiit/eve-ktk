@@ -3,14 +3,14 @@
 <main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/60 to-slate-900 text-slate-100">
   <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10">
     <div class="flex flex-col gap-3">
-      <p class="text-xs uppercase tracking-[0.45em] text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+      <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 class="text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
           <p class="text-slate-300 text-lg" data-ng-bind="t.heroDescription"></p>
         </div>
         <button type="button"
-                class="bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold rounded-2xl px-6 py-3 tracking-[0.2em] uppercase shadow-xl hover:shadow-2xl transition text-sm cursor-pointer"
+                class="bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold rounded-2xl px-6 py-3 uppercase shadow-xl hover:shadow-2xl transition text-sm cursor-pointer"
                 data-ng-click="openModal('adduser')">
           <span class="mr-2">+</span>
           <span data-ng-bind="t.addUserButton"></span>
@@ -21,13 +21,13 @@
     <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 class="text-2xl font-semibold tracking-[0.2em]" data-ng-bind="t.tableTitle"></h2>
+          <h2 class="text-2xl font-semibold" data-ng-bind="t.tableTitle"></h2>
           <p class="text-slate-400 text-sm" data-ng-bind="t.tableSubtitle"></p>
         </div>
       </div>
       <div class="rounded-2xl border border-white/10 bg-white/5 shadow-xl overflow-hidden">
         <table class="w-full table-fixed text-sm text-left">
-          <thead class="text-xs uppercase tracking-[0.25em] text-slate-300 bg-slate-900/60">
+          <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
             <tr>
               <th class="px-4 py-3 w-[15%]">
                 <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer" ng-click="setSort('username')">
@@ -72,7 +72,7 @@
             <tr data-ng-repeat="user in sortedUsers track by user.username" class="hover:bg-white/5 transition">
               <td class="px-4 py-3 font-semibold">{{user.username}}</td>
               <td class="px-4 py-3">
-                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em]"
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs uppercase"
                       ng-class="{'bg-blue-500/30 text-blue-100': user.role == 'admin', 'bg-white/10 text-slate-100': user.role != 'admin'}">
                   {{user.role}}
                 </span>
@@ -83,12 +83,12 @@
               <td class="px-4 py-3 text-slate-300">{{user.pod || '—'}}</td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-2">
-                  <button class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition text-xs uppercase tracking-[0.2em] cursor-pointer"
+                  <button class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition text-xs uppercase cursor-pointer"
                           ng-click="openModal('edituser', user.username)"
                           title="{{t.editLabel}}">
                     <i class="fa fa-edit"></i>
                   </button>
-                  <button class="px-3 py-2 rounded-xl bg-red-500/30 hover:bg-red-500/50 transition text-xs uppercase tracking-[0.2em] cursor-pointer"
+                  <button class="px-3 py-2 rounded-xl bg-red-500/30 hover:bg-red-500/50 transition text-xs uppercase cursor-pointer"
                           ng-click="deleteUser( user.username )"
                           title="{{t.deleteLabel}}">
                     <i class="fa fa-trash"></i>

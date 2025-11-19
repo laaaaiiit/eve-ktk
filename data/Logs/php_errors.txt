@@ -77,3 +77,23 @@ Stack trace:
 [18-Nov-2025 17:03:31 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
 [18-Nov-2025 17:03:45 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
 [18-Nov-2025 17:09:07 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -D 3 -U lait -F "/opt/unetlab/labs/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[19-Nov-2025 05:12:51 Europe/Rome] Nov 19 05:12:51 DEBUG: lab saved
+[19-Nov-2025 05:12:51 Europe/Rome] Nov 19 05:12:51 DEBUG: lab saved
+[19-Nov-2025 05:12:51 Europe/Rome] Nov 19 05:12:51 DEBUG: lab saved
+[19-Nov-2025 05:12:51 Europe/Rome] Nov 19 05:12:51 DEBUG: lab saved
+[19-Nov-2025 05:44:36 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a stop -T 101 -U lait -F "/opt/unetlab/labs/lait/test.unl" 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[19-Nov-2025 05:44:36 Europe/Rome] R1_1_lait
+[19-Nov-2025 05:44:36 Europe/Rome] R2_2_lait
+[19-Nov-2025 05:44:36 Europe/Rome] Linux_3_lait
+[19-Nov-2025 05:44:36 Europe/Rome] sudo /opt/unetlab/wrappers/unl_wrapper -a delete -F "/opt/unetlab/labs/lait/test.unl" -T 101 -U lait 2>> /opt/unetlab/data/Logs/unl_wrapper.txt
+[19-Nov-2025 05:44:53 Europe/Rome] Nov 19 05:44:53 DEBUG: lab saved
+[19-Nov-2025 05:44:53 Europe/Rome] Nov 19 05:44:53 DEBUG: lab saved
+[19-Nov-2025 05:44:54 Europe/Rome] Nov 19 05:44:54 DEBUG: lab saved
+[19-Nov-2025 05:44:54 Europe/Rome] Nov 19 05:44:54 DEBUG: lab saved
+[19-Nov-2025 05:45:11 Europe/Rome] Nov 19 05:45:11 DEBUG: lab saved
+[19-Nov-2025 05:45:22 Europe/Rome] Nov 19 05:45:22 DEBUG: lab saved
+[19-Nov-2025 05:45:24 Europe/Rome] Nov 19 05:45:24 DEBUG: lab saved
+[19-Nov-2025 05:45:26 Europe/Rome] Nov 19 05:45:26 DEBUG: lab saved
+[19-Nov-2025 05:45:32 Europe/Rome] Nov 19 05:45:32 WARNING: Attribute ignored, invalid node_uuid (40026).
+[19-Nov-2025 05:45:32 Europe/Rome] Nov 19 05:45:32 DEBUG: lab saved
+[19-Nov-2025 05:45:33 Europe/Rome] Nov 19 05:45:33 DEBUG: lab saved

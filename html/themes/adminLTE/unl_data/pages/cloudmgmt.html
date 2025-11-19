@@ -1,90 +1,177 @@
-<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
-</div>
-<div class="wrapper">
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <h1>
-        Cloud management
-        <small>here you can manage clouds</small>
-      </h1>
-      <ol class="breadcrumb">
-        <li><a href="#/main"><i class="fa fa-home"></i></a></li>
-        <li><i class="fa fa-wrench"></i> Management</li>
-        <li class="active"><i class="glyphicon glyphicon-cloud"></i> Cloud management</li>
-      </ol>
-    </section>
+<main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100">
+  <section class="max-w-[95rem] mx-auto w-full px-4 lg:px-8 py-12 flex flex-col gap-10">
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div class="space-y-3">
+        <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <h1 class="text-3xl lg:text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
+        <p class="text-slate-300 text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
+        <p class="text-slate-400 text-sm" data-ng-bind="t.heroHint"></p>
+      </div>
+      <div class="self-start lg:self-auto">
+        <button type="button"
+                class="bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold rounded-2xl px-6 py-3 uppercase shadow-xl hover:shadow-2xl transition text-sm cursor-pointer"
+                data-ng-click="openModal('addcloud')">
+          <span class="mr-2">+</span>
+          <span data-ng-bind="t.addCloudButton"></span>
+        </button>
+      </div>
+    </div>
 
-    <!-- Main content -->
-    <section class="content row">
-      <!-- /.content -->
-      <div class="col-xs-12">
-        <div class="box">
-          <div class="box-header">
-            <h3 class="box-title">Find of clouds</h3>
-            <div class="box-tools">
-              <div class="btn-group">
-                <button type="button" class="btn btn-success btn-flat btn-sm" data-ng-click="openModal('addcloud')">+Add
-                  cloud</button>
-              </div>
+    <div class="grid gap-4 md:grid-cols-3">
+      <article class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-5 space-y-2">
+        <p class="text-xs uppercase text-slate-300" data-ng-bind="t.statMappingsLabel"></p>
+        <p class="text-4xl font-semibold text-white">{{cloudStats.total}}</p>
+        <p class="text-slate-400 text-sm" data-ng-bind="t.statMappingsHint"></p>
+      </article>
+      <article class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-5 space-y-2">
+        <p class="text-xs uppercase text-slate-300" data-ng-bind="t.statUsersLabel"></p>
+        <p class="text-4xl font-semibold text-white">{{cloudStats.users}}</p>
+        <p class="text-slate-400 text-sm" data-ng-bind="t.statUsersHint"></p>
+      </article>
+      <article class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-5 space-y-2">
+        <p class="text-xs uppercase text-slate-300" data-ng-bind="t.statPnLabel"></p>
+        <p class="text-4xl font-semibold text-white">{{cloudStats.pnets}}</p>
+        <p class="text-slate-400 text-sm" data-ng-bind="t.statPnHint"></p>
+      </article>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+      <section class="xl:col-span-2 flex flex-col gap-5">
+        <div class="bg-white/5 border border-white/10 rounded-3xl shadow-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold" data-ng-bind="t.tableTitle"></h2>
+              <p class="text-slate-400 text-sm" data-ng-bind="t.tableSubtitle"></p>
             </div>
           </div>
-          <!-- /.box-header -->
-          <div class="box-body table-responsive no-padding">
-            <table class="table table-hover table-striped">
-              <thead>
+
+          <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-x-auto">
+            <table class="w-full min-w-[720px] text-sm text-left">
+          <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
                 <tr>
-                  <th ng-click="sortData('cloudname')">
-                    Cloud Name
-                    <span ng-if="sortColumn === 'cloudname'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
+                  <th class="px-4 py-3 w-1/3">
+                    <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer"
+                            ng-click="setSort('cloudname')">
+                      <span data-ng-bind="t.colCloudName"></span>
+                      <i ng-class="sortIcon('cloudname')"></i>
+                    </button>
                   </th>
-                  <th ng-click="sortData('username')">
-                    User
-                    <span ng-if="sortColumn === 'username'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
+                  <th class="px-4 py-3 w-1/4">
+                    <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer"
+                            ng-click="setSort('username')">
+                      <span data-ng-bind="t.colUser"></span>
+                      <i ng-class="sortIcon('username')"></i>
+                    </button>
                   </th>
-                  <th ng-click="sortData('pnet')">
-                    Pnet
-                    <span ng-if="sortColumn === 'pnet'">
-                      <i class="fa" ng-class="{'fa-arrow-up': !reverseSort, 'fa-arrow-down': reverseSort}"></i>
-                    </span>
+                  <th class="px-4 py-3 w-1/4">
+                    <button type="button" class="flex items-center gap-2 w-full text-left cursor-pointer"
+                            ng-click="setSort('pnet')">
+                      <span data-ng-bind="t.colPnet"></span>
+                      <i ng-class="sortIcon('pnet')"></i>
+                    </button>
                   </th>
-                  <th>Actions</th>
+                  <th class="px-4 py-3 w-1/6 text-center" data-ng-bind="t.colActions"></th>
                 </tr>
               </thead>
-              <tbody>
-                <tr data-ng-repeat="cloud in clouddata | orderBy:sortColumn:reverseSort">
-                  <td>{{cloud.cloudname}}</td>
-                  <td>{{cloud.username}}</td>
-                  <td>{{cloud.pnet}}</td>
-                  <td>
-                    <button class="btn btn-xs btn-primary" ng-click="openModal('editcloud', cloud)" title="Edit Cloud">
-                      <i class="fa fa-edit"></i>
-                    </button>
-                    <button class="btn btn-xs btn-danger" ng-click="deleteCloud(cloud.id)" title="Delete Cloud">
-                      <i class="fa fa-trash"></i>
-                    </button>
+              <tbody class="divide-y divide-white/5 text-slate-100" data-ng-if="sortedClouds.length">
+                <tr data-ng-repeat="cloud in sortedClouds track by cloud.id" class="hover:bg-white/5 transition">
+                  <td class="px-4 py-3">
+                    <p class="font-semibold text-white">{{cloud.cloudname}}</p>
+                    <p class="text-xs text-slate-400" data-ng-bind="t.colCloudDesc"></p>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs uppercase bg-blue-500/20 text-blue-100">
+                        {{cloud.username || '—'}}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm font-semibold">
+                      {{cloud.pnet}}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center justify-center gap-2">
+                      <button class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition cursor-pointer"
+                              title="{{t.editAction}}"
+                              ng-click="openModal('editcloud', cloud)">
+                        <i class="fa fa-edit"></i>
+                      </button>
+                      <button class="px-3 py-2 rounded-xl bg-rose-500/30 hover:bg-rose-500/50 transition cursor-pointer"
+                              title="{{t.deleteAction}}"
+                              ng-click="confirmDeleteCloud(cloud)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <p class="text-sm text-slate-400" data-ng-if="!sortedClouds.length">
+            <span data-ng-bind="t.emptyStateTitle"></span>
+            <span class="block text-slate-500" data-ng-bind="t.emptyStateHint"></span>
+          </p>
         </div>
-        <!-- /.box-body -->
-      </div>
-      <!-- /.box -->
-  </div>
-  <!-- /.content -->
+      </section>
+
+      <aside class="flex flex-col gap-3">
+        <div class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-6 space-y-4">
+          <div>
+            <h3 class="text-xl font-semibold" data-ng-bind="t.sidebarMappingsTitle"></h3>
+            <p class="text-slate-400 text-sm" data-ng-bind="t.sidebarMappingsSubtitle"></p>
+          </div>
+          <div class="space-y-3 max-h-[28rem] overflow-y-auto pr-2 eve-scroll">
+            <article class="rounded-2xl border border-white/10 bg-slate-900/40 p-4 space-y-3"
+                     data-ng-repeat="user in userCloudMap track by user.username">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-xs uppercase text-slate-400" data-ng-bind="t.sidebarUserLabel"></p>
+                  <p class="text-lg font-semibold text-white">{{user.username}}</p>
+                </div>
+                <span class="text-xs uppercase text-blue-200">
+                  {{user.clouds.length}} × {{t.sidebarCloudCount}}
+                </span>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                     data-ng-repeat="cloud in user.clouds track by cloud.id">
+                  <div>
+                    <p class="font-semibold text-sm">{{cloud.cloudname}}</p>
+                    <p class="text-xs text-slate-400">{{t.sidebarPnetLabel}} {{cloud.pnet}}</p>
+                  </div>
+                  <span class="inline-flex items-center rounded-full bg-blue-500/20 text-blue-100 px-3 py-1 text-xs uppercase">
+                    {{cloud.pnet}}
+                  </span>
+                </div>
+              </div>
+            </article>
+            <p class="text-sm text-slate-400" data-ng-if="!userCloudMap.length" data-ng-bind="t.sidebarNoMappings"></p>
+          </div>
+        </div>
+
+        <div class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-6 space-y-4">
+          <div>
+            <h3 class="text-xl font-semibold" data-ng-bind="t.guidelinesTitle"></h3>
+            <p class="text-slate-400 text-sm" data-ng-bind="t.guidelinesSubtitle"></p>
+          </div>
+          <ul class="space-y-3">
+            <li class="flex items-start gap-3" data-ng-repeat="tip in t.guidelines track by $index">
+              <span class="text-blue-200 font-semibold">{{$index + 1}}.</span>
+              <p class="text-sm text-slate-300" ng-bind="tip"></p>
+            </li>
+          </ul>
+          <div>
+            <p class="text-xs uppercase text-slate-400" data-ng-bind="t.interfacesSampleTitle"></p>
+            <pre class="mt-2 rounded-2xl bg-slate-950/70 border border-white/10 p-4 text-xs text-slate-200 overflow-x-auto"
+                 ng-bind="t.interfacesSampleSnippet"></pre>
+          </div>
+        </div>
+      </aside>
+    </div>
   </section>
-</div>
-<!-- /.content-wrapper -->
-</div>
-<!-- ./wrapper -->
-<!-- AdminLTE App -->
-<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.min.css">
-<script src="/themes/adminLTE/dist/js/app.js"></script>
+</main>

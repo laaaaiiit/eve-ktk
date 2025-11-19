@@ -1428,3 +1428,170 @@ function EthFormat2val($s)
 	}
 	return $format;
 }
+
+/**
+ * Ensure the per-user lab directory exists under BASE_LAB.
+ *
+ * @param string $username
+ */
+function ensureUserLabDirectory($username)
+{
+	$username = trim((string) $username);
+	if ($username === '') {
+		return;
+	}
+
+	$userRoot = BASE_LAB . '/' . $username;
+	if (!is_dir($userRoot)) {
+		@mkdir($userRoot, 0775, true);
+		@chown($userRoot, 'www-data');
+		@chgrp($userRoot, 'www-data');
+	}
+}
+
+/**
+ * Normalize a user-visible lab path so it is rooted and free of .. segments.
+ *
+ * @param string $path
+ * @return string
+ */
+function normalizeUserLabRelativePath($path)
+{
+	if ($path === null) {
+		return '/';
+	}
+	if (!is_string($path)) {
+		$path = (string) $path;
+	}
+	$path = trim($path);
+	if ($path === '') {
+		return '/';
+	}
+	if ($path[0] !== '/') {
+		$path = '/' . $path;
+	}
+
+	$segments = explode('/', $path);
+	$safe = array();
+	foreach ($segments as $segment) {
+		if ($segment === '' || $segment === '.') {
+			continue;
+		}
+		if ($segment === '..') {
+			if (!empty($safe)) {
+				array_pop($safe);
+			}
+			continue;
+		}
+		$safe[] = $segment;
+	}
+
+	if (empty($safe)) {
+		return '/';
+	}
+
+	return '/' . implode('/', $safe);
+}
+
+/**
+ * Convert a user-relative lab path to the absolute (global) path segment under BASE_LAB.
+ *
+ * @param string $username
+ * @param string $relativePath
+ * @return string
+ */
+function buildUserLabAbsolutePath($username, $relativePath)
+{
+	$username = trim((string) $username, '/');
+	$relative = normalizeUserLabRelativePath($relativePath);
+
+	if ($username === '') {
+		return $relative;
+	}
+
+	ensureUserLabDirectory($username);
+
+	if ($relative === '/' || $relative === '') {
+		return '/' . $username;
+	}
+
+	return '/' . $username . $relative;
+}
+
+/**
+ * Strip the per-user prefix from an absolute lab path.
+ *
+ * @param string $username
+ * @param string $path
+ * @return string
+ */
+function stripUserLabPathPrefix($username, $path)
+{
+	if (!is_string($path) || $path === '') {
+		return '/';
+	}
+	if ($path[0] !== '/') {
+		return $path;
+	}
+
+	$username = trim((string) $username, '/');
+	if ($username === '') {
+		return $path;
+	}
+
+	$prefix = '/' . $username;
+	if ($path === $prefix) {
+		return '/';
+	}
+
+	if (strpos($path, $prefix . '/') === 0) {
+		$relative = substr($path, strlen($prefix));
+		return $relative === '' ? '/' : $relative;
+	}
+
+	return $path;
+}
+
+/**
+ * Convert absolute folder/lab listing paths back into user-relative ones.
+ *
+ * @param string $username
+ * @param array  $data
+ * @param string $relativePath
+ * @return array
+ */
+function transformUserLabListing($username, $data, $relativePath)
+{
+	if (!isset($data['folders']) || !is_array($data['folders'])) {
+		$data['folders'] = array();
+	}
+	if (!isset($data['labs']) || !is_array($data['labs'])) {
+		$data['labs'] = array();
+	}
+
+	$folders = array();
+	foreach ($data['folders'] as $folder) {
+		if (isset($folder['path'])) {
+			$folder['path'] = stripUserLabPathPrefix($username, $folder['path']);
+		}
+		$folders[] = $folder;
+	}
+	if ($relativePath === '/') {
+		$folders = array_values(array_filter($folders, function ($folder) {
+			return !isset($folder['name']) || $folder['name'] !== '..';
+		}));
+	}
+
+	$labs = array();
+	foreach ($data['labs'] as $lab) {
+		if (isset($lab['path'])) {
+			$lab['path'] = stripUserLabPathPrefix($username, $lab['path']);
+		}
+		$labs[] = $lab;
+	}
+
+	$data['folders'] = $folders;
+	$data['labs'] = $labs;
+
+	return $data;
+}

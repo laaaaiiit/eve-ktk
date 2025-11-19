@@ -112,10 +112,10 @@
 		// override these in your code to change the default behavior and style
 		$.blockUI.defaults = {
 			// message displayed when blocking (use null for no message)
-			message:  '<h1>Please wait...</h1>',
+			message:  '<div class="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-blue-950/80 to-slate-900 text-slate-100 px-6 py-4 shadow-2xl flex items-center gap-3"><div class="w-10 h-10 rounded-full border-2 border-white/30 border-t-blue-400 animate-spin"></div><div><p class="text-sm uppercase tracking-[0.35em] text-blue-200/90">Loading</p><p class="text-slate-200 text-base font-semibold">Please wait...</p></div></div>',
 
 			title: null,		// title string; only used when theme == true
-			draggable: true,	// only used when theme == true (requires jquery-ui.js to be loaded)
+			draggable: false,
 
 			theme: false, // set to true to use with jQuery UI themes
 
@@ -125,27 +125,28 @@
 			css: {
 				padding:	0,
 				margin:		0,
-				width:		'30%',
-				top:		'40%',
-				left:		'35%',
+				width:		'auto',
+				top:		'45%',
+				left:		'50%',
+				transform:	'translate(-50%, -50%)',
 				textAlign:	'center',
-				color:		'#000',
-				border:		'3px solid #aaa',
-				backgroundColor:'#fff',
+				color:		'#f8fafc',
+				border:		'none',
+				backgroundColor:'transparent',
 				cursor:		'wait'
 			},
 
 			// minimal style set used when themes are used
 			themedCSS: {
-				width:	'30%',
-				top:	'40%',
-				left:	'35%'
+				width:	'auto',
+				top:	'45%',
+				left:	'50%'
 			},
 
 			// styles for the overlay
 			overlayCSS:  {
-				backgroundColor:	'#000',
-				opacity:			0.6,
+				backgroundColor:	'#020617',
+				opacity:			0.8,
 				cursor:				'wait'
 			},
 

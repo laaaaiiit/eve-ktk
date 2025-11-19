@@ -1,378 +1,197 @@
-<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController">
-</div>
-<div class="wrapper" style="height:80%;">
-	<!-- AdminLTE App -->
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
 
-	<!-- Content Wrapper. Contains page content -->
-	<div class="content-wrapper">
-		<!-- Content Header (Page header) -->
-		<!--<section class="content-header" >
-        <h1>
-          File manager
-          <small>here you can manage you labs</small>
-        </h1>
-      </section>-->
-		<!-- Main content -->
-		<section class="content row" style="padding-top: 0;">
-			<div class="box-header with-border">
-				<h3 class="box-title" style="padding-right:10px;"><b><i class="fa fa-sitemap" aria-hidden="true"></i>
-						File manager</b>
-				</h3>
-				<ol class="breadcrumb"
-					style="margin-bottom:0px; display: inline-block; padding-left:10px; padding-right:10px;">
-					<li>Current position</li>
-					<li data-ng-repeat="foldername in splitPath track by $index"><a class="pointer"
-							data-ng-click="fileMngDraw(splitPathArray[$index])">{{foldername}}</a></li>
-				</ol>
-			</div>
-			<div class="col-xs-12">
-				<div class="box box-default">
-					<!-- <div class="box-header with-border">
-				<h3 class="box-title" style="padding-right:10px;"><b><i class="fa fa-sitemap" aria-hidden="true"></i> File manager</b> 
-				</h3>
-				<ol class="breadcrumb" style="margin-bottom:0px; display: inline-block; padding-left:10px; padding-right:10px;">
-					<li>Current position</li>
-					<li data-ng-repeat="foldername in splitPath track by $index"><a class="pointer" data-ng-click="fileMngDraw(splitPathArray[$index])">{{foldername}}</a></li>
-				</ol>
-            </div> -->
-					<!--<div class="box-header with-border">
-              <h3 class="box-title">Current position: {{path}}</h3>
-            </div> -->
-					<div class="box-body no-padding" style="display: block; height:auto ">
-						<table class="table table-hover table-light" data-ng-show="uploader.queue.length > 0">
-							<thead>
-								<tr class="uppercase">
-									<th width="50%">Name</th>
-									<th ng-show="uploader.isHTML5">Size</th>
-									<th ng-show="uploader.isHTML5">Progress</th>
-									<th>Status</th>
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								<tr ng-repeat="item in uploader.queue">
-									<td><strong>{{ item.file.name }}</strong></td>
-									<td ng-show="uploader.isHTML5" nowrap>{{ item.file.size/1024/1024|number:2 }} MB
-									</td>
-									<td ng-show="uploader.isHTML5">
-										<div class="progress progress-sm" style="margin-bottom: 0;">
-											<div class="progress-bar progress-bar-primary progress-bar-striped"
-												role="progressbar" ng-style="{ 'width': item.progress + '%' }"></div>
-										</div>
-									</td>
-									<td>
-										<span ng-show="item.isSuccess" class="text-success">
-											Success
-											<!--<i class="glyphicon glyphicon-ok"></i>-->
-										</span>
-										<span ng-show="item.isCancel" class="text-info">
-											Cancel
-											<!--<i class="glyphicon glyphicon-ban-circle"></i>-->
-										</span>
-										<span ng-show="item.isError" class="text-danger">
-											Error
-											<!--<i class="glyphicon glyphicon-remove"></i>-->
-										</span>
+<main class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100">
+  <section class="max-w-[95rem] mx-auto w-full px-4 lg:px-8 py-10 space-y-10">
+    <!-- Hero -->
+    <div class="flex flex-col items-center text-center gap-4 max-w-4xl mx-auto">
+      <div class="space-y-3">
+        <p class="text-xs uppercase text-blue-200/80" data-ng-bind="t.heroEyebrow"></p>
+        <h1 class="text-3xl lg:text-4xl font-semibold text-white" data-ng-bind="t.heroTitle"></h1>
+        <p class="text-slate-300 text-lg" data-ng-bind="t.heroDescription"></p>
+      </div>
+      <ol class="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-400">
+        <li class="uppercase text-blue-200/80" data-ng-bind="t.pathLabel"></li>
+        <li class="text-slate-500">/</li>
+        <li data-ng-repeat="foldername in splitPath track by $index" class="flex items-center gap-2">
+          <a class="text-slate-200 hover:text-white transition cursor-pointer"
+             data-ng-click="fileMngDraw(splitPathArray[$index])">{{foldername}}</a>
+          <span class="text-slate-500" data-ng-if="!$last">/</span>
+        </li>
+      </ol>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <button type="button"
+                class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-xs"
+                data-ng-click="openModal('addfile', null,'megalg');">
+          <i class="fa fa-file mr-2"></i><span data-ng-bind="t.newLabButton"></span>
+        </button>
+        <button type="button"
+                class="px-6 py-3 rounded-2xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-xs uppercase"
+                data-ng-click="fileMngDraw(path); falseForSelAll();">
+          <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
+        </button>
+      </div>
+    </div>
 
-									</td>
-									<td nowrap>
-										<button type="button" class="btn btn-success btn-flat btn-xs pull-left"
-											ng-click="item.upload()"
-											ng-disabled="item.isReady || item.isUploading || item.isSuccess"><span
-												class="glyphicon glyphicon-upload"></span> Upload
-										</button>
-										<a href="javascript:;" type="button" data-toggle="tooltip"
-											title="remove from uploade list" class="text-danger pull-right"
-											ng-click="item.remove()">
-											<i class="fa fa-times"></i>
-											<!--<span class="glyphicon glyphicon-trash"></span> Remove-->
-										</a>
-									</td>
-								</tr>
-								<tr data-ng-show="uploader.queue.length > 1">
-									<td nowrap>
-										<button type="button" class="btn btn-success btn-flat btn-xs"
-											ng-click="uploader.uploadAll()"
-											ng-disabled="!uploader.getNotUploadedItems().length">
-											<span class="glyphicon glyphicon-upload"></span> Upload all
-										</button>
-										<button type="button" class="btn btn-danger btn-flat btn-xs"
-											ng-click="uploader.clearQueue()" ng-disabled="!uploader.queue.length">
-											<span class="glyphicon glyphicon-trash"></span> Remove all
-										</button>
-									</td>
-								</tr>
-							</tbody>
-						</table>
-						<div class="col-md-12" data-ng-show="uploader.queue.length > 1">
-							<p>Total progress:</p>
-							<div class="progress progress-sm" style="">
-								<div class="progress-bar progress-bar-success" role="progressbar"
-									ng-style="{ 'width': uploader.progress + '%' }"></div>
-							</div>
-						</div>
-						<div class="row">
-							<div class="col-md-4">
-								<div class="mailbox-controls">
-									<div class="mailbox-controls" ng-if="role === 'admin'"><!--  data-ng-show="newElementToggle" -->
-										<div class="form-group">
-											<div class="input-group input-group-sm">
-												<input type="text" class="form-control"
-													placeholder="New {{thatCreate}} Name" data-ng-model="newElementName"
-													my-enter="createNewElement(thatCreate)" focus-on="foCreate"
-													style="border-radius:0px"
-													ng-focus="newElementName=''; elementToggleFun('Folder');">
-												<span class="input-group-btn">
-													<button type="button"
-														class="btn btn-success btn-flat {{blockButtonsClass}}"
-														style="border-radius:0px" ng-disabled="blockButtons"
-														data-ng-click="createNewElement(thatCreate)">Add folder</button>
-												</span>
-											</div>
-										</div>
-									</div>
-									<!-- Check all button -->
-									<a type="button" class="btn btn-default btn-sm checkbox-toggle"
-										data-toggle="tooltip" title="Select All" data-ng-click="selectAll()"
-										data-ng-show="!allCheckedFlag"><i class="fa fa-square-o"></i>
-									</a>
-									<a type="button" class="btn btn-default btn-sm checkbox-toggle"
-										data-toggle="tooltip" title="Deselect All" data-ng-click="selectAll()"
-										data-ng-show="allCheckedFlag"><i class="fa fa-check-square-o"></i>
-									</a>
-									<div class="btn-group btn-options-main">
-										<!-- <a type="button" class="btn btn-default btn-sm" data-toggle="tooltip" title="Add new folder" data-ng-click="newElementName=''; elementToggleFun('Folder');"><i class="fa fa-folder"></i></a> -->
-										<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-											title="Add new lab" data-ng-click="openModal('addfile', null,'megalg');"><i
-												class="fa fa-file"></i></a>
-										<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-											title="Change item's name" data-ng-click="editElementShow();"
-											ng-disabled="!selectedItemsCanBeModified()"><i class="fa fa-pencil"></i></a>
-										<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-											title="Move to ..." data-ng-click="moveto()"
-											ng-disabled="!selectedItemsCanBeModified()"><i
-												class="fa fa-scissors"></i></a>
-										<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-											title="Delete selected items"
-											data-ng-click="deleteALLElement(); hideAllEdit()"
-											ng-disabled="!selectedItemsCanBeModified()"><i
-												class="fa fa-trash-o"></i></a>
-									</div>
-									<div class="btn-group btn-options-main">
-										<a type="button" class="btn btn-default btn-sm hidden-xs" data-toggle="tooltip"
-											title="Import" data-ng-click="selectOneFileUplad(); falseForSelAll();"><i
-												class="fa fa-download"></i></a>
-										<a type="button" class="btn btn-default btn-sm hidden-xs" data-toggle="tooltip"
-											title="Export" data-ng-click="exportFiles()"><i
-												class="fa fa-upload"></i></a>
-									</div>
-									<!-- /.btn-group -->
-									<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-										title="Toggle Order"
-										data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();"><i
-											class="fa fa-caret-square-o-down"></i></a>
-									<a type="button" class="btn btn-default btn-sm" data-toggle="tooltip"
-										title="Refresh" data-ng-click="fileMngDraw(path); falseForSelAll();"><i
-											class="fa fa-refresh"></i></a>
-									<!-- /.pull-right -->
-								</div>
-								<div class="table-responsive mailbox-messages" style="height: 70vh ; overflow: auto;">
-									<table style="table-layout: fixed; width: 100%;"
-										class="table table-hover table-striped tablefont customHover" id="filesTree">
-										<tbody>
-											<!-- make item array - fileManagerItem['Fo_'+x.name] = [ x.name, x.name, visibleEdit, type] -->
-											<tr data-ng-repeat="x in rootDir.folders">
-												<td width="5%">
-													<div class="treecb"><input type="checkbox"
-															data-ng-show="x.name != '..'"
-															data-ng-init="checkboxArray['Fo_'+x.name]['name']=x.name; checkboxArray['Fo_'+x.name]['checked']=false; checkboxArray['Fo_'+x.name]['type']='Folder';"
-															data-ng-model="checkboxArray['Fo_'+x.name]['checked']"
-															data-ng-click="falseForSelAll(); hideAllEdit();"
-															class="folder_check" /></div>
-												</td>
-												<td style="word-wrap: break-word;" class="mailbox-star"
-													data-ng-click="selectElbyTD(checkboxArray['Fo_'+x.name])"
-													data-ng-mousemove="visibleArray[x.name]=true"
-													data-ng-mouseleave="visibleArray[x.name]=false">
-													<a class="pointer"
-														data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();"
-														data-ng-init="fileManagerItem['Fo_'+x.name]['visibleEdit']=false; fileManagerItem['Fo_'+x.name]['type']='Folder';"
-														data-ng-show="!fileManagerItem['Fo_'+x.name]['visibleEdit']">
-														<i class="fa fa-folder" style="color:#dfba49"></i>
-														{{x.name}}
-														<div class="spinner" style="display: inline-block;"
-															data-ng-init="fileManagerItem['Fo_'+x.name]['img']=false"
-															data-ng-show="fileManagerItem['Fo_'+x.name]['img']">
-															<div class="rect1"></div>
-															<div class="rect2"></div>
-															<div class="rect3"></div>
-															<div class="rect4"></div>
-															<div class="rect5"></div>
-														</div>
-														<!-- <img src="/themes/adminLTE/dist/img/waiting.gif" style="width:15px;height:15px" data-ng-init="fileManagerItem['Fo_'+x.name]['img']=false" data-ng-show="fileManagerItem['Fo_'+x.name]['img']"> -->
-													</a>
-													<div class="form-group"
-														data-ng-show="fileManagerItem['Fo_'+x.name]['visibleEdit']">
-														<div class="input-group input-group-sm">
-															<span class="input-group-addon"><i class="fa fa-folder"
-																	style="color:#dfba49"></i></span>
-															<input type="hidden"
-																data-ng-init="fileManagerItem['Fo_'+x.name]['oldvalue']=x.name"
-																data-ng-model="fileManagerItem['Fo_'+x.name]['oldvalue']" />
-															<input type="text" class="form-control"
-																style="border-radius:0px" focus-on="Fo_{{x.name}}"
-																data-ng-init="fileManagerItem['Fo_'+x.name]['value']=x.name"
-																data-ng-model="fileManagerItem['Fo_'+x.name]['value']"
-																data-ng-click="$event.stopPropagation();"
-																my-enter="editElementApply(fileManagerItem['Fo_'+x.name]); $event.stopPropagation();">
-															<span class="input-group-btn">
-																<button type="button"
-																	class="btn btn-success btn-flat {{blockButtonsClass}}"
-																	ng-disabled="blockButtons" style="border-radius:0px"
-																	data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name]); $event.stopPropagation();">Ok</button>
-															</span>
-														</div>
-													</div>
-													<div class="pull-right button-box" style="color: red;">
-														<button type="button" class="btn btn-default btn-flat btn-xs"
-															data-ng-show="visibleArray[x.name] && x.name != '..' && !fileManagerItem['Fo_'+x.name]['visibleEdit']"
-															data-ng-click="moveto()"><i class="fa fa-scissors"></i> Move
-															to</button>
-														<button type="button" class="btn btn-default btn-flat btn-xs"
-															data-ng-show="visibleArray[x.name] && x.name != '..' && !fileManagerItem['Fo_'+x.name]['visibleEdit']"
-															data-ng-click="openRename(fileManagerItem['Fo_'+x.name], $event)"><i
-																class="fa fa-edit"></i> Rename</button>
-														<button type="button" class="btn btn-danger btn-flat btn-xs"
-															data-ng-show="visibleArray[x.name] && x.name != '..' && !fileManagerItem['Fo_'+x.name]['visibleEdit']"
-															data-ng-click="deleteElement(x.path,'Folder','true')"><i
-																class="fa fa-trash-o"></i></button>
-													</div>
-												</td>
-											</tr>
-											<tr data-ng-repeat="x in rootDir.labs | orderBy : fileOrder">
-												<td width="5%">
-													<div class="treecb"><input type="checkbox"
-															data-ng-click="falseForSelAll(); hideAllEdit();"
-															data-ng-init="
-															checkboxArray['Fi_'+x.file] = {
-															  name: x.file,
-															  checked: false,
-															  type: 'File',
-															  author: x.author
-															}" data-ng-model="checkboxArray['Fi_'+x.file]['checked']">
-													</div>
-												</td>
-												<td style="word-wrap: break-word" class="mailbox-star"
-													data-ng-click="selectElbyTD(checkboxArray['Fi_'+x.file])"
-													data-ng-mousemove="visibleArray[x.file]=true"
-													data-ng-mouseleave="visibleArray[x.file]=false">
-													<a class="pointer"
-														style="{{ (x.path == fullPathToFile) ? 'color:green' : ''}}"
-														data-ng-click="getLabInfo(x.path, x.file); $event.stopPropagation();"
-														data-ng-init="fileManagerItem['Fi_'+x.file]['visibleEdit']=false; fileManagerItem['Fi_'+x.file]['type']='File';"
-														data-ng-show="!fileManagerItem['Fi_'+x.file]['visibleEdit']">
-														<i class="fa fa-file"></i>
-														{{x.file}}
-														<div class="spinner" style="display: inline-block;"
-															data-ng-init="fileManagerItem['Fi_'+x.file]['img']=false"
-															data-ng-show="fileManagerItem['Fi_'+x.file]['img']">
-															<div class="rect1"></div>
-															<div class="rect2"></div>
-															<div class="rect3"></div>
-															<div class="rect4"></div>
-															<div class="rect5"></div>
-														</div>
-														<!-- <img src="/themes/adminLTE/dist/img/waiting.gif" style="width:15px;height:15px;" data-ng-init="fileManagerItem['Fi_'+x.file]['img']=false" data-ng-show="fileManagerItem['Fi_'+x.file]['img']"> -->
-													</a>
+    <div class="grid gap-8 lg:grid-cols-[1.35fr_0.65fr]">
+      <!-- File manager -->
+      <section class="space-y-6">
+        <div class="rounded-3xl border border-white/10 bg-white/5 shadow-2xl p-6 space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold" data-ng-bind="t.labsCardTitle"></h2>
+              <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button"
+                      class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                      data-ng-attr-title="{{t.orderTooltip}}"
+                      data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
+                <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
+              </button>
+              <button type="button"
+                      class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-xs uppercase"
+                      data-ng-attr-title="{{t.refreshTooltip}}"
+                      data-ng-click="fileMngDraw(path); falseForSelAll();">
+                <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
+              </button>
+            </div>
+          </div>
 
-													<div class="form-group"
-														data-ng-show="fileManagerItem['Fi_'+x.file]['visibleEdit']">
-														<div class="input-group input-group-sm">
-															<span class="input-group-addon"><i
-																	class="fa fa-file"></i></span>
-															<input type="hidden"
-																data-ng-init="fileManagerItem['Fi_'+x.file]['oldvalue']=x.file"
-																data-ng-model="fileManagerItem['Fi_'+x.file]['oldvalue']">
-															<input type="text" class="form-control"
-																style="border-radius:0px" focus-on="Fi_{{x.file}}"
-																data-ng-init="fileManagerItem['Fi_'+x.file]['value']=x.file"
-																data-ng-model="fileManagerItem['Fi_'+x.file]['value']"
-																data-ng-click="$event.stopPropagation();"
-																my-enter="editElementApply(fileManagerItem['Fi_'+x.file]); $event.stopPropagation();">
-															<span class="input-group-btn">
-																<button type="button"
-																	class="btn btn-success btn-flat {{blockButtonsClass}}"
-																	ng-disabled="blockButtons" style="border-radius:0px"
-																	data-ng-click="editElementApply(fileManagerItem['Fi_'+x.file]); $event.stopPropagation();">Ok</button>
-															</span>
-														</div>
-													</div>
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+            <div class="flex-1" data-ng-if="role === 'admin'">
+              <label class="text-xs uppercase text-slate-400 block mb-2" data-ng-bind="t.newFolderLabel"></label>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input type="text"
+                       class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                       data-ng-attr-placeholder="{{t.newFolderPlaceholder}}"
+                       data-ng-model="newElementName"
+                       my-enter="createNewElement(thatCreate)"
+                       focus-on="foCreate"
+                       ng-focus="newElementName=''; elementToggleFun('Folder');">
+                <button type="button"
+                        class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-xs uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}}"
+                        ng-disabled="blockButtons"
+                        data-ng-click="createNewElement(thatCreate)">
+                  <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarSelectTitle}}"
+                      data-ng-click="selectAll()"
+                      data-ng-if="!allCheckedFlag">
+                <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarClearTitle}}"
+                      data-ng-click="selectAll()"
+                      data-ng-if="allCheckedFlag">
+                <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarRenameTitle}}"
+                      data-ng-click="editElementShow();"
+                      ng-disabled="!selectedItemsCanBeModified()">
+                <i class="fa fa-pencil mr-2"></i><span data-ng-bind="t.toolbarRename"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarMoveTitle}}"
+                      data-ng-click="moveto()"
+                      ng-disabled="!selectedItemsCanBeModified()">
+                <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-rose-500/50 text-xs uppercase text-rose-200 hover:bg-rose-500/10 transition"
+                      data-ng-attr-title="{{t.toolbarDeleteTitle}}"
+                      data-ng-click="deleteALLElement(); hideAllEdit()"
+                      ng-disabled="!selectedItemsCanBeModified()">
+                <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarImportTitle}}"
+                      data-ng-click="selectOneFileUplad(); falseForSelAll();">
+                <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
+              </button>
+              <button type="button"
+                      class="px-4 py-2 rounded-xl border border-white/15 text-xs uppercase text-slate-100 hover:bg-white/10 transition"
+                      data-ng-attr-title="{{t.toolbarExportTitle}}"
+                      data-ng-click="exportFiles()">
+                <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
+              </button>
+            </div>
+          </div>
 
-													<div class="pull-right button-box">
-														<button type="button" class="btn btn-default btn-flat btn-xs"
-															data-ng-show="visibleArray[x.file] && !fileManagerItem['Fi_'+x.file]['visibleEdit'] && (x.author === username || role === 'admin')"
-															data-ng-click="uncheck_all(); checkboxArray['Fi_'+x.file]['checked'] = true; moveto()">
-															<i class="fa fa-scissors"></i> Move to
-														</button>
-														<button type="button" class="btn btn-default btn-flat btn-xs"
-															data-ng-show="visibleArray[x.file] && !fileManagerItem['Fi_'+x.file]['visibleEdit'] && (x.author === username || role === 'admin')"
-															data-ng-click="openRename(fileManagerItem['Fi_'+x.file], $event)">
-															<i class="fa fa-edit"></i> Rename
-														</button>
-														<button type="button" class="btn btn-danger btn-flat btn-xs"
-															data-ng-show="visibleArray[x.file] && !fileManagerItem['Fi_'+x.file]['visibleEdit'] && (x.author === username || role === 'admin')"
-															data-ng-click="deleteElement(x.path, 'File', 'true')">
-															<i class="fa fa-trash-o"></i>
-														</button>
-													</div>
-													<div class="mtime pull-right" style=";text-align: right;"
-														data-ng-show="!visibleArray[x.file] &&  !fileManagerItem['Fi_'+x.file]['visibleEdit']">
-														{{x.mtime}}</div>
-												</td>
-											</tr>
-										</tbody>
-									</table>
-									<!-- /.table -->
-								</div>
-							</div>
-							<!--FILE MANAGER END-->
-							<!--LAB INFO START-->
-							<div class="col-md-8">
-								<div class="form-group center-block" data-ng-show="!fileSelected" style="height:362px;">
-									<h4 class="text-center" style="padding-top: 90px;">Choose a lab for more info</h4>
-									<!--<input type="email" class="form-control" id="email">-->
-								</div>
-								<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/labView.html'"
-									data-ng-show="fileSelected">
-								</div>
-							</div>
-						</div>
-						<!-- /.box-body -->
-					</div>
-					<!-- /. box -->
-					<!-- /.col -->
-
-
-					<!-- /.box-body -->
-				</div>
-				<!-- /. box -->
-			</div>
-			<!-- /.col -->
-
-			<!-- /.content -->
-		</section>
-	</div>
-	<!-- /.content-wrapper -->
-
-	<input type="file" nv-file-select uploader="uploader" id="oneFileUploadInput" data-ng-model="fileupload"
-		onchange="angular.element(this).scope().fileNameChanged()" style="display:none" multiple />
-	<!-- Main Footer -->
-	<!--<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/footer.html'" >-->
-</div>
-<!-- ./wrapper -->
-<script>
-</script>
-<script src="/themes/adminLTE/dist/js/app.js"></script>
-<link rel="stylesheet" href="/themes/adminLTE/unl_data/css/unl_lab.css">
-<!-- <link rel="stylesheet" href="/themes/adminLTE/unl_data/css/custom_unl_lab.css"> -->
-<link rel="stylesheet" href="/themes/adminLTE/dist/css/skins/skin-blue.css">
+          <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
+            <table class="w-full text-sm text-left" id="filesTree">
+              <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
+                <tr>
+                  <th class="px-4 py-3 w-12"></th>
+                  <th class="px-4 py-3" data-ng-bind="t.treeColumnName"></th>
+                  <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.treeColumnUpdated"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5 text-slate-100">
+                <tr data-ng-repeat="x in rootDir.folders" class="hover:bg-white/5 transition">
+                  <td class="px-4 py-3 align-top">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox"
+                             class="sr-only"
+                             data-ng-show="x.name != '..'"
+                             data-ng-init="checkboxArray['Fo_'+x.name]['name']=x.name; checkboxArray['Fo_'+x.name]['checked']=false; checkboxArray['Fo_'+x.name]['type']='Folder';"
+                             data-ng-model="checkboxArray['Fo_'+x.name]['checked']"
+                             data-ng-click="falseForSelAll(); hideAllEdit();">
+                      <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
+                            data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fo_'+x.name]['checked']}">
+                        <i class="fa fa-check text-xs text-white" data-ng-show="checkboxArray['Fo_'+x.name]['checked']"></i>
+                      </span>
+                    </label>
+                  </td>
+                  <td class="px-4 py-3"
+                      data-ng-click="selectElbyTD(checkboxArray['Fo_'+x.name])"
+                      data-ng-mousemove="visibleArray[x.name]=true"
+                      data-ng-mouseleave="visibleArray[x.name]=false">
+                    <div class="flex items-center gap-3">
+                      <button type="button"
+                              class="text-left text-white font-semibold hover:text-blue-200 transition"
+                              data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();"
+                              data-ng-init="fileManagerItem['Fo_'+x.name]['visibleEdit']=false; fileManagerItem['Fo_'+x.name]['type']='Folder';"
+                              data-ng-show="!fileManagerItem['Fo_'+x.name]['visibleEdit']">
+                        <i class="fa fa-folder mr-2 text-blue-200"></i>{{x.name}}
+                      </button>
+                      <div class="spinner"
+                           data-ng-init="fileManagerItem['Fo_'+x.name]['img']=false"
+                           data-ng-show="fileManagerItem['Fo_'+x.name]['img']">
+                        <div class="rect1"></div>
+                        <div class="rect2"></div>
+                        <div class="rect3"></div>
+                        <div class="rect4"></div>
+                        <div class="rect5"></div>
+                      </div>
+                    </div>
+                    <div class="space-y-2" data-ng-show="fileManagerItem['Fo_'+x.name]['visibleEdit']">
+                      <label class="text-xs uppercase text-slate-400" data-ng-bind="t.renameFolderLabel"></label>
+                      <div class="flex gap-2 flex-wrap">
+                        <input type="hidden"
+                               data-ng-init="fileManagerItem['Fo_'+x.name]['oldvalue']=x.name"
+                               data-ng-model="fileManagerItem['Fo_'+x.name]['oldvalue']">
+                        <input type="text"
+                               class="flex-1 rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                               focus-on="Fo_{{x.name}}"
+                               data-ng-init="fileManagerItem['Fo_'+x.name]['value']=x.name"
+                               data-ng-model="fileManagerItem['Fo_'+x.name]['value']"
+                               data-ng-click="$event.stopPropagation();"
+                               my-enter="editElementApply(fileManagerItem['Fo_'+x.name]); $event.stopPropagation();">
+                        <button type="button"
+                                class="px-4 py-2 rounded-xl bg-emerald-500/30 text-sm font-semibold hover:bg-emerald-500/50 transition {{blockButtonsClass}}"
+                                ng-disabled="blockButtons"
+                                data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name]); $event.stopPropagation();">
+                          <span data-ng-bind="t.actionApply"></span>
+                        </button>
+                      </div>
+                    </div>

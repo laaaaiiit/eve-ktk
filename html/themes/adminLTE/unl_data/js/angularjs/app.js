@@ -39,6 +39,81 @@ app_main_unl.factory('focus', function ($rootScope, $timeout) {
     }
 });
 
+app_main_unl.factory('loadingOverlayFactory', ['$timeout', function ($timeout) {
+    return {
+        bind: function (scope, property, options) {
+            var prop = property || 'isLoading';
+            var timeoutDuration = (options && options.timeout) || 60000;
+            var activeCount = 0;
+            var timeoutPromise = null;
+
+            scope[prop] = scope[prop] || false;
+
+            function scheduleTimeout() {
+                if (!timeoutDuration) return;
+                if (timeoutPromise) {
+                    $timeout.cancel(timeoutPromise);
+                }
+                timeoutPromise = $timeout(function () {
+                    activeCount = 0;
+                    scope[prop] = false;
+                    timeoutPromise = null;
+                }, timeoutDuration);
+            }
+
+            function clearTimeoutHandle() {
+                if (timeoutPromise) {
+                    $timeout.cancel(timeoutPromise);
+                    timeoutPromise = null;
+                }
+            }
+
+            function start() {
+                activeCount++;
+                scope[prop] = true;
+                scheduleTimeout();
+            }
+
+            function stop(force) {
+                if (force) {
+                    activeCount = 0;
+                } else if (activeCount > 0) {
+                    activeCount--;
+                }
+
+                if (activeCount === 0) {
+                    scope[prop] = false;
+                    clearTimeoutHandle();
+                } else {
+                    scheduleTimeout();
+                }
+            }
+
+            scope.$on('$destroy', function () {
+                clearTimeoutHandle();
+                activeCount = 0;
+            });
+
+            return {
+                start: start,
+                stop: stop
+            };
+        }
+    };
+}]);
+
+app_main_unl.directive('loadingOverlay', function () {
+    return {
+        restrict: 'E',
+        scope: {
+            isLoading: '=',
+            title: '=?',
+            subtitle: '=?'
+        },
+        template: '\n            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-slate-100 z-10" ng-if="isLoading">\n                <div class="flex flex-col items-center gap-3 text-center">\n                    <div class="h-12 w-12 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin"></div>\n                    <div>\n                        <p class="text-sm uppercase tracking-[0.35em] text-blue-200/80" ng-bind="title"></p>\n                        <p class="text-slate-300 text-sm max-w-md" ng-bind="subtitle"></p>\n                    </div>\n                </div>\n            </div>\n        '
+    };
+});
+
 app_main_unl.directive('plumbItem', function () {
     return {
         controller: 'labController',
@@ -171,9 +246,7 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
                 $location.path("/login");
             });
     }
-    $scope.blockui = function (position) {
-        if ($location.path() != position) blockUI()
-    }
+
     $scope.activeLinks = {
         'main': '/main',
         'usermgmt': '/usermgmt',

@@ -510,10 +510,12 @@ $app->get('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
-	$s = '/' . implode('/', $path);
-	$output = apiGetFolders($s);
+	$relativePath = normalizeUserLabRelativePath('/' . implode('/', $path));
+	$absolutePath = buildUserLabAbsolutePath($user['username'], $relativePath);
+	$output = apiGetFolders($absolutePath);
 
 	if ($output['status'] === 'success') {
+		$output['data'] = transformUserLabListing($user['username'], $output['data'], $relativePath);
 		// Setting folder as last viewed
 		if (isset($user['role']) && strtolower($user['role']) === 'editor') {
 			if (isset($output['data']['labs']) && is_array($output['data']['labs'])) {
@@ -535,7 +537,7 @@ $app->get('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 				}));
 			}
 		}
-		$rc = updateUserFolder($db, $app->getCookie('unetlab_session'), $s);
+		$rc = updateUserFolder($db, $app->getCookie('unetlab_session'), $relativePath);
 		if ($rc !== 0) {
 			// Cannot update user folder
 			$output['code'] = 500;
@@ -565,9 +567,12 @@ $app->put('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 	// TODO must check before using p name and p path
 
 	$event = json_decode($app->request()->getBody());
-	$s = '/' . implode('/', $path);
+	$sRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
 	$p = json_decode(json_encode($event), True);
-	$output = apiEditFolder($s, $p['path']);
+	$dRelative = normalizeUserLabRelativePath(isset($p['path']) ? $p['path'] : '/');
+	$sAbsolute = buildUserLabAbsolutePath($user['username'], $sRelative);
+	$dAbsolute = buildUserLabAbsolutePath($user['username'], $dRelative);
+	$output = apiEditFolder($sAbsolute, $dAbsolute);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
@@ -591,7 +596,9 @@ $app->post('/api/folders', function () use ($app, $db) {
 
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);
-	$output = apiAddFolder($p['name'], $p['path']);
+	$targetRelative = normalizeUserLabRelativePath(isset($p['path']) ? $p['path'] : '/');
+	$targetAbsolute = buildUserLabAbsolutePath($user['username'], $targetRelative);
+	$output = apiAddFolder($p['name'], $targetAbsolute);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
@@ -612,7 +619,9 @@ $app->delete('/api/folders/(:path+)', function ($path = array()) use ($app, $db)
 	}
 
 	$s = '/' . implode('/', $path);
-	$output = apiDeleteFolder($s);
+	$targetRelative = normalizeUserLabRelativePath($s);
+	$targetAbsolute = buildUserLabAbsolutePath($user['username'], $targetRelative);
+	$output = apiDeleteFolder($targetAbsolute);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
@@ -698,7 +707,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
-	$labFileRelative = '/' . implode('/', $path);
+	$labFileRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
@@ -707,8 +716,10 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $labFileRelative);
 	$id = preg_replace($patterns[1], $replacements[1], $labFileRelative);	// Interfere after lab_file.unl
+	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
-	if (!is_file(BASE_LAB . $lab_file)) {
+	if (!is_file($lab_file_full)) {
 		// Lab file does not exists
 		$output['code'] = 404;
 		$output['status'] = 'fail';
@@ -725,12 +736,14 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$dirname  = dirname($lab_file);
 		$basename = basename($lab_file, ".unl");
 		$privateFilename = $basename . '_' . $user['username'] . '.unl';
-		$privateLabRelative = ($dirname == '/' ? '' : $dirname) . '/' . $privateFilename;
-		$privateLabAbsolute = BASE_LAB . $privateLabRelative;
+		$relativePrefix = ($dirname == '/' ? '' : $dirname);
+		$privateLabRelative = normalizeUserLabRelativePath($relativePrefix . '/' . $privateFilename);
+		$privateLabAbsolute = buildUserLabAbsolutePath($user['username'], $privateLabRelative);
+		$privateLabAbsoluteFull = BASE_LAB . $privateLabAbsolute;
 
 		// Если приватная копия не существует, клонируем её
-		if (!is_file($privateLabAbsolute)) {
-			$cloneResult = apiCloneLabPrivate($lab_file, $privateLabRelative, $user);
+		if (!is_file($privateLabAbsoluteFull)) {
+			$cloneResult = apiCloneLabPrivate($lab_file_absolute, $privateLabAbsolute, $user);
 			if ($cloneResult['code'] !== 200) {
 				$app->response->setStatus($cloneResult['code']);
 				$app->response->setBody(json_encode($cloneResult));
@@ -739,13 +752,13 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		}
 
 		// Используем приватную копию
-		$labPathToUse = $privateLabAbsolute;
+		$labPathToUse = $privateLabAbsoluteFull;
 
 		// Обновляем в БД текущую лабораторию – приватная копия
 		$rc = updatePodLab($db, $user['tenant'], $privateLabRelative);
 	} else {
 		// Используем общую лабораторию
-		$labPathToUse = BASE_LAB . $lab_file;
+		$labPathToUse = $lab_file_full;
 	}
 
 	try {
@@ -793,7 +806,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		}
 
 		// Locking to avoid "device vnet12_20 already exists; can't create bridge with the same name"
-		if (!lockFile(BASE_LAB . $lab_file)) {
+		if (!lockFile($lab_file_full)) {
 			// Failed to lockFile within the time
 			$output['code'] = 400;
 			$output['status'] = 'fail';
@@ -803,7 +816,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			return;
 		}
 		$output = apiStartLabNodes($lab, $user['tenant'], $user['username']);
-		unlockFile(BASE_LAB . $lab_file);
+		unlockFile($lab_file_full);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/stop$/', $labFileRelative)) {
 		if ($user['tenant'] < 0) {
 			// User does not have an assigned tenant
@@ -944,7 +957,10 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);	// Reading options from POST/PUT
-	$s = '/' . implode('/', $path);
+	if (isset($p['path'])) {
+		$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['path']));
+	}
+	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
@@ -953,8 +969,10 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
+	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
-	if (!is_file(BASE_LAB . $lab_file)) {
+	if (!is_file($lab_file_full)) {
 		// Lab file does not exists
 		$output['code'] = 404;
 		$output['status'] = 'fail';
@@ -965,7 +983,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	// Locking
-	if (!lockFile(BASE_LAB . $lab_file)) {
+	if (!lockFile($lab_file_full)) {
 		// Failed to lockFile within the time
 		$output['code'] = 400;
 		$output['status'] = 'fail';
@@ -976,7 +994,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	try {
-		$lab = new Lab(BASE_LAB . $lab_file, $user['tenant'], $user['username'], false);
+		$lab = new Lab($lab_file_full, $user['tenant'], $user['username'], false);
 	} catch (Exception $e) {
 		// Lab file is invalid
 		$output['code'] = 400;
@@ -984,7 +1002,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile(BASE_LAB . $lab_file);
+		unlockFile($lab_file_full);
 		return;
 	}
 
@@ -995,7 +1013,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 
@@ -1003,7 +1021,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 		unset($p['shared']);
@@ -1015,7 +1033,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 
@@ -1023,7 +1041,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 		unset($p['sharedWith']);
@@ -1035,7 +1053,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 
@@ -1043,7 +1061,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			return;
 		}
 		unset($p['collaborateAllowed']);
@@ -1051,7 +1069,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	// Sharing
 
 	// if (empty($p)) {
-	// 	unlockFile(BASE_LAB . $lab_file);
+	// 	unlockFile($lab_file_full);
 	// 	$app->response->setStatus($output['code']);
 	// 	$app->response->setBody(json_encode($output));
 	// 	return;
@@ -1131,7 +1149,7 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
-	unlockFile(BASE_LAB . $lab_file);
+	unlockFile($lab_file_full);
 });
 
 // Add new lab
@@ -1150,6 +1168,11 @@ $app->post('/api/labs', function () use ($app, $db) {
 
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);
+	$basePathRelative = isset($p['path']) ? $p['path'] : '/';
+	$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($basePathRelative));
+	if (isset($p['source'])) {
+		$p['source'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['source']));
+	}
 
 	if (isset($p['source'])) {
 		$output = apiCloneLab($p, $user['tenant'], $user['username']);
@@ -1170,12 +1193,13 @@ $app->post('/api/labs', function () use ($app, $db) {
 
 	// === 🔽 ДОПОЛНИТЕЛЬНЫЕ СВОЙСТВА ===
 	$lab_file = $p['path'] . '/' . $p['name'] . '.unl';
+	$lab_file_full = BASE_LAB . $lab_file;
 
 	// shared
 	if (isset($p['shared'])) {
 		$sharedOutput = apiEditLabShared($lab, $p['shared']);
 		if ($sharedOutput['code'] !== 200) {
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			$app->response->setStatus($sharedOutput['code']);
 			$app->response->setBody(json_encode($sharedOutput));
 			return;
@@ -1187,7 +1211,7 @@ $app->post('/api/labs', function () use ($app, $db) {
 	if (isset($p['sharedWith'])) {
 		$sharedWithOutput = apiEditLabSharedWith($lab, $p['sharedWith']);
 		if ($sharedWithOutput['code'] !== 200) {
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			$app->response->setStatus($sharedWithOutput['code']);
 			$app->response->setBody(json_encode($sharedWithOutput));
 			return;
@@ -1199,7 +1223,7 @@ $app->post('/api/labs', function () use ($app, $db) {
 	if (isset($p['collaborateAllowed'])) {
 		$collabOutput = apiEditLabCollaborateAllowed($lab, $p['collaborateAllowed']);
 		if ($collabOutput['code'] !== 200) {
-			unlockFile(BASE_LAB . $lab_file);
+			unlockFile($lab_file_full);
 			$app->response->setStatus($collabOutput['code']);
 			$app->response->setBody(json_encode($collabOutput));
 			return;
@@ -1228,7 +1252,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);	// Reading options from POST/PUT
-	$s = '/' . implode('/', $path);
+	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
 	$o = False;
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
@@ -1238,11 +1262,13 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
+	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	// Reading options from POST/PUT
 	if (isset($event->postfix) && $event->postfix == True) $o = True;
 
-	if (!is_file(BASE_LAB . $lab_file)) {
+	if (!is_file($lab_file_full)) {
 		// Lab file does not exists
 		$output['code'] = 404;
 		$output['status'] = 'fail';
@@ -1253,7 +1279,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	// Locking
-	if (!lockFile(BASE_LAB . $lab_file)) {
+	if (!lockFile($lab_file_full)) {
 		// Failed to lockFile within the time
 		$output['code'] = 400;
 		$output['status'] = 'fail';
@@ -1264,7 +1290,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	try {
-		$lab = new Lab(BASE_LAB . $lab_file, $user['tenant'], $user['username']);
+		$lab = new Lab($lab_file_full, $user['tenant'], $user['username']);
 	} catch (Exception $e) {
 		// Lab file is invalid
 		$output['code'] = 400;
@@ -1272,7 +1298,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile(BASE_LAB . $lab_file);
+		unlockFile($lab_file_full);
 		return;
 	}
 
@@ -1311,7 +1337,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
-	unlockFile(BASE_LAB . $lab_file);
+	unlockFile($lab_file_full);
 });
 
 // Close a lab
@@ -1364,7 +1390,7 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	$event = json_decode($app->request()->getBody());
-	$s = '/' . implode('/', $path);
+	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
@@ -1373,8 +1399,10 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
+	$lab_file_absolute = buildUserLabAbsolutePath($user['username'], $lab_file);
+	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
-	if (!is_file(BASE_LAB . $lab_file)) {
+	if (!is_file($lab_file_full)) {
 		// Lab file does not exists
 		$output['code'] = 404;
 		$output['status'] = 'fail';
@@ -1385,12 +1413,12 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	try {
-		$lab = new Lab(BASE_LAB . $lab_file, $user['tenant'], $user['username']);
+		$lab = new Lab($lab_file_full, $user['tenant'], $user['username']);
 	} catch (Exception $e) {
 		// Lab file is invalid
 		if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {
 			// Delete the lab
-			if (unlink(BASE_LAB . $lab_file)) {
+			if (unlink($lab_file_full)) {
 				$output['code'] = 200;
 				$output['status'] = 'success';
 			} else {
@@ -1410,7 +1438,7 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
-		unlockFile(BASE_LAB . $lab_file);
+		unlockFile($lab_file_full);
 		$output['code'] = 403;
 		$output['status'] = 'fail';
 		$output['message'] = 'Недостаточно прав для удаления лаборатории';
@@ -1615,6 +1643,20 @@ $app->post('/api/export', function () use ($app, $db) {
 
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);;
+	if (isset($p['path'])) {
+		$baseRelative = normalizeUserLabRelativePath($p['path']);
+		$p['path'] = buildUserLabAbsolutePath($user['username'], $baseRelative);
+		foreach ($p as $key => $value) {
+			if ($key === 'path') {
+				continue;
+			}
+			if (!is_string($value)) {
+				continue;
+			}
+			$itemRelative = normalizeUserLabRelativePath($value);
+			$p[$key] = buildUserLabAbsolutePath($user['username'], $itemRelative);
+		}
+	}
 
 	$output = apiExportLabs($p);
 	$app->response->setStatus($output['code']);
@@ -1643,6 +1685,9 @@ $app->post('/api/import', function () use ($app, $db) {
 			$p['file'] = $file['tmp_name'];
 			$p['error'] = $file['name'];
 		}
+	}
+	if (isset($p['path'])) {
+		$p['path'] = buildUserLabAbsolutePath($user['username'], normalizeUserLabRelativePath($p['path']));
 	}
 	$output = apiImportLabs($p, $user);
 	$app->response->setStatus($output['code']);
