@@ -69,14 +69,14 @@
                             class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarSelectTitle}}"
                             data-ng-click="selectAll()"
-                            data-ng-if="!allCheckedFlag">
+                            data-ng-show="!allCheckedFlag">
                       <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
                     </button>
                     <button type="button"
                             class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
                             data-ng-attr-title="{{t.toolbarClearTitle}}"
                             data-ng-click="selectAll()"
-                            data-ng-if="allCheckedFlag">
+                            data-ng-show="allCheckedFlag">
                       <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
                     </button>
                     <button type="button"
@@ -203,7 +203,7 @@
                           ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
                           class="hover:bg-white/5 transition"
                           data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author }">
-                        <td class="px-4 py-3 align-top">
+                        <td class="px-4 py-3 text-center align-middle">
                           <label class="inline-flex items-center gap-2 cursor-pointer">
                             <input type="checkbox"
                                    class="sr-only"
