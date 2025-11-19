@@ -1,8 +1,0 @@
-[Tue Nov 18 15:18:24.350440 2025] [access_compat:error] [pid 262005] [client 10.14.206.1:42090] AH01797: client denied by server configuration: /opt/unetlab/html/includes/.env.bak
-[Tue Nov 18 15:18:24.351527 2025] [access_compat:error] [pid 135559] [client 10.14.206.1:42106] AH01797: client denied by server configuration: /opt/unetlab/html/includes/.env
-[Tue Nov 18 15:18:24.427018 2025] [access_compat:error] [pid 261285] [client 10.14.206.1:42116] AH01797: client denied by server configuration: /opt/unetlab/html/includes/.env.save
-[Tue Nov 18 15:18:30.306789 2025] [access_compat:error] [pid 135601] [client 10.14.206.1:42134] AH01797: client denied by server configuration: /opt/unetlab/html/includes/.env.old
-[Tue Nov 18 15:19:42.080188 2025] [access_compat:error] [pid 135560] [client 10.14.206.1:56072] AH01797: client denied by server configuration: /opt/unetlab/html/includes/phpinfo.php.save
-[Tue Nov 18 15:19:42.114888 2025] [access_compat:error] [pid 135559] [client 10.14.206.1:56110] AH01797: client denied by server configuration: /opt/unetlab/html/includes/info.php.save
-[Tue Nov 18 15:19:42.127546 2025] [access_compat:error] [pid 261426] [client 10.14.206.1:56140] AH01797: client denied by server configuration: /opt/unetlab/html/includes/info.php
-[Tue Nov 18 15:19:42.130665 2025] [access_compat:error] [pid 135601] [client 10.14.206.1:56152] AH01797: client denied by server configuration: /opt/unetlab/html/includes/phpinfo.php
