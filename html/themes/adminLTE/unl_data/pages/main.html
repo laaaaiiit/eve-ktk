@@ -43,18 +43,6 @@
                     <p class="text-slate-400 text-sm" data-ng-bind="t.labsCardSubtitle"></p>
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button type="button"
-                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-sm uppercase"
-                            data-ng-attr-title="{{t.orderTooltip}}"
-                            data-ng-click="toggleOrder(); fileMngDraw(path); falseForSelAll();">
-                      <i class="fa fa-sort mr-2"></i><span data-ng-bind="t.orderButton"></span>
-                    </button>
-                    <button type="button"
-                            class="px-3 py-2 rounded-xl border border-white/15 text-slate-200 hover:bg-white/10 transition text-sm uppercase"
-                            data-ng-attr-title="{{t.refreshTooltip}}"
-                            data-ng-click="fileMngDraw(path); falseForSelAll();">
-                      <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
-                    </button>
                   </div>
                 </div>
       
@@ -133,18 +121,28 @@
                       <span class="ml-2 font-mono text-slate-200 break-all">{{path}}</span>
                     </p>
                   </div>
+
+                <div ng-show="loading" class="text-center py-4">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                </div>
       
-                <div class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
+                <div ng-if="showTable" ng-show="!loading" class="rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner overflow-hidden">
                   <table class="w-full text-base text-left">
                     <thead class="text-sm uppercase text-slate-300 bg-slate-900/60">
                       <tr>
                         <th class="px-4 py-3 w-12"></th>
-                        <th class="px-4 py-3" data-ng-bind="t.treeColumnName"></th>
-                        <th class="px-4 py-3 w-40 text-right" data-ng-bind="t.treeColumnUpdated"></th>
+                        <th class="px-4 py-3 cursor-pointer" ng-click="setOrder('name')">
+                          <span data-ng-bind="t.treeColumnName"></span>
+                          <i class="fa" ng-class="{'fa-sort-asc': fileOrder === 'name' && !reverseSort, 'fa-sort-desc': fileOrder === 'name' && reverseSort}"></i>
+                        </th>
+                        <th class="px-4 py-3 w-40 text-right cursor-pointer" ng-click="setOrder('umtime')">
+                          <span data-ng-bind="t.treeColumnUpdated"></span>
+                          <i class="fa" ng-class="{'fa-sort-asc': fileOrder === 'umtime' && !reverseSort, 'fa-sort-desc': fileOrder === 'umtime' && reverseSort}"></i>
+                        </th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5 text-slate-100" data-ng-if="rootDir">
-                      <tr data-ng-repeat="x in rootDir.folders | orderBy:'name' track by x.path"
+                      <tr data-ng-repeat="x in rootDir.folders | orderBy:'name':reverseSort track by x.path"
                           ng-class="{'bg-white/5': checkboxArray['Fo_'+x.name] && checkboxArray['Fo_'+x.name].checked}"
                           class="hover:bg-white/5 transition"
                           data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder' }">
@@ -209,7 +207,7 @@
                         <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
                       </tr>
       
-                      <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder track by x.path"
+                      <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder:reverseSort track by x.path"
                           ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
                           class="hover:bg-white/5 transition"
                           data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author }">
@@ -282,103 +280,6 @@
                   </table>
                 </div>
       
-                <div class="space-y-5 border-t border-white/10 pt-6">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h3 class="text-xl font-semibold" data-ng-bind="t.uploadQueueTitle"></h3>
-                      <p class="text-sm text-slate-400" data-ng-bind="t.uploadQueueSubtitle"></p>
-                    </div>
-                    <div class="flex flex-wrap gap-2 text-sm uppercase">
-                      <button type="button"
-                              class="px-4 py-2 rounded-xl bg-emerald-500/40 text-white hover:bg-emerald-500/60 transition border border-white/20"
-                              data-ng-click="uploader.uploadAll()"
-                              ng-disabled="!uploader.getNotUploadedItems().length">
-                        <i class="fa fa-cloud-upload mr-2"></i><span data-ng-bind="t.uploadAllButton"></span>
-                      </button>
-                      <button type="button"
-                              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
-                              data-ng-click="uploader.cancelAll()"
-                              ng-disabled="!uploader.isUploading">
-                        <i class="fa fa-ban mr-2"></i><span data-ng-bind="t.cancelUploadButton"></span>
-                      </button>
-                      <button type="button"
-                              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition"
-                              data-ng-click="uploader.clearQueue()"
-                              ng-disabled="!uploader.queue.length">
-                        <i class="fa fa-times mr-2"></i><span data-ng-bind="t.clearUploadButton"></span>
-                      </button>
-                    </div>
-                  </div>
-      
-                  <div class="rounded-2xl border border-dashed border-white/30 bg-slate-900/40 p-5 text-center"
-                       nv-file-drop=""
-                       uploader="uploader">
-                    <p class="text-sm text-slate-300" data-ng-bind="t.uploadQueueSubtitle"></p>
-                    <p class="text-xs text-slate-500 mt-2">.unl / .zip</p>
-                    <div class="mt-4 flex justify-center">
-                      <button type="button"
-                              class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm uppercase border border-white/20"
-                              data-ng-click="selectOneFileUplad(); falseForSelAll();">
-                        <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
-                      </button>
-                    </div>
-                  </div>
-      
-                  <div class="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden" data-ng-if="uploader.queue.length">
-                    <table class="w-full text-sm text-left">
-                      <thead class="text-xs uppercase text-slate-300 bg-slate-900/60">
-                        <tr>
-                          <th class="px-4 py-3" data-ng-bind="t.uploaderColumnName"></th>
-                          <th class="px-4 py-3 w-24" data-ng-bind="t.uploaderColumnSize"></th>
-                          <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnProgress"></th>
-                          <th class="px-4 py-3 w-32" data-ng-bind="t.uploaderColumnStatus"></th>
-                          <th class="px-4 py-3 w-32 text-right" data-ng-bind="t.uploaderColumnActions"></th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-white/5 text-slate-100">
-                        <tr data-ng-repeat="item in uploader.queue track by item.$hashKey" class="hover:bg-white/5 transition">
-                          <td class="px-4 py-3">{{ item.file.name }}</td>
-                          <td class="px-4 py-3">{{ (item.file.size / 1024 / 1024) | number:2 }} {{t.sizeUnit}}</td>
-                          <td class="px-4 py-3">
-                            <div class="h-2 rounded-full bg-white/10 overflow-hidden">
-                              <div class="h-full bg-blue-500" ng-style="{'width': item.progress + '%'}"></div>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3">
-                            <span data-ng-if="item.isSuccess" class="text-emerald-300" data-ng-bind="t.uploadStatusSuccess"></span>
-                            <span data-ng-if="item.isCancel" class="text-amber-300" data-ng-bind="t.uploadStatusCancel"></span>
-                            <span data-ng-if="item.isError" class="text-rose-300" data-ng-bind="t.uploadStatusError"></span>
-                            <span data-ng-if="item.isUploading" class="text-blue-300">{{item.progress | number:0}}%</span>
-                            <span data-ng-if="!item.isReady && !item.isUploading && !item.isSuccess && !item.isError" class="text-slate-400">—</span>
-                          </td>
-                          <td class="px-4 py-3">
-                            <div class="flex justify-end gap-2 text-sm uppercase">
-                              <button type="button"
-                                      class="px-3 py-2 rounded-xl bg-white/10 hover:bg-blue-500/30 transition border border-white/20"
-                                      data-ng-click="item.upload()"
-                                      ng-disabled="item.isUploading || item.isSuccess">
-                                <span data-ng-bind="t.uploadActionUpload"></span>
-                              </button>
-                              <button type="button"
-                                      class="px-3 py-2 rounded-xl border border-white/20 hover:bg-white/10 transition"
-                                      data-ng-click="item.remove();"
-                                      data-ng-attr-title="{{t.uploadRemoveTooltip}}">
-                                <span data-ng-bind="t.uploadActionRemove"></span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <p class="text-sm text-slate-400" data-ng-if="!uploader.queue.length" data-ng-bind="t.uploadQueueEmpty"></p>
-                  <div class="space-y-2" data-ng-if="uploader.queue.length">
-                    <p class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.uploadTotalProgress"></p>
-                    <div class="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div class="h-full bg-emerald-500" ng-style="{'width': uploader.progress + '%'}"></div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </section>
             <section class="h-full rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800/50 to-slate-900 shadow-2xl p-6 card-glow flex flex-col backdrop-blur-sm">

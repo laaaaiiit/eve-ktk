@@ -13,7 +13,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.blockButtonsClass = '';
 	$scope.fileManagerItem = [];
 	$scope.checkboxArray = [];
-	$scope.fileOrder = 'file';
+	$scope.fileOrder = 'name';
+	$scope.reverseSort = false;
+	$scope.loading = false;
+	$scope.showTable = true;
 	$scope.deleteDialog = {
 		open: false,
 		title: '',
@@ -216,11 +219,14 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.falseForSelAll = function () {
 		$scope.allCheckedFlag = false;
 	}
-	$scope.toggleOrder = function () {
-		if ($scope.fileOrder == 'umtime')
-			$scope.fileOrder = 'file'
-		else
-			$scope.fileOrder = 'umtime'
+
+	$scope.setOrder = function(orderBy) {
+		if ($scope.fileOrder === orderBy) {
+			$scope.reverseSort = !$scope.reverseSort;
+		} else {
+			$scope.fileOrder = orderBy;
+			$scope.reverseSort = false;
+		}
 	}
 
 	$scope.openDeleteDialog = function (config) {
@@ -274,7 +280,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	////////////////////////////////
 	//Drawing files tree ///START
 	$scope.fileMngDraw = function (path, folder) {
-		$.blockUI();
+		$scope.loading = true;
+		$scope.showTable = false;
 		$scope.path = path;
 		if (folder !== undefined) {
 			$scope.fileManagerItem['Fo_' + folder]['img'] = true;
@@ -310,10 +317,14 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				}
 
 				$scope.currentPosition();
-				$.unblockUI();
+				$scope.loading = false;
+				$timeout(function() {
+					$scope.showTable = true;
+				});
 			},
 			function errorCallback(response) {
-				$.unblockUI();
+				$scope.loading = false;
+				$scope.showTable = true;
 				console.log("Unknown Error. Why did API doesn't respond?");
 				$location.path("/login");
 			}
