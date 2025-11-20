@@ -1054,7 +1054,11 @@ function checkUsersLangColumn($db)
 function updateUserCookie($db, $username, $cookie)
 {
 	try {
-		$ip = $_SERVER['REMOTE_ADDR'];
+		if (isset($_SERVER['HTTP_X_REAL_IP'])) {
+			$ip = $_SERVER['HTTP_X_REAL_IP'];
+		} else {
+			$ip = $_SERVER['REMOTE_ADDR'];
+		}
 		$now = time() + SESSION;
 		$query = 'UPDATE users SET cookie = :cookie, session = :session, ip = :ip WHERE username = :username;';
 		$statement = $db->prepare($query);

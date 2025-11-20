@@ -170,7 +170,6 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
     $.get('/themes/adminLTE/VERSION?' + Date.now(), function (data) {
         if (data.trim() != $rootScope.EVE_VERSION) window.location.reload(true);
     });
-    $rootScope.openLaba = true;
     $scope.testAUTH = function (path) {
         $scope.userfolder = 'none';
         $http.get('/api/auth').then(
@@ -194,6 +193,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
 
                     if (path === '/syslog' && $rootScope.role !== 'admin') {
                         $location.path('/main');
+                        $.unblockUI();
                         return;
                     }
 
@@ -218,6 +218,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     } else {
                         if ($rootScope.lab === null) { $location.path(path) } else { $location.path('/lab') };
                     }
+                    $.unblockUI(); // Unblock UI on successful authentication
                 }
             },
             function errorCallback(response) {
@@ -225,6 +226,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     $location.path("/login");
                 }
                 else { console.log("Unknown Error. Why did API doesn't respond?") }
+                $.unblockUI(); // Unblock UI on authentication error
             });
     }
 }]);

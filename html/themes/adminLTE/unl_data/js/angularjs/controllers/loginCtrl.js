@@ -116,6 +116,7 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 							var message = currentTranslation().errors.generic;
 							$scope.loginMessageInfo = formatServerMessage(message, response.data && response.data.message);
 						}
+						$.unblockUI(); // Unblock UI after login attempt
 					},
 					function errorCallback(response) {
 						var message = currentTranslation().errors.generic;
@@ -126,6 +127,7 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 						}
 						var serverMessage = response.data && response.data.message;
 						$scope.loginMessageInfo = formatServerMessage(message, serverMessage);
+						$.unblockUI(); // Unblock UI after login attempt
 					}
 				);
 		}

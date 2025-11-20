@@ -17,14 +17,6 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.reverseSort = false;
 	$scope.loading = false;
 	$scope.showTable = true;
-	$scope.deleteDialog = {
-		open: false,
-		title: '',
-		message: '',
-		items: [],
-		confirmLabel: 'Delete',
-		action: null
-	};
 	//Default variables ///END
 
 	var translations = {
@@ -199,12 +191,63 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		$scope.lang = resolveLanguage();
 		$scope.t = translations[$scope.lang] || translations['ru'];
 		$rootScope.lang = $scope.lang;
-		$scope.deleteDialog.confirmLabel = $scope.t.deleteDialogDefaultAction;
 	}
 
 	function currentTranslations() {
 		return $scope.t || translations[resolveLanguage()] || translations['ru'];
 	}
+
+    function openTailwindModal(config) {
+        return $uibModal.open({
+            animation: true,
+            template: `
+                <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+                    <div class="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br text-slate-100 shadow-2xl p-8 space-y-6" ng-class="modal.surfaceClasses">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center" ng-class="modal.iconClasses">
+                                <i class="{{modal.icon}}"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-semibold" ng-bind="modal.title"></h4>
+                                <p class="text-slate-300 text-sm" ng-bind="modal.body"></p>
+                            </div>
+                        </div>
+                        <div class="space-y-3" ng-if="modal.items && modal.items.length">
+                            <div ng-repeat="item in modal.items">
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-400" ng-bind="item.label"></p>
+                                <p class="text-base font-semibold" ng-bind="item.value"></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-3">
+                            <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+                                    ng-click="$dismiss()"
+                                    ng-bind="modal.cancelLabel"></button>
+                            <button class="px-5 py-2 rounded-xl text-white uppercase tracking-[0.2em] shadow-lg transition cursor-pointer"
+                                    ng-class="modal.confirmClasses"
+                                    ng-click="$close(true)"
+                                    ng-bind="modal.confirmLabel"></button>
+                        </div>
+                    </div>
+                </div>
+            `,
+            controller: ['$scope', function ($scope) {
+                var defaults = {
+                    icon: 'fa fa-info-circle',
+                    iconClasses: 'bg-blue-500/20 text-blue-200',
+                    confirmClasses: 'bg-blue-600 hover:bg-blue-500',
+                    surfaceClasses: 'from-slate-950 via-blue-950/70 to-slate-900',
+                    cancelLabel: config.cancelLabel || 'Cancel',
+                    confirmLabel: config.confirmLabel || 'Confirm',
+                    items: []
+                };
+                $scope.modal = angular.extend(defaults, config || {});
+            }],
+            size: 'md',
+            backdrop: 'static',
+            keyboard: false
+        }).result;
+    }
 
 	refreshTranslations();
 
@@ -232,27 +275,22 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.openDeleteDialog = function (config) {
 		var t = currentTranslations();
 		config = config || {};
-		$scope.deleteDialog.open = true;
-		$scope.deleteDialog.title = config.title || t.deleteMultiTitle;
-		$scope.deleteDialog.message = config.message || t.deleteMultiMessage;
-		$scope.deleteDialog.items = config.items || [];
-		$scope.deleteDialog.confirmLabel = config.confirmLabel || t.deleteDialogDefaultAction;
-		$scope.deleteDialog.action = config.action || null;
+		openTailwindModal({
+			icon: 'fa fa-exclamation-triangle',
+			iconClasses: 'bg-rose-500/20 text-rose-200',
+			title: config.title || t.deleteMultiTitle,
+			body: config.message || t.deleteMultiMessage,
+			surfaceClasses: 'from-rose-950/80 via-rose-900/40 to-slate-900',
+			confirmLabel: config.confirmLabel || t.deleteDialogDefaultAction,
+			cancelLabel: t.deleteDialogCancel,
+			confirmClasses: 'bg-rose-600 hover:bg-rose-500',
+			items: (config.items || []).map(function(item) { return { value: item }; })
+		}).then(function () {
+			if (typeof config.action === 'function') {
+				config.action();
+			}
+		});
 	};
-
-	$scope.closeDeleteDialog = function () {
-		$scope.deleteDialog.open = false;
-		$scope.deleteDialog.items = [];
-		$scope.deleteDialog.action = null;
-	};
-
-	$scope.confirmDeleteDialog = function () {
-		if (typeof $scope.deleteDialog.action === 'function') {
-			$scope.deleteDialog.action();
-		}
-		$scope.closeDeleteDialog();
-	};
-
 
 	$('body').removeClass().addClass('hold-transition skin-blue layout-top-nav');
 	//Draw current position //START
@@ -378,8 +416,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		if (elementType == 'Folder') {
 			$scope.blockButtons = true;
 			$scope.blockButtonsClass = 'm-progress';
-			var newName = $scope.folderData.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
-			//$scope.newElementName = $scope.newElementName.replace(/[\s]+/g, '_');
+			var newName = $scope.folderData.newElementName.replace(/[\\'#$,@"\\/,%\*,,\.\(\):;^&[\]|]/g, '');
+			//$scope.newElementName = $scope.newElementName.replace(/[\\s]+/g, '_');
 			$http({
 				method: 'POST',
 				url: '/api/folders',
@@ -410,8 +448,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		/////////////////////////
 		//Create NEW Lab //START
 		if (elementType == 'File') {
-			$scope.folderData.newElementName = $scope.folderData.newElementName.replace(/[\',#,$,@,\",\\,/,%,\*,\,,\.,(,),:,;,^,&,\[,\],\|]/g, '');
-			//$scope.newElementName = $scope.newElementName.replace(/[\s]+/g, '_');
+			$scope.folderData.newElementName = $scope.folderData.newElementName.replace(/[\\'#$,@"\\/,%\*,,\.\(\):;^&[\]|]/g, '');
+			//$scope.newElementName = $scope.newElementName.replace(/[\\s]+/g, '_');
 			$scope.openModal('addfile');
 		}
 		//Create NEW Lab //END
@@ -700,8 +738,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		var itemType = (item.type == 'Folder') ? 'Fo_' : 'Fi_';
 		console.log($scope.fileManagerItem[itemType + item.oldvalue])
 		var tempVal = $scope.fileManagerItem[itemType + item.oldvalue].value;
-		tempVal = tempVal.replace(/[\',#,$,\",\\,/,%,\*,\,,\.,!,\(,\[,\],\),\},\{]/g, '')
-		//tempVal=tempVal.replace(/[\s]+/g, '_');
+		tempVal = tempVal.replace(/[\\'#$,"\\/,%\*,,\.,!\(\ [\]\)\\{\}]/g, '')
+		//tempVal=tempVal.replace(/[\\s]+/g, '_');
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';
 		$scope.fileManagerItem[itemType + item.oldvalue].value = tempVal;
@@ -742,7 +780,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 						toastr["error"](response.data.message, "Error")
 					}
 				);
-		} else if (itemType == 'Fi_') {
+		}
+		else if (itemType == 'Fi_') {
 			console.log('Rename file:' + $scope.fileManagerItem[itemType + item.oldvalue].oldvalue.replace(/.unl$/, "") + ' to ' + $scope.fileManagerItem[itemType + item.oldvalue].value)
 
 			$http({
@@ -826,8 +865,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	///Import lab //START
 	var uploader = $scope.uploader = new FileUploader({
 		url: '/api/import',
-		//autoUpload : true,
-		//removeAfterUpload : true
+		autoUpload : true,
+		removeAfterUpload : true
 	});
 
 	$scope.testFun = function () {
@@ -914,8 +953,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	ModalCtrl($scope, $uibModal, $log)
 	//labViewCtrl ($scope)
 	//More controllers //END
-	//var testString='123123\'/\ \%\#\s$123123 21*3123';
-	//console.log(testString.replace(/[\',#,$,\",\\,/,%,\*,\,,\.]/g, ''))
+	//var testString='123123\'/	%#\s$123123 21*3123';
+	//console.log(testString.replace(/[\\'#$,"\\/,%\*,,\.]/g, ''))
 
 
 	$scope.openLab = function (mode) {
@@ -931,10 +970,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	};
 
 
-/////////////////////////////////////////////	
+////////////////////////////////////////////	
 ////////////////////////////////////////////
 ///////PREVIEW FUNCTIONS////////////////START
-/////////////////////////////////////////////	
+////////////////////////////////////////////	
 ////////////////////////////////////////////
 var BASE_PREVIEW_SCALE = 5;
 var PREVIEW_BASE_WIDTH = 1200;
@@ -1406,8 +1445,8 @@ function buildPreviewFromTopology() {
 	//	var length = Math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
 	//	var angle  = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
 	//	var transform = 'rotate('+angle+'deg)';
-	//	$('div#topologyPreview').append('<div class="line" style="position:absolute;transform: '+transform+';width: '+length
-	//	+'px; top: '+y1+'px; left: '+x1+'px;"></div>');
+	//	$("div#topologyPreview").append("<div class=\"line\" style=\"position:absolute;transform: "+transform+";width: "+length
+	//	+"px; top: "+y1+"px; left: "+x1+"px;"></div>");
 	//}
 	//Line calculator //END	
 
@@ -1459,10 +1498,10 @@ function ObjectLength(object) {
 		}
 	}
 	return length;
-	/////////////////////////////////////////////	
+	////////////////////////////////////////////	
 	////////////////////////////////////////////
 	///////PREVIEW FUNCTIONS////////////////END
-	/////////////////////////////////////////////	
+	////////////////////////////////////////////	
 	////////////////////////////////////////////	
 
 	var resizeHandler = function () {

@@ -30,10 +30,6 @@
   .card-glow {
     @apply transition-all duration-300;
   }
-
-  .card-glow:hover {
-    @apply shadow-[0_0_20px_rgba(59,130,246,0.3)];
-  }
 }
 
 @layer components {

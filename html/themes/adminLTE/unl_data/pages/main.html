@@ -12,12 +12,12 @@
           </div>
           <div class="flex flex-wrap gap-3">
             <button type="button"
-                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-sm border border-white/20"
+                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-sm border border-white/20 cursor-pointer"
                     data-ng-click="openModal('addfile', null,'megalg');">
               <i class="fa fa-file mr-2"></i><span data-ng-bind="t.newLabButton"></span>
             </button>
             <button type="button"
-                    class="px-6 py-3 rounded-2xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-sm uppercase"
+                    class="px-6 py-3 rounded-2xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-sm uppercase cursor-pointer"
                     data-ng-click="fileMngDraw(path); falseForSelAll();">
               <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
             </button>
@@ -56,7 +56,7 @@
                              my-enter="createNewElement('Folder')"
                              focus-on="foCreate">
                       <button type="button"
-                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20"
+                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20 cursor-pointer"
                               ng-disabled="blockButtons"
                               data-ng-click="createNewElement('Folder')">
                         <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
@@ -66,41 +66,41 @@
 
                   <div class="flex flex-wrap gap-1 justify-center">
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarSelectTitle}}"
                             data-ng-click="selectAll()"
                             data-ng-show="!allCheckedFlag">
                       <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarClearTitle}}"
                             data-ng-click="selectAll()"
                             data-ng-show="allCheckedFlag">
                       <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarMoveTitle}}"
                             data-ng-click="moveto()"
                             ng-disabled="!selectedItemsCanBeModified()">
                       <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-rose-500/50 text-sm uppercase text-rose-200 hover:bg-rose-500/10 transition"
+                            class="px-4 py-2 rounded-xl border border-rose-500/50 text-sm uppercase text-rose-200 hover:bg-rose-500/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarDeleteTitle}}"
                             data-ng-click="deleteALLElement(); hideAllEdit()"
                             ng-disabled="!selectedItemsCanBeModified()">
                       <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarImportTitle}}"
                             data-ng-click="selectOneFileUplad(); falseForSelAll();">
                       <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
                     </button>
                     <button type="button"
-                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition"
+                            class="px-4 py-2 rounded-xl border border-white/15 text-sm uppercase text-slate-100 hover:bg-white/10 transition cursor-pointer"
                             data-ng-attr-title="{{t.toolbarExportTitle}}"
                             data-ng-click="exportFiles()">
                       <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
@@ -158,7 +158,7 @@
                             <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fo_'+x.name].visibleEdit">
                               <div class="flex flex-col gap-1">
                                 <button type="button"
-                                        class="text-left text-white font-semibold hover:text-blue-200 transition"
+                                        class="text-left text-white font-semibold hover:text-blue-200 transition cursor-pointer"
                                         data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();">
                                   <i class="fa fa-folder mr-2 text-amber-300"></i>
                                   <span data-ng-if="x.name !== '..'">{{x.name}}</span>
@@ -167,7 +167,7 @@
                               </div>
                               <div class="flex items-center gap-2" data-ng-if="x.name != '..'">
                                 <button type="button"
-                                        class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                                        class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
                                         data-ng-click="openRename(fileManagerItem['Fo_'+x.name], $event)">
                                   <i class="fa fa-pencil"></i>
                                 </button>
@@ -182,12 +182,12 @@
                                        my-enter="editElementApply(fileManagerItem['Fo_'+x.name])">
                                 <div class="flex gap-2">
                                   <button type="button"
-                                          class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
+                                          class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase cursor-pointer"
                                           data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name])">
                                     <span data-ng-bind="t.actionApply"></span>
                                   </button>
                                   <button type="button"
-                                          class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
+                                          class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase cursor-pointer"
                                           data-ng-click="hideAllEdit()">
                                     <span data-ng-bind="t.deleteDialogCancel"></span>
                                   </button>
@@ -211,10 +211,10 @@
                                    data-ng-click="falseForSelAll(); hideAllEdit(); $event.stopPropagation();">
                             <span class="h-5 w-5 rounded-lg border border-white/20 bg-slate-900/70 flex items-center justify-center transition"
                                   data-ng-class="{'bg-emerald-500/60 border-emerald-300': checkboxArray['Fi_'+x.file].checked}">
-                              <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
-                            </span>
-                          </label>
-                        </td>
+                                <i class="fa fa-check text-sm text-white" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
+                              </span>
+                            </label>
+                          </td>
                         <td class="px-4 py-3 space-y-2"
                             data-ng-click="selectElbyTD(checkboxArray['Fi_'+x.file]); getLabInfo(x.path, x.file)">
                           <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
@@ -234,7 +234,7 @@
                                 <i class="fa fa-circle-o-notch fa-spin"></i>
                               </div>
                               <button type="button"
-                                      class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                                      class="px-2 py-1 rounded-full text-xs text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
                                       data-ng-click="openRename(fileManagerItem['Fi_'+x.file], $event)">
                                 <i class="fa fa-pencil"></i>
                               </button>
@@ -249,12 +249,12 @@
                                      my-enter="editElementApply(fileManagerItem['Fi_'+x.file])">
                               <div class="flex gap-2">
                                 <button type="button"
-                                        class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase"
+                                        class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase cursor-pointer"
                                         data-ng-click="editElementApply(fileManagerItem['Fi_'+x.file])">
                                   <span data-ng-bind="t.actionApply"></span>
                                 </button>
                                 <button type="button"
-                                        class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase"
+                                        class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase cursor-pointer"
                                         data-ng-click="hideAllEdit()">
                                   <span data-ng-bind="t.deleteDialogCancel"></span>
                                 </button>
@@ -296,32 +296,3 @@
           </div>
         </section>
       </main>
-      
-
-<div class="fixed inset-0 z-50 flex items-center justify-center px-4" data-ng-if="deleteDialog.open">
-  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-  <div class="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-950/90 p-6 text-slate-100 space-y-5">
-    <p class="text-sm uppercase tracking-[0.35em] text-rose-200" data-ng-bind="t.deleteDialogEyebrow"></p>
-    <div class="space-y-2">
-      <h3 class="text-2xl font-semibold" data-ng-bind="deleteDialog.title"></h3>
-      <p class="text-sm text-slate-300" data-ng-bind="deleteDialog.message"></p>
-      <p class="text-sm uppercase text-rose-300" data-ng-bind="t.deleteDialogWarning"></p>
-    </div>
-    <ul class="space-y-2 text-sm text-slate-300" data-ng-if="deleteDialog.items.length">
-      <li data-ng-repeat="item in deleteDialog.items track by $index" class="flex items-start gap-2">
-        <span class="text-rose-400">•</span>
-        <span>{{item}}</span>
-      </li>
-    </ul>
-    <div class="flex flex-wrap justify-end gap-3 pt-4">
-      <button type="button"
-              class="px-4 py-2 rounded-xl border border-white/20 text-slate-100 hover:bg-white/10 transition text-sm uppercase"
-              data-ng-click="closeDeleteDialog()"
-              data-ng-bind="t.deleteDialogCancel"></button>
-      <button type="button"
-              class="px-4 py-2 rounded-xl bg-rose-500/70 text-white hover:bg-rose-500 transition text-sm uppercase border border-white/20"
-              data-ng-click="confirmDeleteDialog()"
-              data-ng-bind="deleteDialog.confirmLabel"></button>
-    </div>
-  </div>
-</div>
