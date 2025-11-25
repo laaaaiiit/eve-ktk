@@ -178,14 +178,14 @@ angular.module("unlMainApp").controller('ModalInstanceCtrl', function ModalInsta
 
 	$scope.saveLab = $scope.addNewLab;
 });
-angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtrl($scope, $uibModalInstance, data, $http) {
+angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtrl($scope, $uibModalInstance, data, $http, $rootScope) {
 
 	$scope.blockButtons = false;
 	$scope.blockButtonsClass = '';
 	$scope.result = false;
 	var isEdit = !!(data && data.info);
 	$scope.isEdit = isEdit;
-	$scope.author = isEdit ? data.info.author : $scope.username;
+	$scope.author = isEdit ? data.info.author : ($rootScope.username || '');
 	$scope.description = isEdit ? data.info.description : '';
 	$scope.version = isEdit ? data.info.version : 1;
 	$scope.body = isEdit ? data.info.body : '';
@@ -208,8 +208,16 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 		$scope.labName = ($scope.labName || '').replace(/[\',#,$,\",\\,/,%,\*,\,,\.,!]/g, '')
 		//$scope.labName = $scope.labName.replace(/[\s]+/g, '_');
 
+		var resolvedAuthor = $scope.author || $rootScope.username || '';
+
+		if (resolvedAuthor === '') {
+			$scope.errorMessage = "Author can't be empty";
+			$scope.errorClass = 'has-error author';
+			return;
+		}
+
 		$scope.newdata = {
-			'author': $scope.author,
+			'author': resolvedAuthor,
 			'description': $scope.description,
 			'scripttimeout': $scope.scripttimeout,
 			'version': $scope.version,
@@ -273,9 +281,12 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 					console.log("Unknown Error. Why did API doesn't respond?")
 					//$uibModalInstance.close($scope.result);
 					toastr["error"](response.data.message, "Error");
-				}
-			);
+			}
+		);
 	}
+
+	// Expose handler expected by the template button
+	$scope.saveLab = $scope.addNewLab;
 
 	$scope.opacity = function () {
 		$(".modal-content").toggleClass("modal-content_opacity");
