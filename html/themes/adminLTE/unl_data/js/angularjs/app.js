@@ -10,7 +10,7 @@ var app_main_unl = angular.module("unlMainApp", [
     "ngCookies"
 ]);
 
-app_main_unl.run(function ($rootScope) {
+app_main_unl.run(function ($rootScope, themeService) {
     $rootScope.imgpath = '/themes/adminLTE/unl_data/img/';
     $rootScope.angularCtlrPath = '/themes/adminLTE/unl_data/angular/controllers';
     $rootScope.jspath = '/themes/adminLTE/unl_data/js/';
@@ -19,6 +19,11 @@ app_main_unl.run(function ($rootScope) {
     $rootScope.bodyclass = 'sidebar-collapse';
     $rootScope.UIlegacy = 1;
     $rootScope.EVE_VERSION = "6.2.0-4";
+    $rootScope.themeClass = function (darkClasses, lightClasses) {
+        var theme = $rootScope.theme || themeService.read();
+        return (theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+    };
+    themeService.sync();
 });
 
 app_main_unl.directive('focusOn', function () {
@@ -102,6 +107,77 @@ app_main_unl.factory('loadingOverlayFactory', ['$timeout', function ($timeout) {
     };
 }]);
 
+app_main_unl.factory('themeService', ['$rootScope', '$cookies', function ($rootScope, $cookies) {
+    var DEFAULT_THEME = 'dark';
+
+    function normalize(theme) {
+        return (theme === 'light') ? 'light' : DEFAULT_THEME;
+    }
+
+    function readLocalStorage() {
+        if (typeof localStorage === 'undefined') return null;
+        try {
+            var stored = localStorage.getItem('eve_theme_pref');
+            if (stored) return stored;
+        } catch (e) { }
+        return null;
+    }
+
+    function cookieKey(user) {
+        var username = user || $rootScope.username || 'shared';
+        return 'eve_theme_' + username;
+    }
+
+    function readAnySaved() {
+        var ls = readLocalStorage();
+        if (ls) return ls;
+        var all = ($cookies && $cookies.getAll && $cookies.getAll()) || {};
+        var keys = Object.keys(all);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].indexOf('eve_theme_') === 0) {
+                return all[keys[i]];
+            }
+        }
+        return null;
+    }
+
+    function read(user) {
+        var key = cookieKey(user);
+        var saved = $cookies.get(key);
+        if (!saved) {
+            saved = readAnySaved();
+        }
+        return normalize(saved);
+    }
+
+    function applyTheme(theme, user) {
+        var nextTheme = normalize(theme);
+        $cookies.put(cookieKey(user), nextTheme, { path: '/' });
+        try { localStorage.setItem('eve_theme_pref', nextTheme); } catch (e) { }
+        $rootScope.theme = nextTheme;
+        if (typeof document !== 'undefined' && document.documentElement) {
+            document.documentElement.setAttribute('data-theme', nextTheme);
+        }
+        return nextTheme;
+    }
+
+    function sync(user) {
+        return applyTheme(read(user), user);
+    }
+
+    function toggle() {
+        var next = ($rootScope.theme === 'light') ? 'dark' : 'light';
+        return applyTheme(next);
+    }
+
+    return {
+        read: read,
+        apply: applyTheme,
+        sync: sync,
+        toggle: toggle
+    };
+}]);
+
 app_main_unl.directive('loadingOverlay', function () {
     return {
         restrict: 'E',
@@ -166,7 +242,7 @@ app_main_unl.directive('myEnter', function () {
 });
 
 /* Setup App Main Controller */
-app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '$location', '$cookies', function ($scope, $rootScope, $http, $location, $cookies) {
+app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '$location', '$cookies', 'themeService', function ($scope, $rootScope, $http, $location, $cookies, themeService) {
     $.get('/themes/adminLTE/VERSION?' + Date.now(), function (data) {
         if (data.trim() != $rootScope.EVE_VERSION) window.location.reload(true);
     });
@@ -188,6 +264,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     if (cookieLang !== effectiveLang) {
                         $cookies.put('eve_login_lang', effectiveLang, { path: '/' });
                     }
+                    themeService.sync($rootScope.username);
                     $rootScope.tenant = response.data.data.tenant;
                     $scope.userfolder = response.data.folder;
 
@@ -232,7 +309,57 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
 }]);
 
 /* Setup Layout Part - Header */
-app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$rootScope', function ($scope, $http, $location, $rootScope) {
+app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$rootScope', '$cookies', 'themeService', function ($scope, $http, $location, $rootScope, $cookies, themeService) {
+    var translations = {
+        en: {
+            menuMain: 'Main',
+            menuManagement: 'Management',
+            menuSystem: 'System',
+            menuUserMgmt: 'User management',
+            menuNodeMgmt: 'Node management',
+            menuCloudMgmt: 'Cloud management',
+            menuSysStatus: 'System status',
+            menuSyslog: 'System logs',
+            menuGuac: 'Guacamole',
+            logout: 'Sign out'
+        },
+        ru: {
+            menuMain: 'Главная',
+            menuManagement: 'Управление',
+            menuSystem: 'Система',
+            menuUserMgmt: 'Пользователи',
+            menuNodeMgmt: 'Узлы',
+            menuCloudMgmt: 'Облака',
+            menuSysStatus: 'Статус системы',
+            menuSyslog: 'Системные логи',
+            menuGuac: 'Guacamole',
+            logout: 'Выход'
+        }
+    };
+
+    function resolveLanguage() {
+        var cookieLang = ($cookies && $cookies.get('eve_login_lang')) || null;
+        var lang = cookieLang || $rootScope.lang || 'ru';
+        if (!translations[lang]) {
+            lang = 'ru';
+        }
+        return lang;
+    }
+
+    function refreshTranslations() {
+        $scope.lang = resolveLanguage();
+        $scope.t = translations[$scope.lang];
+        $rootScope.lang = $scope.lang;
+    }
+
+    refreshTranslations();
+
+    $scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
+        if (newVal && newVal !== oldVal) {
+            refreshTranslations();
+        }
+    });
+
     $scope.activeClass = 'active';
     $scope.emptyClass = '';
     $scope.currentPath = $location.path();
@@ -248,6 +375,44 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
                 $location.path("/login");
             });
     }
+    $scope.$on('$locationChangeSuccess', function () {
+        $scope.currentPath = $location.path();
+    });
+
+    $scope.theme = themeService.sync($rootScope.username);
+    $scope.themeClass = function (darkClasses, lightClasses) {
+        return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+    };
+    var themeLabels = {
+        light: { en: 'Light theme', ru: 'Светлая тема' },
+        dark: { en: 'Dark theme', ru: 'Тёмная тема' }
+    };
+    var themeHint = { en: 'Personal preference saved on this device', ru: 'Настройка для пользователя на этом устройстве' };
+    $scope.themeLabel = function () {
+        var lang = $rootScope.lang || 'en';
+        return themeLabels[$scope.theme || 'dark'][lang] || themeLabels.dark.en;
+    };
+    $scope.themeHint = function () {
+        var lang = $rootScope.lang || 'en';
+        return themeHint[lang] || themeHint.en;
+    };
+    $scope.toggleTheme = function () {
+        $scope.theme = themeService.toggle();
+    };
+    $scope.setTheme = function (value) {
+        $scope.theme = themeService.apply(value, $rootScope.username);
+    };
+    $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+        if (val) { $scope.theme = val; }
+    });
+    $scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+        if (val && val !== oldVal) {
+            $scope.theme = themeService.sync(val);
+        }
+    });
+    $scope.$watch(function () { return $rootScope.lang; }, function () {
+        $scope.themeLabel();
+    });
 
     $scope.activeLinks = {
         'main': '/main',

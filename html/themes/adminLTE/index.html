@@ -17,6 +17,58 @@
 	<link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
 	<link rel="shortcut icon" href="/favicon/favicon.ico">
+  <script>
+    (function () {
+      function readLocal() {
+        try {
+          var v = localStorage.getItem('eve_theme_pref');
+          if (v) return v;
+        } catch (e) {}
+        return null;
+      }
+      function readCookie() {
+        var cookies = (document.cookie || '').split(';');
+        var found = null;
+        for (var i = 0; i < cookies.length; i++) {
+          var pair = cookies[i].split('=');
+          if (!pair.length) continue;
+          var key = pair[0].trim();
+          if (key.indexOf('eve_theme_') === 0) {
+            var val = pair.slice(1).join('=');
+            try { val = decodeURIComponent(val); } catch (e) {}
+            found = val;
+          }
+        }
+        return found;
+      }
+      function pickTheme() {
+        var fromLocal = readLocal();
+        if (fromLocal) return fromLocal;
+        var fromCookie = readCookie();
+        return fromCookie || 'dark';
+      }
+      var theme = pickTheme();
+      theme = (theme === 'light') ? 'light' : 'dark';
+      var htmlEl = document && document.documentElement;
+      if (htmlEl) {
+        htmlEl.setAttribute('data-theme', theme);
+        var lightBg = '#f8fafc';
+        var darkBg = '#020617';
+        var lightText = '#0f172a';
+        var darkText = '#e2e8f0';
+        var bg = theme === 'light' ? lightBg : darkBg;
+        var text = theme === 'light' ? lightText : darkText;
+        var style = document.createElement('style');
+        style.id = 'early-theme-style';
+        style.textContent = 'html,body{background-color:' + bg + ' !important;color:' + text + ' !important;}';
+        document.head.appendChild(style);
+        if (document.body) {
+          document.body.style.backgroundColor = bg;
+          document.body.style.color = text;
+        }
+      }
+    })();
+  </script>
 	<link rel="stylesheet" href="/themes/adminLTE/unl_data/css/main.output.css">
 	<meta name="msapplication-TileColor" content="#ffffff">
 	<meta name="msapplication-TileImage" content="/favicon/ms-icon-144x144.png">
@@ -24,7 +76,6 @@
   <!-- Tell the browser to be responsive to screen width -->
   <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
   <!-- jQuery toggleswitch plugin css -->
-  <link rel="stylesheet" href="/themes/adminLTE/plugins/ToggleSwitch/css/tinytools.toggleswitch.min.css">
   <!-- Font Awesome -->
   <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"> -->
   <link rel="stylesheet" href="/themes/adminLTE/unl_data/css/css/font-awesome.css">
@@ -47,7 +98,6 @@
           }
         </script>
         <!-- jQuery toggleswitch plugin -->
-	<script src="/themes/adminLTE/plugins/ToggleSwitch/tinytools.toggleswitch.min.js"></script>
 	<!-- angularJS -->
 	<script src="/themes/adminLTE/plugins/angularJS/angular-1.8.2.js"></script>
 	<script src="/themes/adminLTE/unl_data/js/custom_unl.js"></script>

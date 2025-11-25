@@ -2,8 +2,8 @@ function ModalCtrl($scope, $uibModal, $log) {
 
 	$scope.modalActions = {
 		'addfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
-		'editfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/editfile.html', 'controller': 'EditElModalCtrl' },
-		'editLab': { 'path': '/themes/adminLTE/unl_data/pages/modals/editLab.html', 'controller': 'EditElModalCtrl' },
+		'editfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
+		'editLab': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
 		'adduser': { 'path': '/themes/adminLTE/unl_data/pages/modals/adduser.html', 'controller': 'AddUserModalCtrl' },
 		'edituser': { 'path': '/themes/adminLTE/unl_data/pages/modals/edituser.html', 'controller': 'EditUserModalCtrl' },
 		'moveto': { 'path': '/themes/adminLTE/unl_data/pages/modals/moveto.html', 'controller': 'MoveToModalCtrl' },
@@ -32,10 +32,10 @@ function ModalCtrl($scope, $uibModal, $log) {
 							return { 'name': $scope.newElementName, 'path': $scope.path };
 						case 'editfile':
 							$scope.labInfo.fullPathToFile = $scope.fullPathToFile;
-							return { 'info': $scope.labInfo, 'path': $scope.path };
+							return { 'info': $scope.labInfo, 'path': $scope.path, 'mode': 'edit' };
 						case 'editLab':
 							$scope.labInfo.fullPathToFile = $scope.fullPathToFile;
-							return { 'info': $scope.labInfo, 'path': $scope.path };
+							return { 'info': $scope.labInfo, 'path': $scope.path, 'mode': 'edit' };
 						case 'adduser':
 							return { 'currentUserData': $scope.userdata };
 						case 'edituser':
@@ -175,29 +175,37 @@ angular.module("unlMainApp").controller('ModalInstanceCtrl', function ModalInsta
 	$scope.closeModal = function () {
 		$uibModalInstance.dismiss('cancel');
 	};
+
+	$scope.saveLab = $scope.addNewLab;
 });
 angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtrl($scope, $uibModalInstance, data, $http) {
 
 	$scope.blockButtons = false;
 	$scope.blockButtonsClass = '';
 	$scope.result = false;
-	$scope.author = $scope.username;
-	$scope.description = '';
-	$scope.version = 1;
-	$scope.body = '';
-	$scope.scripttimeout = 300;
-	$scope.labName = data.name;
+	var isEdit = !!(data && data.info);
+	$scope.isEdit = isEdit;
+	$scope.author = isEdit ? data.info.author : $scope.username;
+	$scope.description = isEdit ? data.info.description : '';
+	$scope.version = isEdit ? data.info.version : 1;
+	$scope.body = isEdit ? data.info.body : '';
+	$scope.scripttimeout = isEdit ? data.info.scripttimeout : 300;
+	$scope.labName = isEdit ? data.info.name : data.name;
 	$scope.labPath = data.path;
+	$scope.oldName = isEdit ? data.info.name : '';
 	$scope.errorClass = '';
 	$scope.errorMessage = '';
 	$scope.restrictTest = '\\d+';
 	$scope.restrictNumber = '^[a-zA-Z0-9-]+$';
+	$scope.shared = isEdit ? data.info.shared : false;
+	$scope.sharedWith = isEdit ? data.info.sharedWith : '';
+	$scope.collaborateAllowed = isEdit ? data.info.collaborateAllowed : false;
 
 	$scope.addNewLab = function () {
 
 		$scope.path = ($scope.labPath === '/') ? $scope.labPath : $scope.labPath + '/';
 
-		$scope.labName = $scope.labName.replace(/[\',#,$,\",\\,/,%,\*,\,,\.,!]/g, '')
+		$scope.labName = ($scope.labName || '').replace(/[\',#,$,\",\\,/,%,\*,\,,\.,!]/g, '')
 		//$scope.labName = $scope.labName.replace(/[\s]+/g, '_');
 
 		$scope.newdata = {
@@ -213,7 +221,7 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			'collaborateAllowed': $scope.collaborateAllowed
 		}
 
-		if ($scope.labName == '') {
+		if ($scope.labName === '') {
 			$scope.errorMessage = "Name can't be empty!";
 			$scope.errorClass = 'has-error';
 			return;
@@ -222,18 +230,29 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';
 
-		$http({
+		var requestConfig = $scope.isEdit ? {
+			method: 'PUT',
+			url: '/api/labs' + $scope.path + $scope.oldName + '.unl',
+			data: $scope.newdata
+		} : {
 			method: 'POST',
 			url: 'api/labs',
 			data: $scope.newdata
-		})
+		};
+
+		$http(requestConfig)
 			.then(
 				function successCallback(response) {
 					$scope.blockButtons = false;
 					$scope.blockButtonsClass = '';
-					$scope.result = true;
-					var lab_name = $scope.newdata.name + '.unl'
-					$scope.$parent.legacylabopen($scope.newdata.path + lab_name)
+					$scope.result = {
+						'result': true,
+						'name': $scope.path + $scope.labName + '.unl'
+					};
+					if (!$scope.isEdit) {
+						var lab_name = $scope.newdata.name + '.unl';
+						$scope.$parent.legacylabopen($scope.newdata.path + lab_name);
+					}
 					$uibModalInstance.close($scope.result);
 				},
 				function errorCallback(response) {
@@ -261,90 +280,6 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 	$scope.opacity = function () {
 		$(".modal-content").toggleClass("modal-content_opacity");
 	};
-
-	$scope.closeModal = function () {
-		$uibModalInstance.dismiss('cancel');
-	};
-});
-angular.module("unlMainApp").controller('EditElModalCtrl', function EditElModalCtrl($scope, $uibModalInstance, data, $http) {
-
-	$scope.blockButtons = false;
-	$scope.blockButtonsClass = '';
-	$scope.result = false;
-	$scope.author = data.info.author;
-	$scope.description = data.info.description;
-	$scope.version = data.info.version;
-	$scope.body = data.info.body;
-	$scope.scripttimeout = data.info.scripttimeout;
-	$scope.labName = data.info.name;
-	$scope.oldName = data.info.name;
-	$scope.labPath = data.path;
-	$scope.errorClass = '';
-	$scope.podError = false;
-	$scope.errorMessage = '';
-	$scope.path = ($scope.labPath === '/') ? $scope.labPath : $scope.labPath + '/';
-	$scope.shared = data.info.shared;
-	$scope.sharedWith = data.info.sharedWith;
-	$scope.collaborateAllowed = data.info.collaborateAllowed;
-	//console.log(data.info)
-
-	$scope.editLab = function () {
-		$scope.labName = $scope.labName.replace(/[\',#,$,\",\\,/,%,\*,\,,\.,!]/g, '')
-		//$scope.labName = $scope.labName.replace(/[\s]+/g, '_');
-		$scope.newdata = {
-			'author': $scope.author,
-			'description': $scope.description,
-			'body': $scope.body,
-			'scripttimeout': $scope.scripttimeout,
-			'version': $scope.version,
-			'name': $scope.labName,
-			'shared': $scope.shared,
-			'sharedWith': $scope.sharedWith,
-			'collaborateAllowed': $scope.collaborateAllowed
-		}
-
-		if ($scope.labName == '') {
-			$scope.errorMessage = "Name can't be empty!";
-			$scope.errorClass = 'has-error';
-			return;
-		}
-
-		$http({
-			method: 'PUT',
-			url: 'api/labs' + $scope.path + $scope.oldName + '.unl',
-			data: $scope.newdata
-		})
-			.then(
-				function successCallback(response) {
-					$scope.blockButtons = false;
-					$scope.blockButtonsClass = '';
-					$scope.result = {
-						'result': true,
-						'name': $scope.path + $scope.labName + '.unl'
-					}
-					$uibModalInstance.close($scope.result);
-				},
-				function errorCallback(response) {
-					$scope.blockButtons = false;
-					$scope.blockButtonsClass = '';
-					$scope.result = false;
-					if (response.status == 400 && response.data.status == 'fail') {
-						$scope.errorMessage = "Lab with the same name found";
-						$scope.errorClass = 'has-error';
-						return;
-					}
-					if (response.status == 412 && response.data.status == "unauthorized") {
-						console.log("Unauthorized user.")
-						$uibModalInstance.dismiss('cancel');
-						toastr["error"]("Unauthorized user", "Error");
-					}
-					console.log(response)
-					console.log("Unknown Error. Why did API doesn't respond?")
-					//$uibModalInstance.close($scope.result);
-					toastr["error"](response.data.message, "Error");
-				}
-			);
-	}
 
 	$scope.closeModal = function () {
 		$uibModalInstance.dismiss('cancel');
@@ -727,7 +662,7 @@ angular.module("unlMainApp").controller('EditUserModalCtrl', function EditUserMo
 
 });
 
-angular.module("unlMainApp").controller('MoveToModalCtrl', function MoveToModalCtrl($scope, $uibModalInstance, data, $http, $location, $interval) {
+angular.module("unlMainApp").controller('MoveToModalCtrl', function MoveToModalCtrl($scope, $uibModalInstance, data, $http, $location, $interval, $rootScope, themeService) {
 
 	$scope.filedata = data.filesArray
 	$scope.folderdata = data.foldersArray
@@ -744,6 +679,18 @@ angular.module("unlMainApp").controller('MoveToModalCtrl', function MoveToModalC
 	$scope.localSearch = "";
 	$scope.blockButtons = false;
 	$scope.blockButtonsClass = '';
+	$scope.theme = themeService.sync($rootScope.username);
+	$scope.themeClass = function (darkClasses, lightClasses) {
+		return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+	};
+	$scope.$watch(function () { return $rootScope.theme; }, function (val) {
+		if (val) { $scope.theme = val; }
+	});
+	$scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+		if (val && val !== oldVal) {
+			$scope.theme = themeService.sync(val);
+		}
+	});
 	// $scope.inputSlash=$('#newPathInput');
 	//$("#newPathInput").dropdown();
 	console.log($scope.filedata)

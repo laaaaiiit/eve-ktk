@@ -1,59 +1,66 @@
-<div class="space-y-6 text-slate-100">
+<div class="space-y-6 transition-colors duration-300">
   <div class="space-y-4">
     <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <h3 class="text-2xl font-semibold text-white">{{labInfo.name}}</h3>
-        <p class="text-sm text-slate-400 break-all">Path: {{fullPathToFile}}</p>
+        <h3 class="text-2xl font-semibold theme-heading">{{labInfo.name}}</h3>
+        <p class="text-sm theme-muted break-all">Path: {{fullPathToFile}}</p>
       </div>
       <div class="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em]">
-        <span class="px-4 py-1 rounded-full bg-white/10 text-slate-200">Version {{labInfo.version}}</span>
-        <span class="px-4 py-1 rounded-full bg-white/10 text-slate-200">UUID {{labInfo.id}}</span>
+        <span class="px-4 py-1 rounded-full"
+              ng-class="themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')">Version {{labInfo.version}}</span>
+        <span class="px-4 py-1 rounded-full"
+              ng-class="themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')">UUID {{labInfo.id}}</span>
       </div>
     </div>
 
-    <div class="rounded-3xl border border-white/10 bg-slate-950/60 p-5 space-y-5">
+    <div class="rounded-3xl border p-5 space-y-5 transition-colors duration-300"
+         ng-class="themeClass('border-white/10 bg-slate-950/60','border-slate-200 bg-white')">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Topology preview</p>
-          <p class="text-sm text-slate-300" data-ng-if="!zeroNodes">
+          <p class="text-xs uppercase tracking-[0.3em] theme-muted">Topology preview</p>
+          <p class="text-sm theme-muted" data-ng-if="!zeroNodes">
             {{previewNodes.length}} nodes · {{previewNetworks.length}} networks · {{previewLinks.length}} connections
           </p>
-          <p class="text-sm text-slate-300" data-ng-if="zeroNodes">No nodes inside lab.</p>
+          <p class="text-sm theme-muted" data-ng-if="zeroNodes">No nodes inside lab.</p>
         </div>
         <div class="relative" data-ng-if="!zeroNodes">
           <button type="button"
-                  class="px-4 py-2 rounded-2xl bg-white/10 border border-white/20 text-xs font-semibold uppercase tracking-[0.15em] text-slate-100 hover:bg-white/15 transition"
+                  class="px-4 py-2 rounded-2xl text-xs font-semibold uppercase tracking-[0.15em] transition border"
+                  ng-class="themeClass('bg-white/10 border-white/20 text-slate-100 hover:bg-white/15','bg-white border-slate-200 text-slate-800 hover:bg-slate-100')"
                   data-ng-click="scaleMenu = !scaleMenu">
             <i class="fa fa-search-plus mr-2"></i>Scale 1:{{scale}}
           </button>
-          <div class="absolute right-0 mt-3 z-20 bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl w-40 p-3 space-y-2"
+          <div class="absolute right-0 mt-3 z-20 rounded-2xl shadow-2xl w-40 p-3 space-y-2 border transition-colors duration-300"
+               ng-class="themeClass('bg-slate-900/90 border-white/10','bg-white border-slate-200')"
                data-ng-if="scaleMenu">
-            <p class="text-xs uppercase text-slate-300 tracking-[0.2em] text-center">Zoom</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-center theme-muted">Zoom</p>
             <div class="space-y-2">
               <button type="button"
                       class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
-                      ng-class="(scale == 2) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      ng-class="(scale == 2) ? themeClass('bg-amber-500/40 text-white','bg-amber-100 text-amber-800') : themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')"
                       data-ng-click="schemecontrol(2)">1:2</button>
               <button type="button"
                       class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
-                      ng-class="(scale == 3) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      ng-class="(scale == 3) ? themeClass('bg-amber-500/40 text-white','bg-amber-100 text-amber-800') : themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')"
                       data-ng-click="schemecontrol(3)">1:3</button>
               <button type="button"
                       class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
-                      ng-class="(scale == 4) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      ng-class="(scale == 4) ? themeClass('bg-amber-500/40 text-white','bg-amber-100 text-amber-800') : themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')"
                       data-ng-click="schemecontrol(4)">1:4</button>
               <button type="button"
                       class="w-full rounded-xl px-3 py-2 text-xs font-semibold transition"
-                      ng-class="(scale == 5) ? 'bg-amber-500/40 text-white' : 'bg-white/10 text-slate-200'"
+                      ng-class="(scale == 5) ? themeClass('bg-amber-500/40 text-white','bg-amber-100 text-amber-800') : themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')"
                       data-ng-click="schemecontrol(5)">1:5</button>
             </div>
           </div>
         </div>
       </div>
       <div class="space-y-5">
-        <div class="relative rounded-2xl border border-white/5 bg-gradient-to-br from-slate-900/60 to-slate-950/80 h-[20rem] lg:h-[26rem] overflow-hidden">
-          <div class="absolute inset-0 flex items-center justify-center bg-slate-950/40" data-ng-show="zeroNodes">
-            <h4 class="text-center text-slate-400 text-sm">No nodes inside lab</h4>
+        <div class="relative rounded-2xl border h-[20rem] lg:h-[26rem] overflow-hidden transition-colors duration-300"
+             ng-class="themeClass('border-white/5 bg-gradient-to-br from-slate-900/60 to-slate-950/80','border-slate-200 bg-slate-50')">
+          <div class="absolute inset-0 flex items-center justify-center"
+               ng-class="themeClass('bg-slate-950/40','bg-white/70')" data-ng-show="zeroNodes">
+            <h4 class="text-center theme-muted text-sm">No nodes inside lab</h4>
           </div>
           <div data-ng-show="!zeroNodes" class="absolute inset-0">
             <div id="divPreview" class="absolute inset-0 overflow-auto eve-scroll">
@@ -79,17 +86,20 @@
         </div>
 
         <div class="grid gap-4 lg:grid-cols-3">
-          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
-            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Nodes</p>
-            <p class="text-2xl font-semibold text-white">{{previewNodes.length}}</p>
+          <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
+               ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Nodes</p>
+            <p class="text-2xl font-semibold theme-heading">{{previewNodes.length}}</p>
           </div>
-          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
-            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Networks</p>
-            <p class="text-2xl font-semibold text-white">{{previewNetworks.length}}</p>
+          <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
+               ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Networks</p>
+            <p class="text-2xl font-semibold theme-heading">{{previewNetworks.length}}</p>
           </div>
-          <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center">
-            <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Connections</p>
-            <p class="text-2xl font-semibold text-white">{{previewLinks.length}}</p>
+          <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
+               ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Connections</p>
+            <p class="text-2xl font-semibold theme-heading">{{previewLinks.length}}</p>
           </div>
         </div>
       </div>
@@ -98,22 +108,23 @@
 
   <div class="grid gap-6 lg:grid-cols-2">
     <div class="space-y-4">
-      <div class="rounded-2xl border border-white/10 bg-slate-950/50 p-5 space-y-3 text-sm">
+      <div class="rounded-2xl border p-5 space-y-3 text-sm transition-colors duration-300"
+           ng-class="themeClass('border-white/10 bg-slate-950/50','border-slate-200 bg-white')">
         <div class="flex items-center justify-between">
-          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Author</span>
-          <span class="font-semibold text-white">{{labInfo.author}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Author</span>
+          <span class="font-semibold theme-heading">{{labInfo.author}}</span>
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Shared</span>
-          <span class="font-semibold text-white">{{labInfo.shared ? 'Yes' : 'No'}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Shared</span>
+          <span class="font-semibold theme-heading">{{labInfo.shared ? 'Yes' : 'No'}}</span>
         </div>
         <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
-          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Shared with</span>
-          <span class="font-semibold text-white break-all">{{labInfo.sharedWith}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Shared with</span>
+          <span class="font-semibold theme-heading break-all">{{labInfo.sharedWith}}</span>
         </div>
         <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
-          <span class="text-slate-400 uppercase tracking-[0.3em] text-xs">Collaborate allowed</span>
-          <span class="font-semibold text-white">{{labInfo.collaborateAllowed ? 'Yes' : 'No'}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Collaborate allowed</span>
+          <span class="font-semibold theme-heading">{{labInfo.collaborateAllowed ? 'Yes' : 'No'}}</span>
         </div>
       </div>
 
@@ -121,44 +132,51 @@
         <div class="flex flex-wrap gap-2">
           <button ng-if="!labInfo.isMirror && labInfo.author !== username && role !== 'admin'"
                   type="button"
-                  class="px-4 py-2 rounded-2xl bg-purple-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-purple-500/60 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
+                  ng-class="themeClass('bg-purple-500/40 text-white hover:bg-purple-500/60','bg-purple-100 text-purple-800 hover:bg-purple-200')"
                   ng-click="openLab('private')">
             Private
           </button>
           <button type="button"
-                  class="px-4 py-2 rounded-2xl bg-emerald-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-emerald-500/60 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
+                  ng-class="themeClass('bg-emerald-500/40 text-white hover:bg-emerald-500/60','bg-emerald-100 text-emerald-800 hover:bg-emerald-200')"
                   ng-if="labInfo.collaborateAllowed || role === 'admin' || labInfo.author === username"
                   ng-click="openLab('collaborate')">
-            Collaborate
+            <span data-ng-bind="t.previewCollaborateButton"></span>
           </button>
           <button ng-if="!UIlegacy"
                   type="button"
-                  class="px-4 py-2 rounded-2xl bg-cyan-500/40 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-cyan-500/60 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
+                  ng-class="themeClass('bg-cyan-500/40 text-white hover:bg-cyan-500/60','bg-cyan-100 text-cyan-800 hover:bg-cyan-200')"
                   data-ng-click="labopen(fullPathToFile)">
             Open
           </button>
           <button ng-if="!UIlegacy"
                   type="button"
-                  class="px-4 py-2 rounded-2xl border border-white/20 text-sm font-semibold uppercase tracking-[0.2em] text-slate-100 hover:bg-white/10 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl border text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
+                  ng-class="themeClass('border-white/20 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
                   data-ng-click="legacylabopen(fullPathToFile)">
             Legacy
           </button>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button"
-                  class="px-4 py-2 rounded-2xl bg-white/10 text-sm font-semibold uppercase tracking-[0.2em] text-slate-100 hover:bg-blue-500/30 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
+                  ng-class="themeClass('bg-white/10 text-slate-100 hover:bg-blue-500/30','bg-blue-100 text-blue-800 hover:bg-blue-200')"
                   ng-if="labInfo.author === username || role === 'admin'"
                   data-ng-click="openModal('editfile',null,'megalg')">
-            Edit
+            <span data-ng-bind="t.previewEditButton"></span>
           </button>
           <button type="button"
-                  class="px-4 py-2 rounded-2xl bg-rose-500/30 text-sm font-semibold uppercase tracking-[0.2em] text-white hover:bg-rose-500/50 transition cursor-pointer"
+                  class="px-4 py-2 rounded-xl border text-sm font-semibold uppercase transition cursor-pointer"
+                  ng-class="themeClass('border-rose-500/50 text-rose-200 hover:bg-rose-500/10','border-rose-300 text-rose-700 hover:bg-rose-100')"
                   ng-if="labInfo.author === username || role === 'admin'"
                   data-ng-click="deleteElement(fullPathToFile, 'File')">
-            Delete
+            <span data-ng-bind="t.actionDelete"></span>
           </button>
           <button type="button"
-                  class="px-4 py-2 rounded-2xl border border-rose-400/60 text-sm font-semibold uppercase tracking-[0.2em] text-rose-200 hover:bg-rose-500/10 transition cursor-pointer"
+                  class="px-4 py-2 rounded-2xl border text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
+                  ng-class="themeClass('border-rose-400/60 text-rose-200 hover:bg-rose-500/10','border-rose-300 text-rose-700 hover:bg-rose-100')"
                   ng-if="privateCopyMap[labInfo.name + '.unl'] && (( !labInfo.isMirror && labInfo.author !== username && role !== 'admin') || (labInfo.isMirror && role !== 'admin'))"
                   data-ng-click="deletePrivateLab(fullPathToFile)">
             Delete Private Copy
@@ -167,10 +185,12 @@
       </div>
     </div>
 
-    <div class="rounded-2xl border border-white/10 bg-slate-950/50 p-5 space-y-3">
-      <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Description</p>
-      <div class="max-h-[20rem] overflow-auto rounded-xl border border-white/5 bg-slate-950/40 p-4">
-        <span class="whitespace-pre-wrap text-sm text-slate-100">{{labInfo.description}}</span>
+    <div class="rounded-2xl border p-5 space-y-3 transition-colors duration-300"
+         ng-class="themeClass('border-white/10 bg-slate-950/50','border-slate-200 bg-white')">
+      <p class="text-xs uppercase tracking-[0.3em] theme-muted">Description</p>
+      <div class="max-h-[20rem] overflow-auto rounded-xl border p-4 transition-colors duration-300"
+           ng-class="themeClass('border-white/5 bg-slate-950/40','border-slate-200 bg-slate-50')">
+        <span class="whitespace-pre-wrap text-sm" ng-class="themeClass('text-slate-100','text-slate-900')">{{labInfo.description}}</span>
       </div>
     </div>
   </div>

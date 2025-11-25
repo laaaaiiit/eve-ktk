@@ -1731,7 +1731,7 @@ $app->get('/api/update', function () use ($app, $db) {
 /***************************************************************************
  * LOGS
  **************************************************************************/
-$app->get('/api/logs/(:file)/(:lines)/(:search)', function ($file = False, $lines = 10, $search = "") use ($app, $db) {
+$app->get('/api/logs/files', function () use ($app, $db) {
 	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
 	if ($user === False) {
 		$app->response->setStatus($output['code']);
@@ -1739,26 +1739,101 @@ $app->get('/api/logs/(:file)/(:lines)/(:search)', function ($file = False, $line
 		return;
 	}
 
-	$f = @file_get_contents("/opt/unetlab/data/Logs/" . $file);
-	if ($f) {
-		$arr = explode("\n", $f);
-		if (!is_array($arr))
-			$arr = array();
-		$arr = array_reverse($arr);
+	$baseDir = '/opt/unetlab/data/Logs';
+	$baseReal = realpath($baseDir);
+	$result = array();
 
-		if ($search) {
-			foreach ($arr as $k => $v) {
-				if (strstr($v, $search) === false)
-					unset($arr[$k]);
+	if ($baseReal !== false && is_dir($baseReal)) {
+		$entries = scandir($baseReal);
+		if (is_array($entries)) {
+			foreach ($entries as $entry) {
+				if ($entry === '.' || $entry === '..') continue;
+				if (strpos($entry, "\0") !== false) continue;
+				$path = $baseReal . '/' . $entry;
+				if (!is_file($path)) continue;
+				$result[] = array(
+					'name' => $entry,
+					'size' => @filesize($path),
+					'modified' => @date('c', @filemtime($path))
+				);
 			}
 		}
+	}
 
-		$arr = array_slice($arr, 0, $lines);
-	} else
-		$arr = array();
+	usort($result, function ($a, $b) {
+		return strcasecmp($a['name'], $b['name']);
+	});
 
 	$app->response->setStatus(200);
-	$app->response->setBody(json_encode($arr));
+	$app->response->setBody(json_encode($result));
+});
+
+function getLogsPayload($file, $lines, $search) {
+	$baseDir = '/opt/unetlab/data/Logs';
+	$baseReal = realpath($baseDir);
+	$safeLines = intval($lines);
+	if ($safeLines <= 0) $safeLines = 200;
+	if ($safeLines > 5000) $safeLines = 5000;
+
+	if ($baseReal === false || !$file) {
+		return array(200, array());
+	}
+
+	$target = $baseReal . '/' . basename($file);
+	$targetReal = realpath($target);
+	if ($targetReal === false || strpos($targetReal, $baseReal) !== 0 || !is_file($targetReal)) {
+		return array(404, array());
+	}
+
+	$content = @file($targetReal, FILE_IGNORE_NEW_LINES);
+	if (!is_array($content)) {
+		return array(200, array());
+	}
+
+	$content = array_reverse($content);
+	if ($search !== "") {
+		$filtered = array();
+		foreach ($content as $line) {
+			if (strpos($line, $search) !== false) {
+				$filtered[] = $line;
+			}
+		}
+		$content = $filtered;
+	}
+
+	$content = array_slice($content, 0, $safeLines);
+	return array(200, $content);
+}
+
+$app->get('/api/logs', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$request = $app->request;
+	$file = $request->params('file');
+	$lines = $request->params('lines');
+	$search = $request->params('search') ?: "";
+
+	list($status, $payload) = getLogsPayload($file, $lines, $search);
+	$app->response->setStatus($status);
+	$app->response->setBody(json_encode($payload));
+});
+
+$app->get('/api/logs/(:file)/(:lines)/(:search)', function ($file = false, $lines = 200, $search = "") use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	list($status, $payload) = getLogsPayload($file, $lines, $search);
+	$app->response->setStatus($status);
+	$app->response->setBody(json_encode($payload));
 });
 
 /***************************************************************************

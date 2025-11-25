@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $cookies) {
+angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $cookies, themeService) {
 	$rootScope.openLaba = false;
 	$scope.testAUTH("/main"); //TEST AUTH
 	// шеринг
@@ -30,7 +30,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			labsCardTitle: 'Labs and folders',
 			labsCardSubtitle: 'Select folders or .unl labs to rename, move, export, or delete.',
 			topologyPreviewCardTitle: 'Topology preview',
-			topologyPreviewCardSubtitle: 'Preview the selected lab\'s topology',
+			topologyPreviewCardSubtitle: '',
 			orderButton: 'Order',
 			orderTooltip: 'Toggle order',
 			refreshTooltip: 'Refresh list',
@@ -51,17 +51,48 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			toolbarImportTitle: 'Import labs',
 			toolbarExport: 'Export',
 			toolbarExportTitle: 'Export labs',
+			moveDialogEyebrow: 'Workspace',
+			moveDialogTitle: 'Move items',
+			moveDialogSubtitle: 'Select a destination folder for the chosen labs and directories.',
+			moveSelectedLabel: 'Selected items',
+			moveCurrentLocation: 'Current location',
+			moveNewPathLabel: 'New path',
+			moveNewPathPlaceholder: 'e.g. /labs/projects/',
+			moveNewPathHint: 'Type a path and pick from suggestions below.',
 			treeColumnName: 'Name',
 			treeColumnUpdated: 'Updated',
 			treeParentLabel: 'Back',
 			renameFolderLabel: 'Rename folder',
 			renameLabLabel: 'Rename lab',
+			modalAddTitle: 'Add new lab',
+			modalAddSubtitle: 'Define metadata, sharing options, and description for the new topology file.',
+			modalWorkspaceLabel: 'Workspace',
+			modalNameLabel: 'Name',
+			modalVersionLabel: 'Version',
+			modalTimeoutLabel: 'Script timeout (sec)',
+			modalSharedLabel: 'Shared lab',
+			modalSharedHint: 'Make this lab visible to other users.',
+			modalCollaborateLabel: 'Collaborate allowed',
+			modalCollaborateHint: 'Permit collaborators to edit the lab.',
+			modalSharedWithLabel: 'Shared with (comma separated)',
+			modalDescriptionLabel: 'Description',
+			modalTasksLabel: 'Tasks',
+			modalRequiredNote: 'Required fields',
+			modalCancel: 'Cancel',
+			modalCreate: 'Create',
+			modalEditTitle: 'Edit lab',
+			modalEditSubtitle: 'Update metadata, sharing controls, or descriptions for the selected topology.',
+			modalSaveChanges: 'Save changes',
+			modalNameHint: 'Use only letters, numbers, or hyphen.',
+			modalVersionHint: 'Must be an integer value.',
 			actionApply: 'Apply',
 			actionRename: 'Rename',
 			actionDelete: 'Delete',
 			actionMove: 'Move',
 			actionImport: 'Import',
 			actionExport: 'Export',
+			previewEditButton: 'Edit',
+			previewCollaborateButton: 'Collaborate',
 			uploaderColumnName: 'Name',
 			uploaderColumnSize: 'Size',
 			uploaderColumnProgress: 'Progress',
@@ -108,7 +139,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			labsCardTitle: 'Лабы и папки',
 			labsCardSubtitle: 'Выберите папки или .unl файлы, чтобы переименовать, переместить, экспортировать или удалить.',
 			topologyPreviewCardTitle: 'Превью топологии',
-			topologyPreviewCardSubtitle: 'Предварительный просмотр топологии выбранной лаборатории',
+			topologyPreviewCardSubtitle: '',
 			orderButton: 'Сортировка',
 			orderTooltip: 'Переключить порядок',
 			refreshTooltip: 'Обновить список',
@@ -129,17 +160,48 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			toolbarImportTitle: 'Импорт лабораторий',
 			toolbarExport: 'Экспорт',
 			toolbarExportTitle: 'Экспорт лабораторий',
+			moveDialogEyebrow: 'Рабочая зона',
+			moveDialogTitle: 'Перемещение объектов',
+			moveDialogSubtitle: 'Выберите целевую папку для выделенных лабораторий и директорий.',
+			moveSelectedLabel: 'Выбранные элементы',
+			moveCurrentLocation: 'Текущее расположение',
+			moveNewPathLabel: 'Новый путь',
+			moveNewPathPlaceholder: 'например, /labs/projects/',
+			moveNewPathHint: 'Введите путь и выберите вариант из списка ниже.',
 			treeColumnName: 'Имя',
 			treeColumnUpdated: 'Обновлено',
 			treeParentLabel: 'Назад',
 			renameFolderLabel: 'Переименовать папку',
 			renameLabLabel: 'Переименовать лабораторию',
+			modalAddTitle: 'Добавить новую лабу',
+			modalAddSubtitle: 'Укажите метаданные, параметры общего доступа и описание для новой топологии.',
+			modalWorkspaceLabel: 'Рабочая область',
+			modalNameLabel: 'Имя',
+			modalVersionLabel: 'Версия',
+			modalTimeoutLabel: 'Таймаут скрипта (сек)',
+			modalSharedLabel: 'Общая лаба',
+			modalSharedHint: 'Сделать эту лабу видимой другим пользователям.',
+			modalCollaborateLabel: 'Разрешено редактирование',
+			modalCollaborateHint: 'Разрешить другим редактировать лабу.',
+			modalSharedWithLabel: 'Доступ (через запятую)',
+			modalDescriptionLabel: 'Описание',
+			modalTasksLabel: 'Задачи',
+			modalRequiredNote: 'Обязательные поля',
+			modalCancel: 'Отмена',
+			modalCreate: 'Создать',
+			modalEditTitle: 'Редактирование лаборатории',
+			modalEditSubtitle: 'Обновите метаданные, доступ и описание выбранной топологии.',
+			modalSaveChanges: 'Сохранить изменения',
+			modalNameHint: 'Используйте только буквы, цифры или дефис.',
+			modalVersionHint: 'Должно быть целое число.',
 			actionApply: 'Применить',
 			actionRename: 'Переименовать',
 			actionDelete: 'Удалить',
 			actionMove: 'Переместить',
 			actionImport: 'Импорт',
 			actionExport: 'Экспорт',
+			previewEditButton: 'Редактировать',
+			previewCollaborateButton: 'Совместная работа',
 			uploaderColumnName: 'Имя',
 			uploaderColumnSize: 'Размер',
 			uploaderColumnProgress: 'Прогресс',
@@ -197,31 +259,45 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		return $scope.t || translations[resolveLanguage()] || translations['ru'];
 	}
 
+	$scope.theme = themeService.sync($rootScope.username);
+	$scope.themeClass = function (darkClasses, lightClasses) {
+		return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+	};
+	$scope.$watch(function () { return $rootScope.theme; }, function (val) {
+		if (val) { $scope.theme = val; }
+	});
+	$scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+		if (val && val !== oldVal) {
+			$scope.theme = themeService.sync(val);
+		}
+	});
+
     function openTailwindModal(config) {
         return $uibModal.open({
             animation: true,
             template: `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-                    <div class="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br text-slate-100 shadow-2xl p-8 space-y-6" ng-class="modal.surfaceClasses">
+                    <div class="absolute inset-0 transition-colors duration-300" ng-class="modal.overlayClasses"></div>
+                    <div class="relative w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6 border transition-colors duration-300" ng-class="modal.surfaceClasses">
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center" ng-class="modal.iconClasses">
+                            <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-colors duration-300" ng-class="modal.iconClasses">
                                 <i class="{{modal.icon}}"></i>
                             </div>
                             <div>
-                                <h4 class="text-xl font-semibold" ng-bind="modal.title"></h4>
-                                <p class="text-slate-300 text-sm" ng-bind="modal.body"></p>
+                                <h4 class="text-xl font-semibold" ng-class="modal.textClasses" ng-bind="modal.title"></h4>
+                                <p class="text-sm" ng-class="modal.mutedClasses" ng-bind="modal.body"></p>
                             </div>
                         </div>
                         <div class="space-y-3" ng-if="modal.items && modal.items.length">
                             <div ng-repeat="item in modal.items">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-400" ng-bind="item.label"></p>
-                                <p class="text-base font-semibold" ng-bind="item.value"></p>
+                                <p class="text-xs uppercase tracking-[0.3em]" ng-class="modal.mutedClasses" ng-bind="item.label"></p>
+                                <p class="text-base font-semibold" ng-class="modal.textClasses" ng-bind="item.value"></p>
                             </div>
                         </div>
                         <div class="flex items-center justify-end gap-3">
-                            <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+                            <button class="px-4 py-2 rounded-xl border transition cursor-pointer"
                                     ng-click="$dismiss()"
+                                    ng-class="modal.cancelClasses"
                                     ng-bind="modal.cancelLabel"></button>
                             <button class="px-5 py-2 rounded-xl text-white uppercase tracking-[0.2em] shadow-lg transition cursor-pointer"
                                     ng-class="modal.confirmClasses"
@@ -232,13 +308,18 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
                 </div>
             `,
             controller: ['$scope', function ($scope) {
+                var t = currentTranslations();
                 var defaults = {
                     icon: 'fa fa-info-circle',
-                    iconClasses: 'bg-blue-500/20 text-blue-200',
-                    confirmClasses: 'bg-blue-600 hover:bg-blue-500',
-                    surfaceClasses: 'from-slate-950 via-blue-950/70 to-slate-900',
-                    cancelLabel: config.cancelLabel || 'Cancel',
-                    confirmLabel: config.confirmLabel || 'Confirm',
+                    iconClasses: $scope.themeClass('bg-blue-500/20 text-blue-200', 'bg-blue-500 text-white'),
+                    confirmClasses: 'bg-blue-600 hover:bg-blue-500 text-white',
+                    cancelClasses: $scope.themeClass('border-white/20 text-slate-200 hover:bg-white/10', 'border-slate-200 text-slate-800 hover:bg-slate-100'),
+                    surfaceClasses: $scope.themeClass('border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
+                    overlayClasses: 'theme-overlay',
+                    mutedClasses: $scope.themeClass('text-slate-400', 'text-slate-600'),
+                    textClasses: $scope.themeClass('text-slate-100', 'text-slate-900'),
+                    cancelLabel: config.cancelLabel || t.deleteDialogCancel || 'Cancel',
+                    confirmLabel: config.confirmLabel || t.deleteDialogDefaultAction || 'Confirm',
                     items: []
                 };
                 $scope.modal = angular.extend(defaults, config || {});
@@ -277,13 +358,17 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		config = config || {};
 		openTailwindModal({
 			icon: 'fa fa-exclamation-triangle',
-			iconClasses: 'bg-rose-500/20 text-rose-200',
+			iconClasses: $scope.themeClass('bg-rose-500/20 text-rose-200', 'bg-rose-500 text-white'),
 			title: config.title || t.deleteMultiTitle,
 			body: config.message || t.deleteMultiMessage,
-			surfaceClasses: 'from-rose-950/80 via-rose-900/40 to-slate-900',
+			surfaceClasses: $scope.themeClass('border-white/10 from-rose-950/80 via-rose-900/40 to-slate-900 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
+			overlayClasses: 'theme-overlay',
 			confirmLabel: config.confirmLabel || t.deleteDialogDefaultAction,
 			cancelLabel: t.deleteDialogCancel,
-			confirmClasses: 'bg-rose-600 hover:bg-rose-500',
+			confirmClasses: $scope.themeClass('bg-rose-600 hover:bg-rose-500 text-white', 'bg-rose-600 hover:bg-rose-500 text-white'),
+			cancelClasses: $scope.themeClass('border-white/20 text-slate-200 hover:bg-white/10', 'border-slate-200 text-slate-800 hover:bg-slate-100'),
+			mutedClasses: $scope.themeClass('text-slate-400', 'text-slate-600'),
+			textClasses: $scope.themeClass('text-slate-100', 'text-slate-900'),
 			items: (config.items || []).map(function(item) { return { value: item }; })
 		}).then(function () {
 			if (typeof config.action === 'function') {
@@ -319,7 +404,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Drawing files tree ///START
 	$scope.fileMngDraw = function (path, folder) {
 		$scope.loading = true;
-		$scope.showTable = false;
+		$scope.rootDir = null;
 		$scope.path = path;
 		if (folder !== undefined) {
 			$scope.fileManagerItem['Fo_' + folder]['img'] = true;
@@ -356,9 +441,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 
 				$scope.currentPosition();
 				$scope.loading = false;
-				$timeout(function() {
-					$scope.showTable = true;
-				});
+				$scope.showTable = true;
 			},
 			function errorCallback(response) {
 				$scope.loading = false;

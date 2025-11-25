@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('usermgmtController', function usermgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies) {
+angular.module("unlMainApp").controller('usermgmtController', function usermgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, themeService) {
     var translations = {
         en: {
             heroEyebrow: 'Management',
@@ -121,10 +121,18 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
 
     refreshTranslations();
 
+    $scope.theme = themeService.sync($rootScope.username);
+    $scope.themeClass = function (darkClasses, lightClasses) {
+        return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+    };
+
     $scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
         if (newVal && newVal !== oldVal) {
             refreshTranslations();
         }
+    });
+    $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+        if (val) { $scope.theme = val; }
     });
 
     $scope.testAUTH("/usermgmt"); // Проверка авторизации
@@ -260,6 +268,13 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
             return $scope.sortConfig.asc ? 'fa fa-sort-asc text-blue-300' : 'fa fa-sort-desc text-blue-300';
         };
 
+        $scope.rolePillClass = function (role) {
+            var base = 'inline-flex items-center rounded-full px-3 py-1 text-xs uppercase font-semibold';
+            var adminClass = $scope.themeClass('bg-blue-500/30 text-blue-100', 'bg-blue-100 text-blue-800');
+            var userClass = $scope.themeClass('bg-white/10 text-slate-100', 'bg-slate-200 text-slate-800');
+            return base + ' ' + (role === 'admin' ? adminClass : userClass);
+        };
+
         // Удаление пользователя
         $scope.deleteUser = function(username) {
             var t = $scope.t || translations[resolveLanguage()];
@@ -273,30 +288,30 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
                 animation: true,
                 template: `
                     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-                        <div class="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100 shadow-2xl p-8 space-y-6">
+                        <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
+                        <div class="relative w-full max-w-md rounded-3xl border shadow-2xl p-8 space-y-6" ng-class="themeClass('border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100','bg-white border-slate-200 text-slate-900')">
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-full bg-red-500/20 text-red-300 flex items-center justify-center">
-                                    <i class="fa fa-trash"></i>
+                                <div class="w-12 h-12 rounded-full flex items-center justify-center" ng-class="themeClass('bg-red-500/20 text-red-300','bg-red-100 text-red-600')">
+                                    <i class="fa fa-trash" aria-hidden="true"></i>
                                 </div>
                                 <div>
-                                    <h4 class="text-red-300 text-xl font-semibold">` + t.deleteConfirmTitle + `</h4>
-                                    <p class="text-slate-400 text-sm">` + t.deleteConfirmBody + `</p>
+                                    <h4 class="text-xl font-semibold" ng-class="themeClass('text-red-300','text-red-600')">` + t.deleteConfirmTitle + `</h4>
+                                    <p class="text-sm" ng-class="themeClass('text-slate-400','text-slate-600')">` + t.deleteConfirmBody + `</p>
                                 </div>
                             </div>
                             <div class="space-y-3">
                                 <div>
-                                    <p class="text-xs uppercase tracking-[0.35em] text-slate-400">` + t.deleteConfirmUserLabel + `</p>
-                                    <p class="text-lg font-semibold">{{user.username}}</p>
+                                    <p class="text-xs uppercase tracking-[0.35em]" ng-class="themeClass('text-slate-400','text-slate-500')">` + t.deleteConfirmUserLabel + `</p>
+                                    <p class="text-lg font-semibold" ng-class="themeClass('text-slate-100','text-slate-900')">{{user.username}}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs uppercase tracking-[0.35em] text-slate-400">` + t.deleteConfirmRoleLabel + `</p>
-                                    <p class="text-base">{{user.role}}</p>
+                                    <p class="text-xs uppercase tracking-[0.35em]" ng-class="themeClass('text-slate-400','text-slate-500')">` + t.deleteConfirmRoleLabel + `</p>
+                                    <p class="text-base" ng-class="themeClass('text-slate-100','text-slate-900')">{{user.role}}</p>
                                 </div>
                             </div>
                             <div class="flex items-center justify-end gap-3">
-                                <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer" ng-click="$dismiss()">` + t.deleteConfirmCancel + `</button>
-                                <button class="px-5 py-2 rounded-xl bg-red-600 text-white uppercase tracking-[0.25em] shadow-lg hover:bg-red-500 transition cursor-pointer" ng-click="$close(true)">` + t.deleteConfirmConfirm + `</button>
+                                <button class="px-4 py-2 rounded-xl border transition cursor-pointer" ng-class="themeClass('border-white/20 text-slate-200 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')" ng-click="$dismiss()">` + t.deleteConfirmCancel + `</button>
+                                <button class="px-5 py-2 rounded-xl uppercase tracking-[0.25em] shadow-lg transition cursor-pointer" ng-class="themeClass('bg-red-600 text-white hover:bg-red-500','bg-red-600 text-white hover:bg-red-500')" ng-click="$close(true)">` + t.deleteConfirmConfirm + `</button>
                             </div>
                         </div>
                     </div>
@@ -304,6 +319,7 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
                 controller: function($scope) {
                     $scope.user = { ...user, username }; // добавляем username отдельно
 				},
+                scope: $scope,
 				size: 'md',
 				backdrop: 'static',
 				keyboard: false

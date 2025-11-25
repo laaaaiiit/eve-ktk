@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies) {
+angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies, themeService) {
 		var translations = {
 			en: {
 				brandTitle: 'Welcome to EVE-NG Community',
@@ -7,6 +7,10 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 				brandBulletTwo: 'HTML5 access to every console directly from your browser.',
 				cardTitle: 'Sign in',
 				cardSubtitle: 'Use your EVE credentials to continue.',
+				themeLabel: 'Theme',
+				themeHint: 'Switch the dashboard appearance.',
+				darkModeLabel: 'Dark',
+				lightModeLabel: 'Light',
 				usernameLabel: 'Username',
 				usernamePlaceholder: 'admin',
 				passwordLabel: 'Password',
@@ -30,6 +34,10 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 				brandBulletTwo: 'HTML5-доступ к каждой консоли прямо из браузера.',
 				cardTitle: 'Вход в систему',
 				cardSubtitle: 'Используйте учетные данные EVE, чтобы продолжить.',
+				themeLabel: 'Тема',
+				themeHint: 'Переключите оформление панели.',
+				darkModeLabel: 'Тёмная',
+				lightModeLabel: 'Светлая',
 				usernameLabel: 'Имя пользователя',
 				usernamePlaceholder: 'admin',
 				passwordLabel: 'Пароль',
@@ -80,6 +88,7 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 			var validLang = getValidLanguage(lang);
 			$scope.lang = validLang;
 			$scope.t = translations[validLang];
+			$rootScope.lang = validLang;
 			$cookies.put('eve_login_lang', validLang, { path: '/' });
 		}
 
@@ -95,6 +104,19 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 		if ($cookies.get('unetlab_session')) {
 			$scope.testAUTH("/main");
 		}
+		$scope.theme = themeService.sync($rootScope.username);
+		$scope.themeClass = function (darkClasses, lightClasses) {
+			return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+		};
+		$scope.toggleTheme = function () {
+			$scope.theme = themeService.toggle();
+		};
+		$scope.setTheme = function (value) {
+			$scope.theme = themeService.apply(value, $rootScope.username);
+		};
+		$scope.$watch(function () { return $rootScope.theme; }, function (val) {
+			if (val) { $scope.theme = val; }
+		});
 	$('body').removeClass().addClass('hold-transition login-page');
 		$scope.tryLogin = function () {
 			$scope.loginMessageInfo = "";

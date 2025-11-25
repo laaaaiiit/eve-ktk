@@ -1,96 +1,98 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-  <div class="relative w-full max-w-xl rounded-3xl border border-white/10 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-slate-100 shadow-2xl">
-    <div class="flex flex-col gap-2 px-8 pt-8 pb-4 border-b border-white/10">
+  <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
+  <div class="relative w-full max-w-xl rounded-3xl border shadow-2xl transition-colors duration-300"
+       ng-class="themeClass('border-white/10 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-slate-100','bg-white border-slate-200 text-slate-900')">
+    <div class="flex flex-col gap-2 px-8 pt-8 pb-4 border-b" ng-class="themeClass('border-white/10','border-slate-200')">
       <div>
-        <h3 class="text-2xl font-semibold" data-ng-bind="t.modalAddTitle"></h3>
-        <p class="text-slate-300 text-sm" data-ng-bind="t.modalAddSubtitle"></p>
+        <h3 class="text-2xl font-semibold theme-heading" data-ng-bind="t.modalAddTitle"></h3>
+        <p class="theme-muted text-sm" data-ng-bind="t.modalAddSubtitle"></p>
       </div>
     </div>
 
     <div class="px-8 py-6">
       <form role="form" name="form" class="space-y-5">
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalUsernameLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalUsernameLabel"></label>
           <input type="text"
                  name="usernameField"
-                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 class="theme-input"
                  data-ng-model="username"
                  ng-pattern="restrictNumber"
                  required
                  autofocus
                  placeholder="{{t.modalUsernameLabel}}">
-          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error username'" data-ng-bind="errorMessage"></p>
+          <p class="text-xs text-red-500 mt-1" data-ng-show="errorClass == 'has-error username'" data-ng-bind="errorMessage"></p>
         </div>
 
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPasswordLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalPasswordLabel"></label>
           <input type="password"
-                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                 ng-class="{'border-red-500 focus:ring-red-500': errorClass == 'has-error passwd'}"
+                 class="theme-input"
+                 ng-class="{'input-error': errorClass == 'has-error passwd'}"
                  data-ng-model="passwd"
                  required
                  placeholder="{{t.modalPasswordLabel}}">
-          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error passwd'" data-ng-bind="errorMessage"></p>
+          <p class="text-xs text-red-500 mt-1" data-ng-show="errorClass == 'has-error passwd'" data-ng-bind="errorMessage"></p>
         </div>
 
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPasswordConfirmLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalPasswordConfirmLabel"></label>
           <input type="password"
-                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                 ng-class="{'border-red-500 focus:ring-red-500': errorClass == 'has-error passwdConfirm' || passwdConfirm != passwd}"
+                 class="theme-input"
+                 ng-class="{'input-error': errorClass == 'has-error passwdConfirm' || passwdConfirm != passwd}"
                  data-ng-model="passwdConfirm"
                  required
                  placeholder="{{t.modalPasswordConfirmLabel}}">
-          <p class="text-xs text-red-400 mt-1" data-ng-show="passwdConfirm != passwd" data-ng-bind="t.modalPasswordMismatch"></p>
-          <p class="text-xs text-red-400 mt-1" data-ng-show="errorClass == 'has-error passwdConfirm'" data-ng-bind="errorMessage"></p>
+          <p class="text-xs text-red-500 mt-1" data-ng-show="passwdConfirm != passwd" data-ng-bind="t.modalPasswordMismatch"></p>
+          <p class="text-xs text-red-500 mt-1" data-ng-show="errorClass == 'has-error passwdConfirm'" data-ng-bind="errorMessage"></p>
         </div>
 
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalRoleLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalRoleLabel"></label>
           <div class="relative">
             <select data-ng-init="selectRole = 'Administrator'"
                     data-ng-model="selectRole"
                     data-ng-options="y for (x,y) in roles"
-                    class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
+                    class="theme-select">
             </select>
-            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center" ng-class="themeClass('text-slate-500','text-slate-500')">
               <i class="fa fa-chevron-down"></i>
             </span>
           </div>
         </div>
 
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalLanguageLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalLanguageLabel"></label>
           <div class="relative">
             <select data-ng-model="selectedLanguage"
                     data-ng-options="opt.key as opt.label for opt in languageOptions"
-                    class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
+                    class="theme-select">
             </select>
-            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center" ng-class="themeClass('text-slate-500','text-slate-500')">
               <i class="fa fa-chevron-down"></i>
             </span>
           </div>
         </div>
 
         <div>
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.modalPodLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.modalPodLabel"></label>
           <input type="text"
                  inputmode="numeric"
                  pattern="[0-9]*"
-                 class="w-full rounded-2xl bg-slate-900/60 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 class="theme-input"
                  data-ng-model="pod"
                  ng-model-options="{ allowInvalid: true }"
                  required
                  placeholder="{{t.modalPodLabel}}">
         </div>
 
-        <p class="text-xs text-slate-400" data-ng-bind="t.modalRequiredHint"></p>
+        <p class="text-xs theme-muted" data-ng-bind="t.modalRequiredHint"></p>
       </form>
     </div>
 
     <div class="flex items-center justify-end gap-3 px-8 pb-8 pt-2">
-      <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+      <button class="px-4 py-2 rounded-xl border transition cursor-pointer"
+              ng-class="themeClass('border-white/20 text-slate-200 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
               type="button"
               ng-click="closeModal()"
               data-ng-bind="t.modalCancel">

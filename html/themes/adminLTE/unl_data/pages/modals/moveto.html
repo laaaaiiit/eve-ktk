@@ -1,65 +1,75 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-  <div class="relative w-full max-w-3xl rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-slate-100 shadow-2xl">
-    <div class="flex items-start justify-between gap-4 border-b border-white/10 px-8 py-6">
-      <div>
-        <p class="text-xs uppercase tracking-[0.4em] text-blue-200/80">Workspace</p>
-        <h3 class="text-2xl font-semibold text-white">Move files</h3>
-        <p class="text-sm text-slate-300">Select a destination folder for the chosen labs and directories.</p>
+  <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
+  <div class="relative w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-300"
+       ng-class="themeClass('border-white/10 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-slate-100','bg-white border-slate-200 text-slate-900')">
+    <div class="flex items-start justify-between gap-4 px-8 py-6 border-b transition-colors duration-300"
+         ng-class="themeClass('border-white/10','border-slate-200')">
+      <div class="space-y-1">
+        <p class="text-xs uppercase tracking-[0.4em] theme-muted" data-ng-bind="t.moveDialogEyebrow"></p>
+        <h3 class="text-2xl font-semibold theme-heading" data-ng-bind="t.moveDialogTitle"></h3>
+        <p class="text-sm theme-muted" data-ng-bind="t.moveDialogSubtitle"></p>
       </div>
       <button type="button"
-              class="text-slate-400 hover:text-white transition text-2xl leading-none"
+              class="text-2xl leading-none transition"
+              ng-class="themeClass('text-slate-400 hover:text-white','text-slate-500 hover:text-slate-800')"
               ng-click="closeModal()">&times;</button>
     </div>
 
     <div class="px-8 py-6 space-y-6">
       <div class="space-y-4">
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Selected items</p>
-        <div class="rounded-2xl border border-white/10 bg-slate-900/50 overflow-hidden">
-          <table class="w-full text-sm text-slate-200">
-            <tbody class="divide-y divide-white/5">
-              <tr data-ng-repeat="folder in folderdata" class="hover:bg-white/5 transition">
+        <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.moveSelectedLabel"></p>
+        <div class="rounded-2xl border overflow-hidden transition-colors duration-300"
+             ng-class="themeClass('border-white/10 bg-slate-900/50','border-slate-200 bg-white')">
+          <table class="w-full text-sm" ng-class="themeClass('text-slate-200','text-slate-800')">
+            <tbody class="divide-y" ng-class="themeClass('divide-white/5','divide-slate-200')">
+              <tr data-ng-repeat="folder in folderdata" class="transition"
+                  ng-class="themeClass('hover:bg-white/5','hover:bg-slate-100')">
                 <td class="px-4 py-2 flex items-center gap-3">
-                  <i class="fa fa-folder text-amber-300"></i>
-                  <span>{{folder}}</span>
+                  <i class="fa fa-folder text-amber-400"></i>
+                  <span class="theme-heading">{{folder}}</span>
                 </td>
               </tr>
-              <tr data-ng-repeat="file in filedata" class="hover:bg-white/5 transition">
+              <tr data-ng-repeat="file in filedata" class="transition"
+                  ng-class="themeClass('hover:bg-white/5','hover:bg-slate-100')">
                 <td class="px-4 py-2 flex items-center gap-3">
-                  <i class="fa fa-file-text-o text-slate-400"></i>
-                  <span>{{file}}</span>
+                  <i class="fa fa-file-text-o" ng-class="themeClass('text-slate-300','text-slate-500')"></i>
+                  <span class="theme-heading">{{file}}</span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p class="text-xs text-slate-400">Current location: <span class="text-white">{{path}}</span></p>
+        <p class="text-xs theme-muted"><span data-ng-bind="t.moveCurrentLocation"></span>: <span class="font-mono theme-heading">{{path}}</span></p>
       </div>
 
-      <div class="space-y-3" ng-class="{'text-rose-400': errorMessage != ''}">
-        <label class="text-xs uppercase tracking-[0.35em] text-slate-400">New path</label>
+      <div class="space-y-3" ng-class="{'text-rose-500': errorMessage != ''}">
+        <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.moveNewPathLabel"></label>
         <div class="relative">
           <input type="text"
                  id="newPathInput"
-                 class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 class="theme-input pr-12"
                  data-ng-model="newpath"
                  data-ng-keyup="fastSearch(newpath)"
                  data-ng-focus="inputSlash()"
                  autocomplete="off"
-                 placeholder="e.g. /labs/projects/">
-          <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                 data-ng-attr-placeholder="{{t.moveNewPathPlaceholder}}">
+          <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center"
+                ng-class="themeClass('text-slate-400','text-slate-500')">
             <i class="fa fa-search" data-ng-if="apiSearch"></i>
             <i class="fa fa-check text-emerald-400" data-ng-if="!apiSearch"></i>
           </span>
         </div>
-        <p class="text-xs text-rose-400" ng-show="errorMessage" data-ng-bind="errorMessage"></p>
-        <p class="text-xs text-slate-500">Type a path and pick from suggestions below.</p>
+        <p class="text-xs text-rose-500" ng-show="errorMessage" data-ng-bind="errorMessage"></p>
+        <p class="text-xs theme-muted" data-ng-bind="t.moveNewPathHint"></p>
 
-        <div class="max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/40 eve-scroll" data-ng-show="folderSearchList.length">
-          <ul class="divide-y divide-white/5 text-sm">
+        <div class="max-h-48 overflow-y-auto rounded-2xl border eve-scroll transition-colors duration-300"
+             ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')"
+             data-ng-show="folderSearchList.length">
+          <ul class="divide-y text-sm" ng-class="themeClass('divide-white/5','divide-slate-200')">
             <li data-ng-repeat="folderFound in folderSearchList | filter : localSearch">
               <button type="button"
-                      class="w-full text-left px-4 py-2 hover:bg-white/10 transition"
+                      class="w-full text-left px-4 py-2 transition"
+                      ng-class="themeClass('hover:bg-white/10','hover:bg-slate-100')"
                       data-ng-show="folderFound.name != '..'"
                       data-ng-click="fastSearchFast(folderFound.name)">
                 {{folderFound.name}}
@@ -70,17 +80,19 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-end gap-3 border-t border-white/10 px-8 py-4">
-      <button class="rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 hover:bg-white/10 transition"
+    <div class="flex items-center justify-end gap-3 px-8 py-4 border-t transition-colors duration-300"
+         ng-class="themeClass('border-white/10','border-slate-200')">
+      <button class="rounded-2xl border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition cursor-pointer"
+              ng-class="themeClass('border-white/20 text-slate-200 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
               type="button"
-              ng-click="closeModal()">
-        Cancel
+              ng-click="closeModal()"
+              data-ng-bind="t.deleteDialogCancel">
       </button>
       <button class="rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-lg hover:shadow-2xl transition {{blockButtonsClass}}"
               type="button"
               ng-disabled="blockButtons"
-              ng-click="move()">
-        Move
+              ng-click="move()"
+              data-ng-bind="t.actionMove">
       </button>
     </div>
   </div>

@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies) {
+angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, themeService) {
     var translations = {
         en: {
             heroEyebrow: 'Integration',
@@ -153,6 +153,19 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
         }
     });
 
+    $scope.theme = themeService.sync($rootScope.username);
+    $scope.themeClass = function (darkClasses, lightClasses) {
+        return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+    };
+    $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+        if (val) { $scope.theme = val; }
+    });
+    $scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+        if (val && val !== oldVal) {
+            $scope.theme = themeService.sync(val);
+        }
+    });
+
     const waitForRole = $scope.$watch(function () {
         return $rootScope.role;
     }, function (newRole) {
@@ -172,26 +185,28 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
             animation: true,
             template: `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-                    <div class="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100 shadow-2xl p-8 space-y-6">
+                    <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
+                    <div class="relative w-full max-w-md rounded-3xl border shadow-2xl p-8 space-y-6"
+                         ng-class="modal.surfaceClasses">
                         <div class="flex items-center gap-3">
                             <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center" ng-class="modal.iconClasses">
                                 <i class="{{modal.icon}}"></i>
                             </div>
                             <div>
                                 <h4 class="text-xl font-semibold" ng-bind="modal.title"></h4>
-                                <p class="text-slate-300 text-sm" ng-bind="modal.body"></p>
-                                <p class="text-rose-300 text-xs mt-1" ng-if="modal.warning" ng-bind="modal.warning"></p>
+                                <p class="text-sm" ng-class="modal.mutedClasses" ng-bind="modal.body"></p>
+                                <p class="text-xs mt-1" ng-class="modal.warningClasses" ng-if="modal.warning" ng-bind="modal.warning"></p>
                             </div>
                         </div>
                         <div class="space-y-3" ng-if="modal.items && modal.items.length">
                             <div ng-repeat="item in modal.items">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-400" ng-bind="item.label"></p>
-                                <p class="text-base font-semibold" ng-bind="item.value"></p>
+                                <p class="text-xs uppercase tracking-[0.3em]" ng-class="modal.mutedClasses" ng-bind="item.label"></p>
+                                <p class="text-base font-semibold" ng-class="modal.textClasses" ng-bind="item.value"></p>
                             </div>
                         </div>
                         <div class="flex items-center justify-end gap-3">
-                            <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+                            <button class="px-4 py-2 rounded-xl border transition cursor-pointer"
+                                    ng-class="modal.cancelClasses"
                                     ng-click="$dismiss()"
                                     ng-bind="modal.cancelLabel"></button>
                             <button class="px-5 py-2 rounded-xl text-white uppercase tracking-[0.2em] shadow-lg transition cursor-pointer"
@@ -206,8 +221,13 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
                 var parentScope = $scope.$parent || {};
                 var defaults = {
                     icon: 'fa fa-info-circle',
-                    iconClasses: 'bg-blue-500/30 text-blue-100',
+                    iconClasses: $scope.themeClass('bg-blue-500/30 text-blue-100', 'bg-blue-500 text-white'),
                     confirmClasses: 'bg-blue-600 hover:bg-blue-500',
+                    cancelClasses: $scope.themeClass('border-white/20 text-slate-200 hover:bg-white/10', 'border-slate-200 text-slate-800 hover:bg-slate-100'),
+                    mutedClasses: $scope.themeClass('text-slate-400', 'text-slate-600'),
+                    warningClasses: $scope.themeClass('text-rose-300', 'text-rose-600'),
+                    textClasses: $scope.themeClass('text-slate-100', 'text-slate-900'),
+                    surfaceClasses: $scope.themeClass('border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                     cancelLabel: (parentScope.t && parentScope.t.deleteConfirmCancel) || 'Cancel',
                     confirmLabel: 'OK',
                     items: []
@@ -273,9 +293,9 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
 
         $scope.sortIcon = function (column) {
             if ($scope.sortColumn !== column) {
-                return 'fa fa-sort text-slate-500';
+                return $scope.themeClass('fa fa-sort text-slate-500', 'fa fa-sort text-slate-500');
             }
-            return $scope.reverseSort ? 'fa fa-arrow-down text-white' : 'fa fa-arrow-up text-white';
+            return $scope.reverseSort ? $scope.themeClass('fa fa-arrow-down text-white', 'fa fa-arrow-down text-slate-900') : $scope.themeClass('fa fa-arrow-up text-white', 'fa fa-arrow-up text-slate-900');
         };
 
         $scope.confirmDeleteCloud = function (cloud) {

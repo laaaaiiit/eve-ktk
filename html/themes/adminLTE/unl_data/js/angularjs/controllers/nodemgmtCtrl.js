@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $interval) {
+angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $interval, themeService) {
     var translations = {
         en: {
             heroEyebrow: 'Operations',
@@ -34,13 +34,13 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             stopAllConfirmCancel: 'Cancel',
             stopUserConfirmTitle: 'Stop user nodes',
             stopUserConfirmBody: 'Stop every node that belongs to this user? All running labs under this owner will be halted.',
-            stopUserConfirmConfirm: 'Stop user nodes',
+            stopUserConfirmConfirm: 'Stop',
             stopUserConfirmCancel: 'Cancel',
             stopUserNoLabs: 'This user does not have labs to stop.',
             stopUserFailed: 'Failed to stop user nodes.',
             stopLabConfirmTitle: 'Stop lab nodes',
             stopLabConfirmBody: 'Stop every node in this lab? Active sessions will be interrupted.',
-            stopLabConfirmConfirm: 'Stop lab nodes',
+            stopLabConfirmConfirm: 'Stop',
             stopLabConfirmCancel: 'Cancel',
             stopLabNoNodes: 'This lab does not contain nodes to stop.',
             stopLabFailed: 'Failed to stop lab nodes.',
@@ -113,13 +113,13 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             stopAllConfirmCancel: 'Отмена',
             stopUserConfirmTitle: 'Остановить ноды пользователя',
             stopUserConfirmBody: 'Остановить все ноды этого пользователя? Все активные лаборатории будут выключены.',
-            stopUserConfirmConfirm: 'Остановить пользователя',
+            stopUserConfirmConfirm: 'Остановить',
             stopUserConfirmCancel: 'Отмена',
             stopUserNoLabs: 'У пользователя нет лабораторий для остановки.',
             stopUserFailed: 'Не удалось остановить ноды пользователя.',
             stopLabConfirmTitle: 'Остановить ноды лаборатории',
             stopLabConfirmBody: 'Остановить все ноды в выбранной лаборатории? Активные сессии будут завершены.',
-            stopLabConfirmConfirm: 'Остановить лабораторию',
+            stopLabConfirmConfirm: 'Остановить',
             stopLabConfirmCancel: 'Отмена',
             stopLabNoNodes: 'В лаборатории нет нод для остановки.',
             stopLabFailed: 'Не удалось остановить ноды лаборатории.',
@@ -165,25 +165,27 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             animation: true,
             template: `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-                    <div class="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br text-slate-100 shadow-2xl p-8 space-y-6" ng-class="modal.surfaceClasses">
+                    <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
+                    <div class="relative w-full max-w-md rounded-3xl border text-slate-100 shadow-2xl p-8 space-y-6"
+                         ng-class="modal.surfaceClasses">
                         <div class="flex items-center gap-3">
                             <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center" ng-class="modal.iconClasses">
                                 <i class="{{modal.icon}}"></i>
                             </div>
                             <div>
                                 <h4 class="text-xl font-semibold" ng-bind="modal.title"></h4>
-                                <p class="text-slate-300 text-sm" ng-bind="modal.body"></p>
+                                <p class="text-sm" ng-class="modal.mutedClasses" ng-bind="modal.body"></p>
                             </div>
                         </div>
                         <div class="space-y-3" ng-if="modal.items && modal.items.length">
                             <div ng-repeat="item in modal.items">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-400" ng-bind="item.label"></p>
-                                <p class="text-base font-semibold" ng-bind="item.value"></p>
+                                <p class="text-xs uppercase tracking-[0.3em]" ng-class="modal.mutedClasses" ng-bind="item.label"></p>
+                                <p class="text-base font-semibold" ng-class="modal.textClasses" ng-bind="item.value"></p>
                             </div>
                         </div>
                         <div class="flex items-center justify-end gap-3">
-                            <button class="px-4 py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 transition cursor-pointer"
+                            <button class="px-4 py-2 rounded-xl border transition cursor-pointer"
+                                    ng-class="modal.cancelClasses"
                                     ng-click="$dismiss()"
                                     ng-bind="modal.cancelLabel"></button>
                             <button class="px-5 py-2 rounded-xl text-white uppercase tracking-[0.2em] shadow-lg transition cursor-pointer"
@@ -197,9 +199,12 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             controller: ['$scope', function ($scope) {
                 var defaults = {
                     icon: 'fa fa-info-circle',
-                    iconClasses: 'bg-blue-500/20 text-blue-200',
+                    iconClasses: $scope.themeClass('bg-blue-500/20 text-blue-200', 'bg-blue-500 text-white'),
                     confirmClasses: 'bg-blue-600 hover:bg-blue-500',
-                    surfaceClasses: 'from-slate-950 via-blue-950/70 to-slate-900',
+                    surfaceClasses: $scope.themeClass('border-white/10 bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-900 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
+                    cancelClasses: $scope.themeClass('border-white/20 text-slate-200 hover:bg-white/10', 'border-slate-200 text-slate-800 hover:bg-slate-100'),
+                    mutedClasses: $scope.themeClass('text-slate-400', 'text-slate-600'),
+                    textClasses: $scope.themeClass('text-slate-100', 'text-slate-900'),
                     cancelLabel: config.cancelLabel || 'Cancel',
                     confirmLabel: config.confirmLabel || 'Confirm',
                     items: []
@@ -232,6 +237,19 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
     $scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
         if (newVal && newVal !== oldVal) {
             refreshTranslations();
+        }
+    });
+
+    $scope.theme = themeService.sync($rootScope.username);
+    $scope.themeClass = function (darkClasses, lightClasses) {
+        return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+    };
+    $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+        if (val) { $scope.theme = val; }
+    });
+    $scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+        if (val && val !== oldVal) {
+            $scope.theme = themeService.sync(val);
         }
     });
 
@@ -491,10 +509,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
             openTailwindModal({
                 icon: 'fa fa-stop',
-                iconClasses: 'bg-amber-500/20 text-amber-200',
+                iconClasses: $scope.themeClass('bg-amber-500/20 text-amber-200', 'bg-amber-500 text-white'),
                 title: t.stopLabConfirmTitle,
                 body: t.stopLabConfirmBody,
-                surfaceClasses: 'from-amber-950/80 via-amber-900/40 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-amber-950/80 via-amber-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 items: [
                     { label: t.modalUserLabel, value: user.username },
                     { label: t.modalLabLabel, value: lab.displayName }
@@ -527,10 +545,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
             openTailwindModal({
                 icon: 'fa fa-eraser',
-                iconClasses: 'bg-cyan-500/20 text-cyan-200',
+                iconClasses: $scope.themeClass('bg-cyan-500/20 text-cyan-200', 'bg-cyan-500 text-white'),
                 title: t.wipeLabConfirmTitle,
                 body: t.wipeLabConfirmBody,
-                surfaceClasses: 'from-cyan-950/70 via-slate-950 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-cyan-950/70 via-slate-950 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 items: [
                     { label: t.modalUserLabel, value: user.username },
                     { label: t.modalLabLabel, value: lab.displayName }
@@ -563,10 +581,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
             openTailwindModal({
                 icon: 'fa fa-stop',
-                iconClasses: 'bg-amber-500/20 text-amber-200',
+                iconClasses: $scope.themeClass('bg-amber-500/20 text-amber-200', 'bg-amber-500 text-white'),
                 title: t.stopUserConfirmTitle,
                 body: t.stopUserConfirmBody,
-                surfaceClasses: 'from-amber-950/80 via-amber-900/40 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-amber-950/80 via-amber-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 items: [
                     { label: t.modalUserLabel, value: user.username }
                 ],
@@ -618,10 +636,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
             openTailwindModal({
                 icon: 'fa fa-trash',
-                iconClasses: 'bg-rose-500/20 text-rose-200',
+                iconClasses: $scope.themeClass('bg-rose-500/20 text-rose-200', 'bg-rose-600 text-white'),
                 title: t.nodeDeleteTitle,
                 body: t.nodeDeleteBody,
-                surfaceClasses: 'from-rose-950/80 via-rose-900/40 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-rose-950/80 via-rose-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 items: [
                     { label: t.tableName, value: nodeData.name },
                     { label: t.tableType, value: nodeData.type },
@@ -669,10 +687,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             var combinedBody = body + ' ' + (t.nodeStopWarning || '');
             openTailwindModal({
                 icon: 'fa fa-stop',
-                iconClasses: 'bg-amber-500/20 text-amber-200',
+                iconClasses: $scope.themeClass('bg-amber-500/20 text-amber-200', 'bg-amber-500 text-white'),
                 title: t.nodeStopTitle,
                 body: combinedBody,
-                surfaceClasses: 'from-amber-950/80 via-amber-900/40 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-amber-950/80 via-amber-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 confirmLabel: t.nodeStopConfirm,
                 cancelLabel: t.modalCancelLabel,
                 confirmClasses: 'bg-amber-500 hover:bg-amber-400 text-slate-900'
@@ -697,10 +715,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             var combinedBody = body + ' ' + (t.nodeWipeWarning || '');
             openTailwindModal({
                 icon: 'fa fa-eraser',
-                iconClasses: 'bg-cyan-500/20 text-cyan-200',
+                iconClasses: $scope.themeClass('bg-cyan-500/20 text-cyan-200', 'bg-cyan-500 text-white'),
                 title: t.nodeWipeTitle,
                 body: combinedBody,
-                surfaceClasses: 'from-cyan-950/70 via-slate-950 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-cyan-950/70 via-slate-950 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 confirmLabel: t.nodeWipeConfirm,
                 cancelLabel: t.modalCancelLabel,
                 confirmClasses: 'bg-cyan-500 hover:bg-cyan-400 text-slate-900'
@@ -723,10 +741,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             var t = $scope.t || translations[resolveLanguage()];
             openTailwindModal({
                 icon: 'fa fa-exclamation-triangle',
-                iconClasses: 'bg-rose-500/20 text-rose-200',
+                iconClasses: $scope.themeClass('bg-rose-500/20 text-rose-200', 'bg-rose-600 text-white'),
                 title: t.stopAllConfirmTitle,
                 body: t.stopAllConfirmBody,
-                surfaceClasses: 'from-rose-950/80 via-rose-900/40 to-slate-900',
+                surfaceClasses: $scope.themeClass('from-rose-950/80 via-rose-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
                 confirmLabel: t.stopAllConfirmConfirm,
                 cancelLabel: t.stopAllConfirmCancel,
                 confirmClasses: 'bg-rose-600 hover:bg-rose-500'

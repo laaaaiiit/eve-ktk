@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('sysstatController',function sysstatController($scope, $http, $rootScope, $interval, $location, $cookies, $timeout) {
+angular.module("unlMainApp").controller('sysstatController',function sysstatController($scope, $http, $rootScope, $interval, $location, $cookies, $timeout, themeService) {
         var translations = {
                 en: {
                         heroEyebrow: 'Infrastructure health',
@@ -119,6 +119,9 @@ $scope.optionsCPU = {
     unit: "%",
     readOnly: true,
     size: 175,
+    valueDisplay: {
+        color: '#f8fafc'
+    },
     subText: {
         enabled: true,
         text: 'CPU used',
@@ -136,6 +139,9 @@ $scope.optionsMem = {
     unit: "%",
     readOnly: true,
     size: 175,
+    valueDisplay: {
+        color: '#f8fafc'
+    },
     subText: {
         enabled: true,
         text: 'Memory used',
@@ -153,6 +159,9 @@ $scope.optionsSwap = {
     unit: "%",
     readOnly: true,
     size: 175,
+    valueDisplay: {
+        color: '#f8fafc'
+    },
     subText: {
         enabled: true,
         text: 'Swap used',
@@ -171,6 +180,9 @@ $scope.optionsSwap = {
     unit: "%",
     readOnly: true,
     size: 175,
+    valueDisplay: {
+        color: '#f8fafc'
+    },
     subText: {
         enabled: true,
         text: 'Disk used',
@@ -184,6 +196,49 @@ $scope.optionsSwap = {
     barColor: '#ec4899'
 };
         applyGaugeTranslations();
+        $scope.theme = themeService.sync($rootScope.username);
+        $scope.themeClass = function (darkClasses, lightClasses) {
+                return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
+        };
+        function updateGaugeThemeColors(theme) {
+                var isLight = theme === 'light';
+                var textColor = isLight ? '#0f172a' : '#f8fafc';
+                var subColor = isLight ? '#475569' : '#9ca3af';
+                [$scope.optionsCPU, $scope.optionsMem, $scope.optionsSwap, $scope.optionsDisk].forEach(function (opt) {
+                        if (!opt) return;
+                        opt.textColor = textColor;
+                        opt.fgColor = textColor;
+                        opt.inputColor = textColor;
+                        if (opt.subText) opt.subText.color = subColor;
+                        if (opt.valueDisplay) {
+                                opt.valueDisplay.color = textColor;
+                        }
+                });
+        }
+        function refreshGaugeOptions() {
+                ['optionsCPU', 'optionsMem', 'optionsSwap', 'optionsDisk'].forEach(function (key) {
+                        if ($scope[key]) {
+                                $scope[key] = angular.copy($scope[key]);
+                        }
+                });
+        }
+        updateGaugeThemeColors($scope.theme);
+        refreshGaugeOptions();
+        $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+                if (val) {
+                        $scope.theme = val;
+                        updateGaugeThemeColors(val);
+                        applyGaugeTranslations();
+                        refreshGaugeOptions();
+                }
+        });
+        $scope.$watch(function () { return $rootScope.username; }, function (val, oldVal) {
+                if (val && val !== oldVal) {
+                        $scope.theme = themeService.sync(val);
+                        updateGaugeThemeColors($scope.theme);
+                        refreshGaugeOptions();
+                }
+        });
 	$('body').removeClass().addClass('hold-transition skin-blue layout-top-nav');
 	$scope.systemstat = function(){
 		$http.get('/api/status').then(

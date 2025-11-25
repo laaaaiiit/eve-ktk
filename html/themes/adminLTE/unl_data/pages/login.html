@@ -1,36 +1,89 @@
-<div class="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-900 text-slate-100 flex items-center justify-center p-6">
-  <div class="max-w-6xl w-full grid gap-10 lg:grid-cols-2">
-    <section class="backdrop-blur-sm bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-10 flex flex-col justify-center">
-      <div class="mb-12 text-center flex flex-col items-center gap-4">
-        <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo" class="w-64 h-auto drop-shadow-2xl">
-        <div>
-          <p class="text-xs uppercase tracking-[0.45em] text-slate-400" data-ng-bind="eveversion"></p>
-          </div>
+<main class="min-h-screen theme-page flex items-center justify-center px-6 py-10 relative overflow-hidden transition-colors duration-300">
+  <div class="absolute -left-24 -top-32 w-80 h-80 rounded-full blur-3xl pointer-events-none"
+       ng-class="themeClass('bg-blue-500/25','bg-blue-300/30')"></div>
+  <div class="absolute -right-28 top-10 w-72 h-72 rounded-full blur-3xl pointer-events-none"
+       ng-class="themeClass('bg-cyan-400/20','bg-cyan-200/40')"></div>
+  <div class="absolute inset-0 pointer-events-none opacity-30"
+       ng-class="themeClass('bg-gradient-to-br from-slate-900 via-slate-950 to-black','bg-gradient-to-br from-white via-slate-100 to-slate-50')"></div>
+
+  <div class="absolute top-6 right-6 flex items-center gap-3 z-10">
+    <div class="text-[11px] uppercase tracking-[0.28em] theme-muted hidden sm:block" data-ng-bind="t.themeLabel"></div>
+    <div class="flex items-center gap-1 rounded-full border px-2 py-1.5 shadow-sm"
+         ng-class="themeClass('bg-white/5 border-white/10 text-slate-100','bg-white border-slate-200 text-slate-800')"
+         aria-label="{{t.themeHint}}">
+      <button type="button"
+              class="p-2 rounded-full transition leading-none"
+              aria-label="{{t.darkModeLabel}}"
+              ng-class="theme === 'dark' ? themeClass('bg-white/20 text-white','bg-slate-900 text-white') : themeClass('text-slate-300 hover:bg-white/10','text-slate-500 hover:bg-slate-100')"
+              ng-click="setTheme('dark')">
+        <i class="fa fa-moon-o"></i>
+      </button>
+      <button type="button"
+              class="p-2 rounded-full transition leading-none"
+              aria-label="{{t.lightModeLabel}}"
+              ng-class="theme === 'light' ? themeClass('bg-white/20 text-white','bg-slate-900 text-white') : themeClass('text-slate-300 hover:bg-white/10','text-slate-500 hover:bg-slate-100')"
+              ng-click="setTheme('light')">
+        <i class="fa fa-sun-o"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="relative w-full max-w-6xl grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-stretch z-0">
+    <section class="relative theme-surface rounded-3xl p-10 overflow-hidden transition-colors duration-300">
+      <div class="absolute inset-0 opacity-60"
+           ng-class="themeClass('bg-gradient-to-br from-blue-600/20 via-cyan-500/10 to-emerald-400/20','bg-gradient-to-br from-blue-200 via-cyan-100 to-emerald-100')"></div>
+      <div class="relative flex flex-col h-full justify-center gap-8">
+        <div class="text-center lg:text-left space-y-4 flex flex-col items-center lg:items-start">
+          <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo" class="w-48 lg:w-60 h-auto drop-shadow-2xl">
+          <p class="text-xs uppercase tracking-[0.45em] theme-muted" data-ng-bind="eveversion"></p>
+        </div>
+        <div class="space-y-4">
+          <h1 class="text-4xl font-semibold theme-heading" data-ng-bind="t.brandTitle"></h1>
+          <p class="text-lg leading-relaxed theme-muted max-w-2xl" data-ng-bind="t.brandSubtitle"></p>
+        </div>
+        <ul class="space-y-4">
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full mt-2"
+                  ng-class="themeClass('bg-blue-400','bg-blue-600')"></span>
+            <span class="theme-heading" data-ng-bind="t.brandBulletOne"></span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full mt-2"
+                  ng-class="themeClass('bg-emerald-300','bg-emerald-600')"></span>
+            <span class="theme-heading" data-ng-bind="t.brandBulletTwo"></span>
+          </li>
+        </ul>
       </div>
-      <h1 class="text-4xl font-semibold text-white mb-6" data-ng-bind="t.brandTitle"></h1>
-      <p class="text-slate-300 text-lg" data-ng-bind="t.brandSubtitle"></p>
-      <ul class="mt-9 space-y-5 text-slate-200/90">
-        <li class="flex items-start gap-3"><span class="w-2 h-2 rounded-full bg-blue-400 mt-2"></span><span data-ng-bind="t.brandBulletOne"></span></li>
-        <li class="flex items-start gap-3"><span class="w-2 h-2 rounded-full bg-blue-400 mt-2"></span><span data-ng-bind="t.brandBulletTwo"></span></li>
-      </ul>
     </section>
 
-    <section class="bg-white/10 backdrop-blur-md rounded-3xl border border-white/15 shadow-2xl p-10 flex flex-col gap-6">
+    <section class="theme-surface rounded-3xl shadow-2xl p-10 flex flex-col gap-6 transition-colors duration-300">
       <div class="flex flex-col gap-4">
-        <div>
-          <p class="text-xs uppercase tracking-[0.4em] text-slate-400" data-ng-bind="t.languageLabel"></p>
-          <h2 class="text-2xl font-semibold" data-ng-bind="t.cardTitle"></h2>
-          <p class="text-slate-300" data-ng-bind="t.cardSubtitle"></p>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs uppercase tracking-[0.4em] theme-muted" data-ng-bind="t.languageLabel"></p>
+            <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.cardTitle"></h2>
+            <p class="theme-muted" data-ng-bind="t.cardSubtitle"></p>
+          </div>
+          <div class="text-right hidden lg:flex flex-col items-end gap-1">
+            <p class="text-[11px] uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.themeLabel"></p>
+            <button type="button"
+                    class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-[0.1em] border transition cursor-pointer"
+                    ng-class="themeClass('bg-white/5 border-white/15 text-white hover:bg-white/10','bg-white border-slate-200 text-slate-800 hover:bg-slate-100')"
+                    ng-click="toggleTheme()">
+              <i class="fa" ng-class="theme === 'light' ? 'fa-sun-o' : 'fa-moon-o'"></i>
+              <span>{{ theme === 'light' ? t.lightModeLabel : t.darkModeLabel }}</span>
+            </button>
+          </div>
         </div>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div class="text-xs uppercase tracking-[0.3em] text-slate-400 sm:hidden" data-ng-bind="t.languageLabel"></div>
-          <div class="relative w-full sm:w-48">
-            <select class="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-400 appearance-none pr-12"
+          <div class="text-xs uppercase tracking-[0.3em] theme-muted sm:hidden" data-ng-bind="t.languageLabel"></div>
+          <div class="relative w-full sm:w-52">
+            <select class="theme-select pr-12"
                     ng-model="lang"
                     ng-change="setLanguage(lang)"
                     ng-options="language.key as language.label for language in languages">
             </select>
-            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center theme-muted">
               <i class="fa fa-chevron-down"></i>
             </span>
           </div>
@@ -39,48 +92,48 @@
 
       <form class="flex flex-col gap-5" ng-submit="tryLogin()" novalidate>
         <div class="flex flex-col gap-2">
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.usernameLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.usernameLabel"></label>
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500"><i class="fa fa-user"></i></span>
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 theme-muted"><i class="fa fa-user"></i></span>
             <input type="text"
-                   class="w-full bg-slate-900/60 border border-white/10 rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                   class="theme-input pl-10"
                    placeholder="{{t.usernamePlaceholder}}"
                    ng-model="username"
                    autofocus>
           </div>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.passwordLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.passwordLabel"></label>
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500"><i class="fa fa-lock"></i></span>
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 theme-muted"><i class="fa fa-lock"></i></span>
             <input type="password"
-                   class="w-full bg-slate-900/60 border border-white/10 rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                   class="theme-input pl-10"
                    placeholder="{{t.passwordPlaceholder}}"
                    ng-model="password">
           </div>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-xs uppercase tracking-[0.35em] text-slate-400" data-ng-bind="t.consoleLabel"></label>
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.consoleLabel"></label>
           <div class="relative">
             <select name="html5"
-                    class="w-full bg-slate-900/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none pr-12"
+                    class="theme-select pr-12"
                     ng-init="html5='1'"
                     ng-model="html5">
               <option value="1" data-ng-bind="t.html5Console"></option>
             </select>
-            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center theme-muted">
               <i class="fa fa-chevron-down"></i>
             </span>
           </div>
         </div>
         <button id="btnlogin"
                 type="submit"
-                class="w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-2xl py-3.5 tracking-[0.3em] uppercase shadow-xl hover:shadow-2xl transition-shadow"
+                class="w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold rounded-2xl py-3.5 tracking-[0.25em] uppercase shadow-xl hover:shadow-2xl transition"
                 data-ng-bind="t.submitButton">
         </button>
       </form>
-      <p class="text-slate-300 text-sm" data-ng-bind="t.hintText"></p>
-      <p class="text-red-400 text-sm min-h-[20px]" data-ng-bind="loginMessageInfo"></p>
+      <p class="theme-muted text-sm" data-ng-bind="t.hintText"></p>
+      <p class="text-red-400 text-sm min-h-[20px]" data-ng-bind="loginMessageInfo" role="alert" aria-live="polite"></p>
     </section>
   </div>
-</div>
+</main>
