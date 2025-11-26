@@ -82,10 +82,45 @@
             </div>
 
             <div ng-show="shared">
-              <label class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.modalSharedWithLabel"></label>
-              <input class="w-full theme-input"
-                     ng-model="sharedWith"
-                     placeholder="user1,user2">
+              <p class="text-xs uppercase tracking-[0.25em] theme-muted">Доступ</p>
+              <p class="text-xs theme-muted mb-1">Добавьте пользователей, которым нужен доступ к лаборатории. Выберите из списка или введите точное имя.</p>
+              <div class="space-y-2">
+                <div class="flex flex-wrap gap-2 min-h-[2rem]">
+                  <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold"
+                        ng-class="themeClass('bg-emerald-500/20 text-emerald-50 border border-white/10','bg-emerald-50 text-emerald-800 border border-emerald-200')"
+                        ng-repeat="user in sharedWithUsers track by $index">
+                    {{user}}
+                    <button type="button"
+                            class="text-[10px] leading-none"
+                            ng-click="removeSharedWithUser(user)">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </span>
+                </div>
+                <div class="relative">
+                  <input class="w-full theme-input"
+                         ng-model="sharedWithInput"
+                         ng-change="onSharedWithInput()"
+                         ng-focus="onSharedWithFocus()"
+                         ng-blur="onSharedWithBlur()"
+                         ng-keydown="handleSharedWithKey($event)"
+                         placeholder="user1">
+                  <ul class="absolute z-10 mt-2 w-full rounded-2xl border shadow-2xl max-h-48 overflow-auto"
+                      ng-class="themeClass('bg-slate-900/90 border-white/10','bg-white border-slate-200')"
+                      style="max-height: 12rem;"
+                      data-ng-if="sharedWithFocused && sharedWithSuggestions.length">
+                    <li data-ng-repeat="user in sharedWithSuggestions track by user">
+                      <button type="button"
+                              class="w-full text-left px-3 py-2 hover:bg-emerald-500/20 rounded-xl"
+                              ng-class="themeClass('text-slate-100 hover:text-white','text-slate-800 hover:text-slate-900')"
+                              ng-click="addSharedWithUser(user)">
+                        {{user}}
+                      </button>
+                    </li>
+                  </ul>
+                  <p class="text-xs text-rose-400 mt-1" data-ng-if="sharedWithError">{{sharedWithError}}</p>
+                </div>
+              </div>
             </div>
 
           </div>

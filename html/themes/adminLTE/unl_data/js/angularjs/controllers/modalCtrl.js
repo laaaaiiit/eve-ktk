@@ -178,7 +178,7 @@ angular.module("unlMainApp").controller('ModalInstanceCtrl', function ModalInsta
 
 	$scope.saveLab = $scope.addNewLab;
 });
-angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtrl($scope, $uibModalInstance, data, $http, $rootScope) {
+angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtrl($scope, $uibModalInstance, data, $http, $rootScope, $timeout) {
 
 	$scope.blockButtons = false;
 	$scope.blockButtonsClass = '';
@@ -200,6 +200,120 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 	$scope.shared = isEdit ? data.info.shared : false;
 	$scope.sharedWith = isEdit ? data.info.sharedWith : '';
 	$scope.collaborateAllowed = isEdit ? data.info.collaborateAllowed : false;
+	$scope.sharedWithUsers = ($scope.sharedWith || '').split(',').map(function (u) { return u.trim(); }).filter(function (u) { return u.length; });
+	$scope.sharedWithInput = '';
+	$scope.sharedWithSuggestions = [];
+	$scope.sharedUsersLoaded = false;
+	$scope.availableUsernames = [];
+	$scope.sharedWithError = '';
+	$scope.sharedWithFocused = false;
+	var sharedWithBlurPromise = null;
+
+	function syncSharedWithString() {
+		$scope.sharedWith = $scope.sharedWithUsers.join(',');
+	}
+
+	function normalizeSuggestions() {
+		var term = ($scope.sharedWithInput || '').toLowerCase();
+		$scope.sharedWithSuggestions = $scope.availableUsernames.filter(function (user) {
+			if ($scope.sharedWithUsers.indexOf(user) !== -1) {
+				return false;
+			}
+			if (!term) {
+				return true;
+			}
+			return user.toLowerCase().indexOf(term) !== -1;
+		});
+	}
+
+	$scope.loadSharedUsers = function () {
+		if ($scope.sharedUsersLoaded) {
+			return;
+		}
+		$http.get('/api/users/').then(function (response) {
+			var list = (response.data && response.data.data) ? response.data.data : [];
+			if (!Array.isArray(list) && typeof list === 'object') {
+				list = Object.keys(list).map(function (key) { return list[key]; });
+			}
+			if (!Array.isArray(list)) {
+				list = [];
+			}
+			$scope.availableUsernames = list.map(function (u) { return u.username; }).filter(function (u) { return !!u; });
+			$scope.sharedUsersLoaded = true;
+			normalizeSuggestions();
+		}).catch(function () {
+			$scope.availableUsernames = [];
+			$scope.sharedUsersLoaded = true;
+			normalizeSuggestions();
+		});
+	};
+
+	$scope.$watch('shared', function (newVal) {
+		if (newVal) {
+			$scope.loadSharedUsers();
+		}
+	});
+
+	$scope.addSharedWithUser = function (username) {
+		if (!username) { return; }
+		if ($scope.sharedWithUsers.indexOf(username) !== -1) { return; }
+		if ($scope.sharedUsersLoaded && $scope.availableUsernames.indexOf(username) === -1) {
+			$scope.sharedWithError = ($scope.t && $scope.t.validationUserNotFound) || 'User not found';
+			return;
+		}
+		$scope.sharedWithError = '';
+		$scope.sharedWithUsers.push(username);
+		syncSharedWithString();
+		$scope.sharedWithInput = '';
+		normalizeSuggestions();
+	};
+
+	$scope.removeSharedWithUser = function (username) {
+		var idx = $scope.sharedWithUsers.indexOf(username);
+		if (idx !== -1) {
+			$scope.sharedWithUsers.splice(idx, 1);
+			syncSharedWithString();
+			normalizeSuggestions();
+		}
+	};
+
+	$scope.handleSharedWithKey = function (event) {
+		if (event.key === 'Enter' || event.key === ',' || event.key === 'Tab') {
+			event.preventDefault();
+			var candidate = ($scope.sharedWithInput || '').replace(',', '').trim();
+			if (candidate !== '') {
+				$scope.addSharedWithUser(candidate);
+			}
+		}
+	};
+
+	$scope.onSharedWithInput = function () {
+		$scope.sharedWithError = '';
+		normalizeSuggestions();
+	};
+
+	$scope.onSharedWithFocus = function () {
+		if (sharedWithBlurPromise) {
+			$timeout.cancel(sharedWithBlurPromise);
+			sharedWithBlurPromise = null;
+		}
+		$scope.sharedWithFocused = true;
+		$scope.loadSharedUsers();
+		normalizeSuggestions();
+	};
+
+	$scope.onSharedWithBlur = function () {
+		sharedWithBlurPromise = $timeout(function () {
+			$scope.sharedWithFocused = false;
+		}, 150);
+	};
+
+	$scope.$on('$destroy', function () {
+		$scope.sharedWithFocused = false;
+		if (sharedWithBlurPromise) {
+			$timeout.cancel(sharedWithBlurPromise);
+		}
+	});
 
 	$scope.addNewLab = function () {
 
@@ -234,6 +348,13 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			$scope.errorClass = 'has-error';
 			return;
 		}
+
+		if ($scope.shared && $scope.sharedUsersLoaded && $scope.sharedWithUsers.length && $scope.sharedWithError !== '') {
+			$scope.errorClass = 'has-error sharedWith';
+			return;
+		}
+
+		syncSharedWithString();
 
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';
