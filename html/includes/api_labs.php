@@ -185,6 +185,30 @@ function apiDeleteLab(Lab $lab, $user)
 }
 
 /*
+ * Helper to check if a lab has running nodes.
+ *
+ * @param	Lab		$lab	Lab
+ * @return	bool
+ */
+function labHasRunningNodes($lab)
+{
+	$nodes = $lab->getNodes();
+
+	if (empty($nodes)) {
+		return false;
+	}
+
+	foreach ($nodes as $node) {
+		$status = intval($node->getStatus());
+		if ($status === 2 || $status === 3) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
  * Function to edit a lab.
  *
  * @param	Lab			$lab			Lab
@@ -193,6 +217,13 @@ function apiDeleteLab(Lab $lab, $user)
  */
 function apiEditLab($lab, $p)
 {
+	if (labHasRunningNodes($lab)) {
+		$output['code'] = 409;
+		$output['status'] = 'fail';
+		$output['message'] = 'Stop all running nodes before editing the lab.';
+		return $output;
+	}
+
 	// Set author/description/version
 	$rc = $lab->edit($p);
 	if ($rc !== 0) {

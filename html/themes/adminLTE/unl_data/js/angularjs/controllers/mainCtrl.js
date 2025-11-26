@@ -17,6 +17,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.reverseSort = false;
 	$scope.loading = false;
 	$scope.showTable = true;
+	$scope.labHasRunningNodes = false;
+	$scope.runningNodesCount = 0;
 	//Default variables ///END
 
 	var translations = {
@@ -85,6 +87,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalSaveChanges: 'Save changes',
 			modalNameHint: 'Use only letters, numbers, or hyphen.',
 			modalVersionHint: 'Must be an integer value.',
+			editBlockedRunning: 'Stop all running nodes before editing lab settings.',
 			actionApply: 'Apply',
 			actionRename: 'Rename',
 			actionDelete: 'Delete',
@@ -194,6 +197,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalSaveChanges: 'Сохранить изменения',
 			modalNameHint: 'Используйте только буквы, цифры или дефис.',
 			modalVersionHint: 'Должно быть целое число.',
+			editBlockedRunning: 'Остановите все запущенные устройства в лаборатории перед изменением настроек.',
 			actionApply: 'Применить',
 			actionRename: 'Переименовать',
 			actionDelete: 'Удалить',
@@ -1039,6 +1043,17 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//var testString='123123\'/	%#\s$123123 21*3123';
 	//console.log(testString.replace(/[\\'#$,"\\/,%\*,,\.]/g, ''))
 
+	$scope.openLabSettings = function () {
+		if ($scope.labHasRunningNodes) {
+			var t = currentTranslations();
+			var warningMessage = t.editBlockedRunning || 'Stop all running nodes before editing lab settings.';
+			var warningTitle = t.warningTitle || 'Warning';
+			toastr["warning"](warningMessage, warningTitle);
+			return;
+		}
+		$scope.openModal('editfile', null, 'megalg');
+	};
+
 
 	$scope.openLab = function (mode) {
 		$scope.labViewMode = mode; // сохраняем выбранный режим
@@ -1058,6 +1073,25 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 ///////PREVIEW FUNCTIONS////////////////START
 ////////////////////////////////////////////	
 ////////////////////////////////////////////
+function isNodeRunning(node) {
+	if (!node) {
+		return false;
+	}
+	var status = parseInt(node.status, 10);
+	return status === 2 || status === 3;
+}
+
+function setLabRunningState(nodes) {
+	var runningCount = 0;
+	angular.forEach(nodes, function (node) {
+		if (isNodeRunning(node)) {
+			runningCount++;
+		}
+	});
+	$scope.runningNodesCount = runningCount;
+	$scope.labHasRunningNodes = runningCount > 0;
+}
+
 var BASE_PREVIEW_SCALE = 5;
 var PREVIEW_BASE_WIDTH = 1200;
 var PREVIEW_BASE_HEIGHT = 800;
@@ -1296,6 +1330,7 @@ $scope.previewFun = function (path) {
 	updatePreviewZoom();
 	//console.log(path)
 	$scope.zeroNodes = false;
+	setLabRunningState([]);
 		///Get all nodes ///START
 		$http.get('/api/labs' + path + '/nodes').then(
 			function successCallback(response) {
@@ -1303,6 +1338,7 @@ $scope.previewFun = function (path) {
 				//console.log(ObjectLength(response.data.data))
 				if (ObjectLength(response.data.data) === 0) {
 					$scope.zeroNodes = true;
+					setLabRunningState([]);
 					$scope.previewCanvasStyle = { width: PREVIEW_BASE_WIDTH + 'px', height: PREVIEW_BASE_HEIGHT + 'px' };
 					$scope.previewOffset = { x: 0, y: 0 };
 					$scope.previewFitZoom = 1;
@@ -1311,6 +1347,7 @@ $scope.previewFun = function (path) {
 					return;
 				}
 				$scope.nodelist = response.data.data;
+				setLabRunningState($scope.nodelist);
 				//console.log($scope.nodelist)
 				//console.log(ObjectLength($scope.nodelist))
 			},
