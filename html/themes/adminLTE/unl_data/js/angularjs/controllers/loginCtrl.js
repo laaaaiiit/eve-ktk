@@ -60,6 +60,10 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 			{ key: 'ru', label: 'Русский' },
 			{ key: 'en', label: 'English' }
 		];
+		$scope.languageOptions = angular.copy($scope.languages);
+		$scope.themeOptions = [];
+		$scope.consoleOptions = [];
+		$scope.html5 = '1';
 
 		function getValidLanguage(lang) {
 			return translations[lang] ? lang : 'ru';
@@ -90,6 +94,14 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 			$scope.t = translations[validLang];
 			$rootScope.lang = validLang;
 			$cookies.put('eve_login_lang', validLang, { path: '/' });
+			$scope.languageOptions = $scope.languages.map(function (item) { return { value: item.key, label: item.label }; });
+			$scope.themeOptions = [
+				{ value: 'dark', label: $scope.t.darkModeLabel },
+				{ value: 'light', label: $scope.t.lightModeLabel }
+			];
+			$scope.consoleOptions = [
+				{ value: '1', label: $scope.t.html5Console }
+			];
 		}
 
 		var savedLang = $cookies.get('eve_login_lang');
@@ -98,9 +110,18 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 		$scope.setLanguage = function (lang) {
 			applyLanguage(lang);
 		};
+		$scope.onLanguageChange = function (value) {
+			$scope.setLanguage(value);
+		};
+		$scope.onThemeChange = function (value) {
+			$scope.setTheme(value);
+		};
+		$scope.onConsoleChange = function (value) {
+			$scope.html5 = value;
+		};
 
 		$scope.eveversion = $rootScope.EVE_VERSION + "-Community";
-		if ($scope.html5 == null) { $scope.html5 = -1; }
+		if ($scope.html5 == null) { $scope.html5 = '1'; }
 		if ($cookies.get('unetlab_session')) {
 			$scope.testAUTH("/main");
 		}

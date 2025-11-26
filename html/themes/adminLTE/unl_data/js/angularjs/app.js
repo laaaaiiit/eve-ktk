@@ -199,6 +199,102 @@ app_main_unl.directive('plumbItem', function () {
     };
 });
 
+app_main_unl.component('fancySelect', {
+    bindings: {
+        options: '<',
+        model: '=',
+        onChange: '&?',
+        label: '@?',
+        themeClass: '&?'
+    },
+    controller: ['$document', '$scope', function ($document, $scope) {
+        var ctrl = this;
+        ctrl.isOpen = false;
+
+        ctrl.$onInit = function () {
+            ctrl.options = ctrl.options || [];
+        };
+
+        ctrl.toggle = function ($event) {
+            $event && $event.stopPropagation();
+            ctrl.isOpen = !ctrl.isOpen;
+        };
+
+        ctrl.close = function () {
+            if (ctrl.isOpen) {
+                ctrl.isOpen = false;
+                $scope.$applyAsync();
+            }
+        };
+
+        ctrl.select = function (option) {
+            ctrl.model = option.value;
+            ctrl.isOpen = false;
+            if (ctrl.onChange) {
+                ctrl.onChange({ value: option.value });
+            }
+        };
+
+        ctrl.applyTheme = function (darkClasses, lightClasses) {
+            if (ctrl.themeClass) {
+                return ctrl.themeClass({ darkClasses: darkClasses, lightClasses: lightClasses });
+            }
+            return darkClasses;
+        };
+
+        ctrl.currentLabel = function () {
+            if (!ctrl.options) return '';
+            for (var i = 0; i < ctrl.options.length; i++) {
+                if (ctrl.options[i].value === ctrl.model) {
+                    return ctrl.options[i].label;
+                }
+            }
+            return '';
+        };
+
+        function outsideClick(evt) {
+            var el = evt.target;
+            if (!el.closest || !el.closest('.fancy-select')) {
+                ctrl.close();
+            }
+        }
+
+        $document.on('click', outsideClick);
+
+        ctrl.$onDestroy = function () {
+            $document.off('click', outsideClick);
+        };
+    }],
+    template:
+        '<div class="fancy-select relative inline-block w-full max-w-xs" ng-class="$ctrl.applyTheme(\'text-slate-100\', \'text-slate-900\')">' +
+        '  <button type="button" class="w-full rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 shadow-sm transition cursor-pointer"' +
+        '          ng-class="$ctrl.applyTheme(\'bg-white/5 border-white/10 hover:bg-white/10\', \'bg-white border-slate-200 hover:bg-slate-50\')" ng-click="$ctrl.toggle($event)">' +
+        '    <div class="flex flex-col text-left">' +
+        '      <span class="text-[11px] uppercase tracking-[0.3em] theme-muted" ng-if="$ctrl.label" ng-bind="$ctrl.label"></span>' +
+        '      <span class="font-semibold" ng-bind="$ctrl.currentLabel()"></span>' +
+        '    </div>' +
+        '    <span class="text-sm"><i class="fa" ng-class="{\'fa-chevron-up\': $ctrl.isOpen, \'fa-chevron-down\': !$ctrl.isOpen}"></i></span>' +
+        '  </button>' +
+        '  <div class="absolute mt-2 left-0 right-0 origin-top z-20" ng-class="$ctrl.isOpen ? \'opacity-100 scale-100\' : \'opacity-0 scale-95 pointer-events-none\'" style="transition: all .15s ease;">' +
+        '    <div class="rounded-2xl border shadow-2xl overflow-hidden" ng-class="$ctrl.applyTheme(\'bg-slate-900/90 border-white/10\', \'bg-white border-slate-200\')">' +
+        '      <ul class="max-h-56 overflow-auto divide-y" ng-class="$ctrl.applyTheme(\'divide-white/10\', \'divide-slate-200\')">' +
+        '        <li class="px-4 py-3 cursor-pointer transition flex items-center justify-between gap-3"' +
+        '            ng-class="$ctrl.applyTheme(\'hover:bg-white/10\', \'hover:bg-slate-100\')"' +
+        '            ng-repeat="opt in $ctrl.options" ng-click="$ctrl.select(opt)">' +
+        '          <div class="flex-1">' +
+        '            <div class="flex items-center gap-2">' +
+        '              <span class="font-semibold" ng-bind="opt.label"></span>' +
+        '              <span class="text-xs uppercase tracking-[0.2em] theme-muted" ng-if="opt.hint" ng-bind="opt.hint"></span>' +
+        '            </div>' +
+        '          </div>' +
+        '          <i class="fa fa-check text-emerald-400" ng-if="opt.value === $ctrl.model"></i>' +
+        '        </li>' +
+        '      </ul>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>'
+});
+
 /* Configure ocLazyLoader(refer: https://github.com/ocombe/ocLazyLoad) */
 app_main_unl.config(['$ocLazyLoadProvider', function ($ocLazyLoadProvider) {
     $ocLazyLoadProvider.config({
