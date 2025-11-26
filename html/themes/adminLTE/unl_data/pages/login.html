@@ -6,8 +6,7 @@
   <div class="absolute inset-0 pointer-events-none opacity-30"
        ng-class="themeClass('bg-gradient-to-br from-slate-900 via-slate-950 to-black','bg-gradient-to-br from-white via-slate-100 to-slate-50')"></div>
 
-  <div class="absolute top-6 right-6 flex items-center gap-3 z-10">
-    <div class="text-[11px] uppercase tracking-[0.28em] theme-muted hidden sm:block" data-ng-bind="t.themeLabel"></div>
+  <div class="absolute top-6 right-6 flex flex-col sm:flex-row sm:items-center gap-4 z-10">
     <div class="flex items-center gap-1 rounded-full border px-2 py-1.5 shadow-sm"
          ng-class="themeClass('bg-white/5 border-white/10 text-slate-100','bg-white border-slate-200 text-slate-800')"
          aria-label="{{t.themeHint}}">
@@ -25,6 +24,16 @@
               ng-click="setTheme('light')">
         <i class="fa fa-sun-o"></i>
       </button>
+    </div>
+    <div class="relative w-52">
+      <select class="theme-select pr-12"
+              ng-model="lang"
+              ng-change="setLanguage(lang)"
+              ng-options="language.key as language.label for language in languages">
+      </select>
+      <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center theme-muted">
+        <i class="fa fa-chevron-down"></i>
+      </span>
     </div>
   </div>
 
@@ -63,29 +72,6 @@
             <p class="text-xs uppercase tracking-[0.4em] theme-muted" data-ng-bind="t.languageLabel"></p>
             <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.cardTitle"></h2>
             <p class="theme-muted" data-ng-bind="t.cardSubtitle"></p>
-          </div>
-          <div class="text-right hidden lg:flex flex-col items-end gap-1">
-            <p class="text-[11px] uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.themeLabel"></p>
-            <button type="button"
-                    class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-[0.1em] border transition cursor-pointer"
-                    ng-class="themeClass('bg-white/5 border-white/15 text-white hover:bg-white/10','bg-white border-slate-200 text-slate-800 hover:bg-slate-100')"
-                    ng-click="toggleTheme()">
-              <i class="fa" ng-class="theme === 'light' ? 'fa-sun-o' : 'fa-moon-o'"></i>
-              <span>{{ theme === 'light' ? t.lightModeLabel : t.darkModeLabel }}</span>
-            </button>
-          </div>
-        </div>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div class="text-xs uppercase tracking-[0.3em] theme-muted sm:hidden" data-ng-bind="t.languageLabel"></div>
-          <div class="relative w-full sm:w-52">
-            <select class="theme-select pr-12"
-                    ng-model="lang"
-                    ng-change="setLanguage(lang)"
-                    ng-options="language.key as language.label for language in languages">
-            </select>
-            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center theme-muted">
-              <i class="fa fa-chevron-down"></i>
-            </span>
           </div>
         </div>
       </div>
