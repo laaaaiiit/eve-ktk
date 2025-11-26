@@ -140,9 +140,16 @@
           <button type="button"
                   class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                   ng-class="themeClass('bg-emerald-500/40 text-white hover:bg-emerald-500/60','bg-emerald-100 text-emerald-800 hover:bg-emerald-200')"
-                  ng-if="labInfo.collaborateAllowed || role === 'admin' || labInfo.author === username"
+                  ng-if="labInfo.collaborateAllowed"
                   ng-click="openLab('collaborate')">
             <span data-ng-bind="t.previewCollaborateButton"></span>
+          </button>
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
+                  ng-class="themeClass('bg-emerald-500/20 text-white hover:bg-emerald-500/30','bg-emerald-50 text-emerald-800 hover:bg-emerald-100')"
+                  ng-if="!labInfo.collaborateAllowed"
+                  ng-click="labopen(fullPathToFile)">
+            <span data-ng-bind="t.previewEnterButton"></span>
           </button>
           <button ng-if="!UIlegacy"
                   type="button"
