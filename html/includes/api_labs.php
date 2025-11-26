@@ -14,6 +14,10 @@
  * @version 20160719
  */
 
+if (!defined('LAB_WORK_SUFFIX')) {
+	define('LAB_WORK_SUFFIX', '__work');
+}
+
 function apiAddLab($p, $tenant, $author)
 {
 	$output = [];
@@ -741,6 +745,284 @@ function apiEditLabCollaborateAllowed(Lab $lab, bool $collaborateAllowed)
 	}
 
 	return $output;
+}
+
+function normalizeSharedUsers($sharedWith)
+{
+	if (!is_string($sharedWith) || trim($sharedWith) === '') {
+		return array();
+	}
+	$parts = explode(',', $sharedWith);
+	$result = array();
+	foreach ($parts as $part) {
+		$val = trim($part);
+		if ($val !== '' && !in_array($val, $result, true)) {
+			$result[] = $val;
+		}
+	}
+	return $result;
+}
+
+function ensureSharedCopyForUser($lab, $targetUser, $db)
+{
+	$targetUser = trim((string) $targetUser);
+	if ($targetUser === '') {
+		return;
+	}
+	ensureUserSharedDirectory($targetUser);
+
+	$destDir = BASE_LAB . '/' . $targetUser . '/Shared';
+	$destFile = $destDir . '/' . $lab->getFilename();
+	$srcFile = $lab->getPath() . '/' . $lab->getFilename();
+
+	@copy($srcFile, $destFile);
+
+	try {
+		$sharedLab = new Lab($destFile, $lab->getTenant(), $targetUser, false);
+		$sharedLab->setShared(false);
+		$sharedLab->setSharedWith('');
+		$sharedLab->setIsMirror();
+		$sharedLab->setAuthor($lab->getAuthor());
+		$sharedLab->setTenant($lab->getTenant());
+		$sharedLab->save();
+	} catch (Exception $e) {
+		error_log('[ensureSharedCopyForUser] Failed to prepare shared copy for ' . $targetUser . ': ' . $e->getMessage());
+	}
+}
+
+function removeSharedArtifactsForUser($lab, $targetUser, $db)
+{
+	$targetUser = trim((string) $targetUser);
+	if ($targetUser === '') {
+		return;
+	}
+	$destDir = BASE_LAB . '/' . $targetUser . '/Shared';
+	$destFile = $destDir . '/' . $lab->getFilename();
+
+	if (is_file($destFile)) {
+		@unlink($destFile);
+	}
+
+	// Remove work copy and tmp directory if exist
+	$workFile = $destDir . '/' . basename($lab->getFilename(), '.unl') . LAB_WORK_SUFFIX . '.unl';
+	if (is_file($workFile)) {
+		try {
+			$workLab = new Lab($workFile, $lab->getTenant(), $targetUser, false);
+			$targetPod = getUserPodByUsername($db, $targetUser);
+			$workLabId = $workLab->getId();
+			if ($targetPod !== false && $workLabId) {
+				$destTmp = '/opt/unetlab/tmp/' . $targetPod . '/' . $workLabId;
+				rrmdir($destTmp);
+			}
+		} catch (Exception $e) {
+			// ignore
+		}
+		@unlink($workFile);
+	}
+}
+
+function syncSharedLabCopies($lab, $prevShared, $prevSharedWith, $db, $currentUser)
+{
+	$currentShared = $lab->getShared();
+	$currentSharedWith = $lab->getSharedWith();
+
+	$prevList = ($prevShared) ? normalizeSharedUsers($prevSharedWith) : array();
+	$newList = ($currentShared) ? normalizeSharedUsers($currentSharedWith) : array();
+
+	$removed = array_diff($prevList, $newList);
+	$added = $newList;
+
+	foreach ($added as $username) {
+		if ($username === $currentUser['username']) {
+			continue;
+		}
+		ensureSharedCopyForUser($lab, $username, $db);
+	}
+
+	foreach ($removed as $username) {
+		removeSharedArtifactsForUser($lab, $username, $db);
+	}
+
+	// If sharing disabled entirely, remove from everyone in prev list
+	if (!$currentShared) {
+		foreach ($prevList as $username) {
+			removeSharedArtifactsForUser($lab, $username, $db);
+		}
+	}
+}
+
+function buildWorkLabPaths($user, $relativePath, $absolutePath)
+{
+	$info = pathinfo($absolutePath);
+	$workFilename = $info['filename'] . LAB_WORK_SUFFIX . '.unl';
+	$absoluteWork = $info['dirname'] . '/' . $workFilename;
+
+	$relative = normalizeUserLabRelativePath($relativePath);
+	$relInfo = pathinfo($relative);
+	$relDir = isset($relInfo['dirname']) ? $relInfo['dirname'] : '/';
+	if ($relDir === '.') {
+		$relDir = '/';
+	}
+	$relativeWork = ($relDir === '/' ? '' : $relDir) . '/' . $workFilename;
+
+	return array(
+		'absolute_work' => $absoluteWork,
+		'relative_work' => $relativeWork
+	);
+}
+
+function copyDirectory($src, $dst)
+{
+	if (!is_dir($src)) {
+		return;
+	}
+	if (!is_dir($dst)) {
+		@mkdir($dst, 0775, true);
+	}
+	$items = scandir($src);
+	if ($items === false) {
+		return;
+	}
+	foreach ($items as $item) {
+		if ($item === '.' || $item === '..') {
+			continue;
+		}
+		$srcPath = $src . '/' . $item;
+		$dstPath = $dst . '/' . $item;
+		if (is_dir($srcPath)) {
+			copyDirectory($srcPath, $dstPath);
+		} else {
+			@copy($srcPath, $dstPath);
+		}
+	}
+}
+
+function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action = 'start')
+{
+	if (!is_file($absoluteLabPath)) {
+		return array('code' => 404, 'status' => 'fail', 'message' => 'Lab file not found');
+	}
+
+	try {
+		$sourceLab = new Lab($absoluteLabPath, $user['tenant'], $user['username'], false);
+	} catch (Exception $e) {
+		return array('code' => 400, 'status' => 'fail', 'message' => 'Invalid lab file');
+	}
+
+	$paths = buildWorkLabPaths($user, $relativePath, $absoluteLabPath);
+	$workFile = $paths['absolute_work'];
+
+	$targetPod = getUserPodByUsername($db, $user['username']);
+	if ($targetPod === false) {
+		return array('code' => 400, 'status' => 'fail', 'message' => 'Cannot resolve user POD');
+	}
+
+	// Reset existing work copy if needed
+	if ($action === 'reset' && is_file($workFile)) {
+		try {
+			$existingWork = new Lab($workFile, $targetPod, $user['username'], false);
+			$existingId = $existingWork->getId();
+			if ($existingId) {
+				rrmdir('/opt/unetlab/tmp/' . $targetPod . '/' . $existingId);
+			}
+		} catch (Exception $e) {
+			// ignore
+		}
+		@unlink($workFile);
+	}
+
+	// If work already exists and action=start, reuse existing
+	if ($action === 'start' && is_file($workFile)) {
+		return array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Work copy already exists',
+			'data' => array(
+				'work_path' => $paths['relative_work'],
+				'work_exists' => true
+			)
+		);
+	}
+
+	// Copy lab file into work copy
+	@copy($absoluteLabPath, $workFile);
+
+	try {
+		$workLab = new Lab($workFile, $targetPod, $user['username'], false);
+	} catch (Exception $e) {
+		return array('code' => 400, 'status' => 'fail', 'message' => 'Cannot load work copy');
+	}
+
+	$sourceLabId = $sourceLab->getId();
+
+	$workLab->setAuthor($user['username']);
+	$workLab->setShared(false);
+	$workLab->setSharedWith('');
+	$workLab->setCollaborateAllowed(false);
+	$workLab->setIsMirror();
+	$workLab->setId();
+
+	try {
+		$nodeMap = $workLab->updatePrivateIdsWithMap();
+	} catch (Exception $e) {
+		@unlink($workFile);
+		return array('code' => 400, 'status' => 'fail', 'message' => $e->getMessage());
+	}
+
+	if (!is_array($nodeMap)) {
+		@unlink($workFile);
+		return array('code' => 400, 'status' => 'fail', 'message' => 'Failed to update node IDs');
+	}
+
+	$rc = $workLab->save();
+	if ($rc !== 0) {
+		@unlink($workFile);
+		return array('code' => 400, 'status' => 'fail', 'message' => $GLOBALS['messages'][$rc]);
+	}
+
+	$destLabId = $workLab->getId();
+	$sourcePod = getUserPodByUsername($db, $sourceLab->getAuthor());
+	if ($sourcePod === false) {
+		// Still return success with work file only
+		return array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Work copy created (no source pod data)',
+			'data' => array(
+				'work_path' => $paths['relative_work'],
+				'work_exists' => true
+			)
+		);
+	}
+
+	$sourceTmp = '/opt/unetlab/tmp/' . $sourcePod . '/' . $sourceLabId;
+	$destTmp = '/opt/unetlab/tmp/' . $targetPod . '/' . $destLabId;
+
+	if (is_dir($destTmp)) {
+		rrmdir($destTmp);
+	}
+
+	if (is_dir($sourceTmp)) {
+		copyDirectory($sourceTmp, $destTmp);
+		// Rename node directories according to mapping
+		foreach ($nodeMap as $oldId => $newId) {
+			$oldDir = $destTmp . '/' . $oldId;
+			$newDir = $destTmp . '/' . $newId;
+			if (is_dir($oldDir)) {
+				@rename($oldDir, $newDir);
+			}
+		}
+	}
+
+	return array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => 'Work copy created',
+		'data' => array(
+			'work_path' => $paths['relative_work'],
+			'work_exists' => true
+		)
+	);
 }
 
 /**

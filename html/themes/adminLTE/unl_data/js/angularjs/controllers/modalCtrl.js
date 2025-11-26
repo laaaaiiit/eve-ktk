@@ -238,7 +238,12 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			if (!Array.isArray(list)) {
 				list = [];
 			}
-			$scope.availableUsernames = list.map(function (u) { return u.username; }).filter(function (u) { return !!u; });
+			var currentUser = $rootScope.username || '';
+			$scope.availableUsernames = list.map(function (u) { return u.username; }).filter(function (u) {
+				if (!u) { return false; }
+				if (currentUser && u === currentUser) { return false; }
+				return true;
+			});
 			$scope.sharedUsersLoaded = true;
 			normalizeSuggestions();
 		}).catch(function () {

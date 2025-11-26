@@ -1691,6 +1691,22 @@ class Lab
 	 */
 	public function updatePrivateIds()
 	{
+		$result = $this->updatePrivateIdsWithMap();
+		if (is_array($result)) {
+			return 0;
+		}
+		return $result;
+	}
+
+	/**
+	 * Updates node and network IDs for a private (cloned) lab and returns
+	 * a mapping of old->new node IDs.
+	 *
+	 * @return array|int Mapping array on success, or error code on failure.
+	 * @throws Exception if not enough free node IDs are available.
+	 */
+	public function updatePrivateIdsWithMap()
+	{
 		// --- Update Node IDs ---
 		// Gather used node IDs from other labs.
 		$usedIds = array();
@@ -1795,6 +1811,6 @@ class Lab
 			}
 		}
 
-		return 0;
+		return $nodeMapping;
 	}
 }

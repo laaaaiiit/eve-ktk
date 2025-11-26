@@ -132,7 +132,11 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			deleteMultiMessage: 'These folders and labs will be permanently removed.',
 			deleteSummaryMore: '+{{count}} more…',
 			deleteSelectionWarning: 'Please select items to delete.',
-			warningTitle: 'Warning'
+			warningTitle: 'Warning',
+			startWorkButton: 'Start working',
+			continueWorkButton: 'Continue',
+			restartWorkButton: 'Start over',
+			workBlockedTooltip: 'Stop all running nodes before editing lab settings.'
 		},
 		ru: {
 			heroEyebrow: 'Рабочая зона',
@@ -244,7 +248,11 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			deleteMultiMessage: 'Эти папки и лаборатории будут удалены без возможности восстановления.',
 			deleteSummaryMore: '+ ещё {{count}}',
 			deleteSelectionWarning: 'Сначала выберите элементы для удаления.',
-			warningTitle: 'Предупреждение'
+			warningTitle: 'Предупреждение',
+			startWorkButton: 'Начать работать',
+			continueWorkButton: 'Продолжить',
+			restartWorkButton: 'Начать сначала',
+			workBlockedTooltip: 'Остановите все запущенные устройства, чтобы изменить параметры лаборатории.'
 		}
 	};
 
@@ -470,7 +478,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		$http.get('/api/labs' + file, { params: { mode: $scope.labViewMode } }).then(
 			function successCallback(response) {
 				$scope.labInfo = response.data.data;
+				$scope.labInfo.workExists = !!response.data.data.work_exists;
+				$scope.labInfo.workPath = response.data.data.work_path || '';
 				$scope.fullPathToFile = file;
+				$scope.isSharedCopy = ($scope.fullPathToFile || '').indexOf('/Shared/') === 0;
 				$scope.selectedLab = name;
 				if (name !== undefined) $scope.fileManagerItem['Fi_' + name].img = false;
 				//console.log($scope.labInfo)
@@ -1013,8 +1024,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	/////////////////////////////////////
 	//Open Lab //START
 	$scope.labopen = function (labname) {
-		$rootScope.lab = labname;
-		$location.path('/lab')
+		$scope.legacylabopen(labname);
 	}
 	//Open Lab //END
 	//Open Lagacy LAB//START
@@ -1032,7 +1042,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			return $http.get('/api/labs' + finalLabName + '/topology');
 		}).then(function (response) {
 			// Всё готово — можно переходить
-			$window.location.href = "legacy" + finalLabName + "/topology";
+			$window.location.href = "/legacy" + finalLabName + "/topology";
 		}).catch(function (error) {
 			console.error("Ошибка при открытии лабораторной:", error);
 			alert("Ошибка при открытии лабораторной. Попробуйте еще раз.");
@@ -1068,6 +1078,33 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		} else {
 			// Логика для открытия в collaborate режиме
 			$scope.legacylabopen($scope.fullPathToFile);
+		}
+	};
+
+	$scope.startLabWork = function (action) {
+		if (!$scope.fullPathToFile) { return; }
+		var act = action || 'start';
+		$scope.blockButtons = true;
+		$scope.blockButtonsClass = 'm-progress';
+		$http.post('/api/labs/work' + $scope.fullPathToFile, { action: act }).then(function (response) {
+			if (response.data && response.data.data) {
+				$scope.labInfo.workExists = !!response.data.data.work_exists;
+				$scope.labInfo.workPath = response.data.data.work_path || '';
+			}
+			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
+			$scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab);
+		}, function (response) {
+			var message = (response.data && response.data.message) ? response.data.message : 'Error creating work copy';
+			toastr["error"](message, "Error");
+		}).finally(function () {
+			$scope.blockButtons = false;
+			$scope.blockButtonsClass = '';
+		});
+	};
+
+	$scope.continueLabWork = function () {
+		if ($scope.labInfo && $scope.labInfo.workPath) {
+			$scope.labopen($scope.labInfo.workPath);
 		}
 	};
 

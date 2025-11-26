@@ -524,6 +524,12 @@ $app->get('/api/folders/(:path+)', function ($path = array()) use ($app, $db) {
 					$username    = trim(strtolower($user['username']));
 					$isShared    = isset($lab['shared']) && ($lab['shared'] === true || $lab['shared'] === 'true');
 					$sharedWith  = isset($lab['sharedWith']) ? array_map('trim', explode(',', strtolower($lab['sharedWith']))) : [];
+					$labPath     = isset($lab['path']) ? $lab['path'] : '';
+
+					// Always show labs inside Shared folder for the current user
+					if (preg_match('#^/Shared(/|$)#i', $labPath)) {
+						return true;
+					}
 
 					if ($labAuthor === $username) {
 						return true;
@@ -930,6 +936,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][60027];
 	}
 
+	if ($output['status'] === 'success' && preg_match('/\.unl$/', $labFileRelative)) {
+		$workPaths = buildWorkLabPaths($user, $labFileRelative, $lab_file_full);
+		$output['data']['work_path'] = $workPaths['relative_work'];
+		$output['data']['work_exists'] = is_file($workPaths['absolute_work']);
+	}
+
 	$app->response->setStatus($output['code']);
 	if (isset($output['encoding'])) {
 		// Custom encoding
@@ -939,6 +951,42 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		// Default encoding
 		$app->response->setBody(json_encode($output));
 	}
+});
+
+// Create or reset a working copy of a shared lab for the current user
+$app->post('/api/labs/work/(:path+)', function ($path = array()) use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+	$event = json_decode($app->request()->getBody());
+	$p = json_decode(json_encode($event), True);
+	$action = isset($p['action']) ? strtolower($p['action']) : 'start';
+	if (!in_array($action, array('start', 'reset'))) {
+		$action = 'start';
+	}
+
+	$relativePath = normalizeUserLabRelativePath('/' . implode('/', $path));
+	$absolutePath = BASE_LAB . buildUserLabAbsolutePath($user, $relativePath);
+
+	if (!preg_match('/\.unl$/', $absolutePath)) {
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode(array('code' => 400, 'status' => 'fail', 'message' => 'Invalid lab path')));
+		return;
+	}
+
+	if ($user['role'] !== 'admin' && strpos($relativePath, '/Shared/') === false && substr($relativePath, -8) !== '/Shared') {
+		$app->response->setStatus($GLOBALS['forbidden']['code']);
+		$app->response->setBody(json_encode($GLOBALS['forbidden']));
+		return;
+	}
+
+	$output = apiCreateWorkLab($db, $user, $absolutePath, $relativePath, $action);
+
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
 });
 
 // Edit an existing object
@@ -1005,6 +1053,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		unlockFile($lab_file_full);
 		return;
 	}
+
+	$originalShared = $lab->getShared();
+	$originalSharedWith = $lab->getSharedWith();
 
 	// Sharing
 	// shared status
@@ -1147,6 +1198,12 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][60027];
 	}
 
+	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {
+		if ($output['status'] === 'success') {
+			syncSharedLabCopies($lab, $originalShared, $originalSharedWith, $db, $user);
+		}
+	}
+
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
 	unlockFile($lab_file_full);
@@ -1232,6 +1289,8 @@ $app->post('/api/labs', function () use ($app, $db) {
 	}
 
 	// Всё ок
+	syncSharedLabCopies($lab, false, '', $db, $user);
+
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
 });

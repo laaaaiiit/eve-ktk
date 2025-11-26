@@ -1454,6 +1454,28 @@ function ensureUserLabDirectory($username)
 }
 
 /**
+ * Ensure the per-user Shared directory exists under BASE_LAB.
+ *
+ * @param string $username
+ */
+function ensureUserSharedDirectory($username)
+{
+	$username = trim((string) $username);
+	if ($username === '') {
+		return;
+	}
+
+	ensureUserLabDirectory($username);
+
+	$sharedRoot = BASE_LAB . '/' . $username . '/Shared';
+	if (!is_dir($sharedRoot)) {
+		@mkdir($sharedRoot, 0775, true);
+		@chown($sharedRoot, 'www-data');
+		@chgrp($sharedRoot, 'www-data');
+	}
+}
+
+/**
  * Normalize a user-visible lab path so it is rooted and free of .. segments.
  *
  * @param string $path
@@ -1600,6 +1622,12 @@ function transformUserLabListing($user, $data, $relativePath)
 
 	$labs = array();
 	foreach ($data['labs'] as $lab) {
+	// Hide work copies for non-admin users
+	if ($user['role'] !== 'admin') {
+		if (isset($lab['file']) && preg_match('/__work\\.unl$/', $lab['file'])) {
+			continue;
+		}
+	}
 		if (isset($lab['path'])) {
 			$lab['path'] = stripUserLabPathPrefix($user, $lab['path']);
 		}
@@ -1610,4 +1638,84 @@ function transformUserLabListing($user, $data, $relativePath)
 	$data['labs'] = $labs;
 
 	return $data;
+}
+
+/**
+ * Recursively delete a directory tree.
+ *
+ * @param string $dir
+ */
+function rrmdir($dir)
+{
+	if (!is_dir($dir)) {
+		if (is_file($dir)) {
+			@unlink($dir);
+		}
+		return;
+	}
+	$items = scandir($dir);
+	if ($items === false) {
+		return;
+	}
+	foreach ($items as $item) {
+		if ($item === '.' || $item === '..') {
+			continue;
+		}
+		$path = $dir . '/' . $item;
+		if (is_dir($path)) {
+			rrmdir($path);
+		} else {
+			@unlink($path);
+		}
+	}
+	@rmdir($dir);
+}
+
+/**
+ * Get POD id for username (assign if missing).
+ *
+ * @param PDO    $db
+ * @param string $username
+ * @return int|false POD id or false on failure.
+ */
+function getUserPodByUsername($db, $username)
+{
+	$username = trim((string) $username);
+	if ($username === '') {
+		return false;
+	}
+	try {
+		$query = 'SELECT id FROM pods WHERE username = :username;';
+		$statement = $db->prepare($query);
+		$statement->bindParam(':username', $username, PDO::PARAM_STR);
+		$statement->execute();
+		$result = $statement->fetch();
+		if ($result && isset($result['id'])) {
+			return (int) $result['id'];
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: failed to read pod for user ' . $username);
+	}
+
+	// Assign new POD if none exists
+	$rc = configureUserPod($db, $username);
+	if ($rc !== 0) {
+		error_log(date('M d H:i:s ') . 'ERROR: failed to assign pod for user ' . $username);
+		return false;
+	}
+
+	try {
+		$query = 'SELECT id FROM pods WHERE username = :username;';
+		$statement = $db->prepare($query);
+		$statement->bindParam(':username', $username, PDO::PARAM_STR);
+		$statement->execute();
+		$result = $statement->fetch();
+		if ($result && isset($result['id'])) {
+			return (int) $result['id'];
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: failed to read pod after assignment for user ' . $username);
+	}
+
+	return false;
 }
