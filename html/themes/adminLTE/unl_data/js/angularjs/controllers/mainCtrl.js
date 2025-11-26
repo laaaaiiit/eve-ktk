@@ -1090,9 +1090,15 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			if (response.data && response.data.data) {
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
 				$scope.labInfo.workPath = response.data.data.work_path || '';
+				if (response.data.data.copy_debug) {
+					console.log('Work copy paths:', response.data.data.copy_debug);
+				}
 			}
 			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
 			$scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab);
+			if ($scope.labInfo.workPath) {
+				$scope.continueLabWork();
+			}
 		}, function (response) {
 			var message = (response.data && response.data.message) ? response.data.message : 'Error creating work copy';
 			toastr["error"](message, "Error");

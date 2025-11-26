@@ -33,7 +33,7 @@ if (posix_getuid() != 0) {
 umask(0002);
 
 // Parsing and checking parameters
-$options = getopt('oT:U:D:F:a:i:b:');
+$options = getopt('o:T:U:D:F:a:i:b:');
 
 // Checking -a (action)
 if (!isset($options['a'])) {
@@ -135,6 +135,103 @@ switch ($action) {
 		}
 		error_log($cmd);
 		exec($cmd, $o, $rc);
+		break;
+	case 'copytmp':
+		if (!isset($options['o']) || !isset($options['F']) || !isset($options['T'])) {
+			usage();
+			exit(3);
+		}
+		$src_dir = rtrim($options['o'], '/');
+		$dst_dir = rtrim($options['F'], '/');
+		$tenant_id = (int) $options['T'];
+
+		if ($tenant_id < 0) {
+			usage();
+			exit(5);
+		}
+
+		if (!preg_match('#^/opt/unetlab/tmp/[0-9]+/#', $src_dir) || !preg_match('#^/opt/unetlab/tmp/' . $tenant_id . '/#', $dst_dir)) {
+			error_log('[copytmp] invalid path src=' . $src_dir . ' dst=' . $dst_dir);
+			exit(1);
+		}
+
+		if (!is_dir($src_dir)) {
+			error_log('[copytmp] source not found: ' . $src_dir);
+			exit(1);
+		}
+
+		if (is_dir($dst_dir)) {
+			rrmdir($dst_dir);
+		}
+
+		$parent_dir = dirname($dst_dir);
+		if (!is_dir($parent_dir) && !mkdir($parent_dir, 0775, true)) {
+			error_log('[copytmp] failed to create parent: ' . $parent_dir);
+			exit(1);
+		}
+
+		if (!mkdir($dst_dir, 0775, true)) {
+			error_log('[copytmp] failed to create dest: ' . $dst_dir);
+			exit(1);
+		}
+
+		$copy_cmd = '/bin/cp -a ' . escapeshellarg($src_dir . '/.') . ' ' . escapeshellarg($dst_dir . '/');
+		exec($copy_cmd, $o, $rc);
+		if ($rc !== 0) {
+			error_log('[copytmp] cp failed: ' . implode(';', $o));
+			exit(1);
+		}
+
+		$owner = 'unl' . $tenant_id;
+		exec('/bin/chown -R ' . escapeshellarg($owner . ':unl') . ' ' . escapeshellarg($dst_dir), $o, $rc);
+		@chmod($dst_dir, 02775);
+		break;
+	case 'renametmp':
+		if (!isset($options['o']) || !isset($options['F']) || !isset($options['T'])) {
+			usage();
+			exit(3);
+		}
+		$src_dir = rtrim($options['o'], '/');
+		$dst_dir = rtrim($options['F'], '/');
+		$tenant_id = (int) $options['T'];
+
+		if ($tenant_id < 0) {
+			usage();
+			exit(5);
+		}
+
+		if (!preg_match('#^/opt/unetlab/tmp/' . $tenant_id . '/#', $src_dir) || !preg_match('#^/opt/unetlab/tmp/' . $tenant_id . '/#', $dst_dir)) {
+			error_log('[renametmp] invalid path src=' . $src_dir . ' dst=' . $dst_dir);
+			exit(1);
+		}
+
+		if (!is_dir($src_dir)) {
+			error_log('[renametmp] source not found: ' . $src_dir);
+			exit(1);
+		}
+
+		$parent_dir = dirname($dst_dir);
+		if (!is_dir($parent_dir) && !mkdir($parent_dir, 0775, true)) {
+			error_log('[renametmp] failed to create parent: ' . $parent_dir);
+			exit(1);
+		}
+
+		if (is_dir($dst_dir)) {
+			rrmdir($dst_dir);
+		}
+
+		if (!rename($src_dir, $dst_dir)) {
+			$mv_cmd = '/bin/mv ' . escapeshellarg($src_dir) . ' ' . escapeshellarg($dst_dir);
+			exec($mv_cmd, $o, $rc);
+			if ($rc !== 0) {
+				error_log('[renametmp] mv failed: ' . implode(';', $o));
+				exit(1);
+			}
+		}
+
+		$owner = 'unl' . $tenant_id;
+		exec('/bin/chown -R ' . escapeshellarg($owner . ':unl') . ' ' . escapeshellarg($dst_dir), $o, $rc);
+		@chmod($dst_dir, 02775);
 		break;
 	case 'export':
 		// Exporting node(s) running-config

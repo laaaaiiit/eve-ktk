@@ -1309,6 +1309,10 @@ function usage()
 	$output .= "                     requires -T, -F, -D is optional\n";
 	$output .= "           - fixpermissions: fix file/dir permissions\n";
 	$output .= "           - platform: print the hardware platform\n";
+	$output .= "           - copytmp: copy /opt/unetlab/tmp/<pod>/<lab> directories\n";
+	$output .= "                     requires -T (dest pod), -o (source dir), -F (dest dir)\n";
+	$output .= "           - renametmp: rename /opt/unetlab/tmp/<pod>/<lab> directories\n";
+	$output .= "                     requires -T (pod), -o (source dir), -F (dest dir)\n";
 	$output .= "           - start: start one or all nodes\n";
 	$output .= "                     requires -T, -F, -D is optional\n";
 	$output .= "           - stop: stop one or all nodes\n";
@@ -1319,6 +1323,7 @@ function usage()
 	$output .= "-F <n>     Lab file\n";
 	$output .= "-T <n>     Tenant ID\n";
 	$output .= "-U <n>	   Username\n";
+	$output .= "-o <s>     Source directory (for copytmp/renametmp)\n";
 	$output .= "-D <n>     Device ID (if not used, all devices will be impacted)\n";
 	print($output);
 }

@@ -871,30 +871,147 @@ function buildWorkLabPaths($user, $relativePath, $absolutePath)
 	);
 }
 
-function copyDirectory($src, $dst)
+function copyDirectory($src, $dst, $ownerUser = 'www-data', $ownerGroup = 'unl')
 {
 	if (!is_dir($src)) {
-		return;
+		return false;
 	}
 	if (!is_dir($dst)) {
-		@mkdir($dst, 0775, true);
+		$parent = dirname($dst);
+		if (!is_dir($parent)) {
+			@mkdir($parent, 0777, true);
+		}
+		if (!@mkdir($dst, 0777, true)) {
+			error_log('[copyDirectory] mkdir failed: ' . $dst);
+			return false;
+		}
+		@chown($dst, $ownerUser);
+		@chgrp($dst, $ownerGroup);
 	}
 	$items = scandir($src);
 	if ($items === false) {
-		return;
+		return false;
 	}
+	$result = true;
 	foreach ($items as $item) {
 		if ($item === '.' || $item === '..') {
 			continue;
 		}
 		$srcPath = $src . '/' . $item;
 		$dstPath = $dst . '/' . $item;
-		if (is_dir($srcPath)) {
-			copyDirectory($srcPath, $dstPath);
+		if (is_link($srcPath)) {
+			$target = readlink($srcPath);
+			if (file_exists($dstPath) || is_link($dstPath)) {
+				@unlink($dstPath);
+			}
+			$tmpRes = @symlink($target, $dstPath);
+			if ($tmpRes === false) {
+				error_log('[copyDirectory] symlink failed: ' . $dstPath . ' -> ' . $target);
+			}
+			$result = ($tmpRes !== false) && $result;
+		} else if (is_dir($srcPath)) {
+			$tmpRes = copyDirectory($srcPath, $dstPath, $ownerUser, $ownerGroup);
+			if ($tmpRes === false) {
+				error_log('[copyDirectory] recurse failed: ' . $srcPath . ' -> ' . $dstPath);
+			}
+			$result = ($tmpRes !== false) && $result;
 		} else {
-			@copy($srcPath, $dstPath);
+			$tmpRes = @copy($srcPath, $dstPath);
+			if ($tmpRes === false) {
+				error_log('[copyDirectory] copy failed: ' . $srcPath . ' -> ' . $dstPath);
+			}
+			$result = ($tmpRes !== false) && $result;
+		}
+		if (is_file($dstPath) || is_link($dstPath)) {
+			@chown($dstPath, $ownerUser);
+			@chgrp($dstPath, $ownerGroup);
 		}
 	}
+	return $result;
+}
+
+function copyDirectoryShellFallback($src, $dst, $ownerUser = 'www-data', $ownerGroup = 'unl')
+{
+	$srcArg = escapeshellarg(rtrim($src, '/'));
+	$dstArg = escapeshellarg(rtrim($dst, '/'));
+	$owner = escapeshellarg($ownerUser . ':' . $ownerGroup);
+	$cmds = array(
+		"/bin/mkdir -p $dstArg",
+		"/bin/cp -a $srcArg/. $dstArg/",
+		"/bin/chown -R $owner $dstArg"
+	);
+
+	foreach ($cmds as $cmd) {
+		$output = array();
+		$rc = 0;
+		@exec($cmd . ' 2>&1', $output, $rc);
+		if ($rc !== 0) {
+			error_log('[copyDirectoryShellFallback] failed cmd: ' . $cmd . ' rc=' . $rc . ' out=' . implode(';', $output));
+			return false;
+		}
+	}
+	return true;
+}
+
+function renameWithShellFallback($src, $dst, $ownerUser = 'www-data', $ownerGroup = 'unl')
+{
+	if (@rename($src, $dst)) {
+		return true;
+	}
+
+	$srcArg = escapeshellarg($src);
+	$dstArg = escapeshellarg($dst);
+	$owner = escapeshellarg($ownerUser . ':' . $ownerGroup);
+
+	$cmds = array(
+		"/bin/mkdir -p " . escapeshellarg(dirname($dst)),
+		"/bin/mv $srcArg $dstArg",
+		"/bin/chown -R $owner $dstArg"
+	);
+
+	foreach ($cmds as $cmd) {
+		$output = array();
+		$rc = 0;
+		@exec($cmd . ' 2>&1', $output, $rc);
+		if ($rc !== 0) {
+			error_log('[renameWithShellFallback] failed cmd: ' . $cmd . ' rc=' . $rc . ' out=' . implode(';', $output));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function copyTmpViaWrapper($sourceTmp, $destTmp, $targetPod)
+{
+	$cmd = '/usr/bin/sudo /opt/unetlab/wrappers/unl_wrapper -a copytmp';
+	$cmd .= ' -T ' . escapeshellarg($targetPod);
+	$cmd .= ' -o ' . escapeshellarg($sourceTmp);
+	$cmd .= ' -F ' . escapeshellarg($destTmp);
+	$output = array();
+	$rc = 0;
+	@exec($cmd . ' 2>&1', $output, $rc);
+	if ($rc !== 0) {
+		error_log('[copyTmpViaWrapper] failed cmd: ' . $cmd . ' rc=' . $rc . ' out=' . implode(';', $output));
+		return false;
+	}
+	return true;
+}
+
+function renameTmpViaWrapper($src, $dst, $targetPod)
+{
+	$cmd = '/usr/bin/sudo /opt/unetlab/wrappers/unl_wrapper -a renametmp';
+	$cmd .= ' -T ' . escapeshellarg($targetPod);
+	$cmd .= ' -o ' . escapeshellarg($src);
+	$cmd .= ' -F ' . escapeshellarg($dst);
+	$output = array();
+	$rc = 0;
+	@exec($cmd . ' 2>&1', $output, $rc);
+	if ($rc !== 0) {
+		error_log('[renameTmpViaWrapper] failed cmd: ' . $cmd . ' rc=' . $rc . ' out=' . implode(';', $output));
+		return false;
+	}
+	return true;
 }
 
 function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action = 'start')
@@ -916,6 +1033,14 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	if ($targetPod === false) {
 		return array('code' => 400, 'status' => 'fail', 'message' => 'Cannot resolve user POD');
 	}
+
+	$copyDebug = array(
+		'action' => $action,
+		'source_tmp' => '',
+		'dest_tmp' => '',
+		'source_exists' => false,
+		'copy_ok' => false
+	);
 
 	// Reset existing work copy if needed
 	if ($action === 'reset' && is_file($workFile)) {
@@ -939,13 +1064,16 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 			'message' => 'Work copy already exists',
 			'data' => array(
 				'work_path' => $paths['relative_work'],
-				'work_exists' => true
+				'work_exists' => true,
+				'copy_debug' => $copyDebug
 			)
 		);
 	}
 
 	// Copy lab file into work copy
 	@copy($absoluteLabPath, $workFile);
+	@chown($workFile, 'unl' . $targetPod);
+	@chgrp($workFile, 'unl');
 
 	try {
 		$workLab = new Lab($workFile, $targetPod, $user['username'], false);
@@ -954,24 +1082,32 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	}
 
 	$sourceLabId = $sourceLab->getId();
+	if (empty($sourceLabId)) {
+		$sourceLab->setId();
+		$sourceLab->save();
+		$sourceLabId = $sourceLab->getId();
+	}
 
 	$workLab->setAuthor($user['username']);
 	$workLab->setShared(false);
 	$workLab->setSharedWith('');
 	$workLab->setCollaborateAllowed(false);
 	$workLab->setIsMirror();
+	$workLab->setTenant($targetPod);
 	$workLab->setId();
 
 	try {
 		$nodeMap = $workLab->updatePrivateIdsWithMap();
 	} catch (Exception $e) {
 		@unlink($workFile);
-		return array('code' => 400, 'status' => 'fail', 'message' => $e->getMessage());
+		$copyDebug['error'] = $e->getMessage();
+		return array('code' => 400, 'status' => 'fail', 'message' => $e->getMessage(), 'data' => array('copy_debug' => $copyDebug));
 	}
 
 	if (!is_array($nodeMap)) {
 		@unlink($workFile);
-		return array('code' => 400, 'status' => 'fail', 'message' => 'Failed to update node IDs');
+		$copyDebug['error'] = 'Failed to update node IDs';
+		return array('code' => 400, 'status' => 'fail', 'message' => 'Failed to update node IDs', 'data' => array('copy_debug' => $copyDebug));
 	}
 
 	$rc = $workLab->save();
@@ -981,7 +1117,10 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	}
 
 	$destLabId = $workLab->getId();
-	$sourcePod = getUserPodByUsername($db, $sourceLab->getAuthor());
+	$sourcePod = $sourceLab->getTenant();
+	if ($sourcePod === false || $sourcePod === null || $sourcePod < 0) {
+		$sourcePod = getUserPodByUsername($db, $sourceLab->getAuthor());
+	}
 	if ($sourcePod === false) {
 		// Still return success with work file only
 		return array(
@@ -997,21 +1136,49 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 
 	$sourceTmp = '/opt/unetlab/tmp/' . $sourcePod . '/' . $sourceLabId;
 	$destTmp = '/opt/unetlab/tmp/' . $targetPod . '/' . $destLabId;
+	$copyDebug['source_tmp'] = $sourceTmp;
+	$copyDebug['dest_tmp'] = $destTmp;
+	$copyDebug['source_exists'] = is_dir($sourceTmp);
+
+	error_log('[apiCreateWorkLab] action=' . $action . ' copy tmp from ' . $sourceTmp . ' to ' . $destTmp);
 
 	if (is_dir($destTmp)) {
 		rrmdir($destTmp);
 	}
+	if (!is_dir(dirname($destTmp))) {
+		@mkdir(dirname($destTmp), 0777, true);
+		@chown(dirname($destTmp), 'unl' . $targetPod);
+		@chgrp(dirname($destTmp), 'unl');
+	}
 
 	if (is_dir($sourceTmp)) {
-		copyDirectory($sourceTmp, $destTmp);
+		$copied = copyDirectory($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl');
+		if (!$copied) {
+			error_log('[apiCreateWorkLab] fallback copy via shell');
+			$copied = copyTmpViaWrapper($sourceTmp, $destTmp, $targetPod);
+		}
+		if (!$copied) {
+			error_log('[apiCreateWorkLab] fallback copy via shell cp');
+			$copied = copyDirectoryShellFallback($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl');
+		}
+		$copyDebug['copy_ok'] = $copied ? true : false;
+		error_log('[apiCreateWorkLab] copy result: ' . ($copied ? 'ok' : 'fail'));
 		// Rename node directories according to mapping
 		foreach ($nodeMap as $oldId => $newId) {
 			$oldDir = $destTmp . '/' . $oldId;
 			$newDir = $destTmp . '/' . $newId;
 			if (is_dir($oldDir)) {
-				@rename($oldDir, $newDir);
+				$renamed = renameWithShellFallback($oldDir, $newDir, 'unl' . $targetPod, 'unl');
+				if (!$renamed) {
+					$renamed = renameTmpViaWrapper($oldDir, $newDir, $targetPod);
+				}
+				if (!$renamed) {
+					error_log('[apiCreateWorkLab] rename failed: ' . $oldDir . ' -> ' . $newDir);
+				}
 			}
 		}
+	} else {
+		error_log('[apiCreateWorkLab] source tmp dir not found: ' . $sourceTmp);
 	}
 
 	return array(
@@ -1020,7 +1187,8 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 		'message' => 'Work copy created',
 		'data' => array(
 			'work_path' => $paths['relative_work'],
-			'work_exists' => true
+			'work_exists' => true,
+			'copy_debug' => $copyDebug
 		)
 	);
 }
