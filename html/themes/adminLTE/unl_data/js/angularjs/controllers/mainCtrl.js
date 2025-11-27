@@ -64,6 +64,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			moveNewPathLabel: 'New path',
 			moveNewPathPlaceholder: 'e.g. /labs/projects/',
 			moveNewPathHint: 'Type a path and pick from suggestions below.',
+			moveSharedBlocked: 'Cannot move items inside Shared.',
 			treeColumnName: 'Name',
 			treeColumnUpdated: 'Updated',
 			treeParentLabel: 'Back',
@@ -196,6 +197,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			moveNewPathLabel: 'Новый путь',
 			moveNewPathPlaceholder: 'например, /labs/projects/',
 			moveNewPathHint: 'Введите путь и выберите вариант из списка ниже.',
+			moveSharedBlocked: 'Нельзя перемещать элементы из Shared.',
 			treeColumnName: 'Имя',
 			treeColumnUpdated: 'Обновлено',
 			treeParentLabel: 'Назад',
@@ -1082,10 +1084,20 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		$scope.fileArrayToMove = [];
 		var fo = 0;
 		var fi = 0;
+		var sharedSelected = false;
+		var t = currentTranslations();
+		if (isSharedPath($scope.path)) {
+			toastr["warning"](t.moveSharedBlocked || 'Cannot move items inside Shared.', t.warningTitle || 'Warning');
+			return;
+		}
 		for (var key in $scope.checkboxArray) {
 			//console.log($scope.fileManagerItem[key]);
 			if ($scope.checkboxArray[key].checked) {
 				var itemType = ($scope.checkboxArray[key].type == 'Folder') ? 'Fo_' : 'Fi_';
+				var itemPath = ($scope.checkboxArray[key] && $scope.checkboxArray[key].path) ? $scope.checkboxArray[key].path : '';
+				if (isSharedPath(itemPath)) {
+					sharedSelected = true;
+				}
 				if (itemType == 'Fo_') {
 					$scope.folderArrayToMove[fo] = key.replace(itemType, '')
 					fo++
@@ -1095,6 +1107,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 					fi++
 				}
 			}
+		}
+		if (sharedSelected) {
+			toastr["warning"](t.moveSharedBlocked || 'Cannot move items inside Shared.', t.warningTitle || 'Warning');
+			return;
 		}
 		if (ObjectLength($scope.folderArrayToMove) == 0 && ObjectLength($scope.fileArrayToMove) == 0) { toastr["warning"]("Please select items to move", "Warning"); return; }
 		$scope.pathBeforeMove = $scope.path;
@@ -1109,13 +1125,6 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Open Lab //END
 	//Open Lagacy LAB//START
 	$scope.legacylabopen = function (labname) {
-		// For shared copies with collaborate enabled, open the owner's lab directly
-		if ($scope.labViewMode === 'collaborate' && $scope.isSharedCopy && $scope.labInfo && $scope.labInfo.mirrorPath) {
-			// Navigate via user-visible shared copy; backend will map to owner using mirrorPath when mode=collaborate
-			$window.location.href = "/legacy" + $scope.fullPathToFile + "/topology?mode=collaborate";
-			return;
-		}
-
 		const baseLabName = labname;
 		let finalLabName = labname;
 
@@ -1125,10 +1134,18 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		}
 
 		$http.get(labUrl).then(function () {
-			return $http.get('/api/labs' + finalLabName + '/topology');
+			var topoUrl = '/api/labs' + finalLabName + '/topology';
+			if ($scope.labViewMode === 'collaborate') {
+				topoUrl += '?mode=collaborate';
+			}
+			return $http.get(topoUrl);
 		}).then(function (response) {
 			// Всё готово — можно переходить
-			$window.location.href = "/legacy" + finalLabName + "/topology";
+			var redirect = "/legacy" + finalLabName + "/topology";
+			if ($scope.labViewMode === 'collaborate') {
+				redirect += "?mode=collaborate";
+			}
+			$window.location.href = redirect;
 		}).catch(function (error) {
 			console.error("Ошибка при открытии лабораторной:", error);
 			alert("Ошибка при открытии лабораторной. Попробуйте еще раз.");
