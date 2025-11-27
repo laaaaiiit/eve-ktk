@@ -122,9 +122,8 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 
 		$scope.eveversion = $rootScope.EVE_VERSION + "-Community";
 		if ($scope.html5 == null) { $scope.html5 = '1'; }
-		if ($cookies.get('unetlab_session')) {
-			$scope.testAUTH("/main");
-		}
+		// Always ask API about current session; cookie is scoped to /api/ and may be invisible to JS
+		$scope.testAUTH("/main");
 		$scope.theme = themeService.sync($rootScope.username);
 		$scope.themeClass = function (darkClasses, lightClasses) {
 			return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');

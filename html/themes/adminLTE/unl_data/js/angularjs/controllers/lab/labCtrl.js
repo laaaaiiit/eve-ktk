@@ -130,16 +130,11 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 						console.log(response)
 						console.log($location.url())
 						blockUI();
-						$window.location.hash="#/main";
-						//console.log($window.location)
-						$window.location.reload();
-						//$location.path('/main')
+						$location.path('/main');
 					}, 
 					function errorCallback(response) {
 						console.log(response)
-						$window.location.hash="#/main";
-						$window.location.reload();
-						//$location.path('/main')
+						$location.path('/main');
 					}
 			);
 			jsPlumb.detachEveryConnection();

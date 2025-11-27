@@ -998,6 +998,22 @@ function copyTmpViaWrapper($sourceTmp, $destTmp, $targetPod)
 	return true;
 }
 
+function deleteTmpViaWrapper($workFile, $targetPod, $username)
+{
+	$cmd = '/usr/bin/sudo /opt/unetlab/wrappers/unl_wrapper -a delete';
+	$cmd .= ' -T ' . escapeshellarg($targetPod);
+	$cmd .= ' -U ' . escapeshellarg($username);
+	$cmd .= ' -F ' . escapeshellarg($workFile);
+	$output = array();
+	$rc = 0;
+	@exec($cmd . ' 2>&1', $output, $rc);
+	if ($rc !== 0) {
+		error_log('[deleteTmpViaWrapper] failed cmd: ' . $cmd . ' rc=' . $rc . ' out=' . implode(';', $output));
+		return false;
+	}
+	return true;
+}
+
 function renameTmpViaWrapper($src, $dst, $targetPod)
 {
 	$cmd = '/usr/bin/sudo /opt/unetlab/wrappers/unl_wrapper -a renametmp';
@@ -1048,7 +1064,11 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 			$existingWork = new Lab($workFile, $targetPod, $user['username'], false);
 			$existingId = $existingWork->getId();
 			if ($existingId) {
-				rrmdir('/opt/unetlab/tmp/' . $targetPod . '/' . $existingId);
+				$tmpPath = '/opt/unetlab/tmp/' . $targetPod . '/' . $existingId;
+				rrmdir($tmpPath);
+				if (is_dir($tmpPath)) {
+					deleteTmpViaWrapper($workFile, $targetPod, $user['username']);
+				}
 			}
 		} catch (Exception $e) {
 			// ignore
