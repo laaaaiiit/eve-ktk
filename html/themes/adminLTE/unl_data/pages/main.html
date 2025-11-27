@@ -233,8 +233,7 @@
                               <div class="flex flex-wrap items-center gap-2">
                                 <div class="flex items-center gap-1">
                                   <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-emerald-400/80','bg-emerald-500/80')" title="{{t.previewCollaborateButton}}" data-ng-if="x.collaborateAllowed"></span>
-                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.listSharedBadge}}" data-ng-if="x.shared"></span>
-                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.listMirrorBadge}}" data-ng-if="x.isMirror"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.legendShared}}" data-ng-if="x.shared || x.isMirror"></span>
                                   <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-amber-400/80','bg-amber-500/80')" title="{{t.startWorkButton}}" data-ng-if="x.workExists"></span>
                                 </div>
                                 <span class="font-semibold cursor-pointer"
@@ -288,6 +287,22 @@
                       </tr>
                     </tbody>
                   </table>
+                </div>
+                <div class="pt-4 flex justify-center">
+                  <div class="flex flex-wrap items-center justify-center gap-3 text-xs">
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-emerald-400/80','bg-emerald-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendCollaborate"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendShared"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-amber-400/80','bg-amber-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendWork"></span>
+                    </div>
+                  </div>
                 </div>
       
               </div>

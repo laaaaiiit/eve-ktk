@@ -30,6 +30,9 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			versionInline: 'Version',
 			uuidInline: 'UUID',
 			pathLabel: 'Path',
+			legendCollaborate: 'Collaboration allowed',
+			legendShared: 'Public lab',
+			legendWork: 'Personal work copy',
 			newLabButton: 'New lab',
 			refreshButton: 'Refresh',
 			labsCardTitle: 'Labs and folders',
@@ -163,6 +166,9 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			versionInline: 'Версия',
 			uuidInline: 'UUID',
 			pathLabel: 'Путь',
+			legendCollaborate: 'Доступна совместная работа',
+			legendShared: 'Публичная лаборатория',
+			legendWork: 'Копия личной работы',
 			newLabButton: 'Новая лаборатория',
 			refreshButton: 'Обновить',
 			labsCardTitle: 'Лабы и папки',
@@ -488,7 +494,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		if ($scope.labViewMode === 'collaborate') {
 			infoParams.mode = 'collaborate';
 		}
-		$http.get('/api/labs' + file, { params: infoParams }).then(
+		return $http.get('/api/labs' + file, { params: infoParams }).then(
 			function successCallback(response) {
 				$scope.labInfo = response.data.data;
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
@@ -500,11 +506,13 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				//console.log($scope.labInfo)
 				$scope.fileSelected = true;
 				$scope.previewFun(($scope.path == '/') ? $scope.path + $scope.labInfo.name + '.unl' : $scope.path + '/' + $scope.labInfo.name + '.unl')
+				return response;
 			},
 			function errorCallback(response) {
 				console.log(response)
 				console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");
 				if (response.status == 400) { toastr["error"](response.data.message, "Error"); $scope.blockButtons = false; $scope.blockButtonsClass = ''; return; }
+				return response;
 			}
 		);
 	}
@@ -1182,6 +1190,15 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		$scope.legacylabopen(targetPath);
 	};
 
+	function openWorkLab(workPath) {
+		if (!workPath) {
+			return false;
+		}
+		$scope.labViewMode = '';
+		$scope.labopen(workPath);
+		return true;
+	}
+
 	$scope.startLabWork = function (action) {
 		if (!$scope.fullPathToFile) { return; }
 		var act = action || 'start';
@@ -1189,18 +1206,41 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		$scope.blockButtonsClass = 'm-progress';
 		$scope.labViewMode = '';
 		$http.post('/api/labs/work' + $scope.fullPathToFile, { action: act }).then(function (response) {
+			var responseWorkPath = '';
 			if (response.data && response.data.data) {
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
 				$scope.labInfo.workPath = response.data.data.work_path || '';
+				responseWorkPath = $scope.labInfo.workPath;
 				if (response.data.data.copy_debug) {
 					console.log('Work copy paths:', response.data.data.copy_debug);
 				}
 			}
 			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
-			$scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab);
-			if ($scope.labInfo.workPath) {
-				$scope.continueLabWork();
+			var openedImmediately = openWorkLab(responseWorkPath);
+			var infoPromise = $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab);
+			if (infoPromise && typeof infoPromise.then === 'function') {
+				infoPromise.then(function (infoResponse) {
+					if (openedImmediately) {
+						return;
+					}
+					var refreshedPath = responseWorkPath;
+					if (infoResponse && infoResponse.data && infoResponse.data.data && infoResponse.data.data.work_path) {
+						refreshedPath = infoResponse.data.data.work_path;
+					} else if ($scope.labInfo && $scope.labInfo.workPath) {
+						refreshedPath = $scope.labInfo.workPath;
+					}
+					openWorkLab(refreshedPath);
+				}, function () {
+					if (!openedImmediately) {
+						openWorkLab(responseWorkPath);
+					}
+				});
+				return infoPromise;
 			}
+			if (!openedImmediately) {
+				openWorkLab(responseWorkPath);
+			}
+			return null;
 		}, function (response) {
 			var message = (response.data && response.data.message) ? response.data.message : 'Error creating work copy';
 			toastr["error"](message, "Error");
