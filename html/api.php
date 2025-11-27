@@ -618,7 +618,8 @@ $app->delete('/api/folders/(:path+)', function ($path = array()) use ($app, $db)
 		$app->response->setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], array('admin'))) {
+
+	if (!in_array($user['role'], array('admin', 'editor'))) {
 		$app->response->setStatus($GLOBALS['forbidden']['code']);
 		$app->response->setBody(json_encode($GLOBALS['forbidden']));
 		return;
@@ -626,6 +627,19 @@ $app->delete('/api/folders/(:path+)', function ($path = array()) use ($app, $db)
 
 	$s = '/' . implode('/', $path);
 	$targetRelative = normalizeUserLabRelativePath($s);
+
+	// Protect Shared root folder for non-admin users
+	if ($user['role'] !== 'admin' && preg_match('#^/Shared/?$#i', $targetRelative)) {
+		$output = array(
+			'code' => 403,
+			'status' => 'fail',
+			'message' => 'Cannot delete Shared folder'
+		);
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
 	$targetAbsolute = buildUserLabAbsolutePath($user, $targetRelative);
 	$output = apiDeleteFolder($targetAbsolute);
 
@@ -1442,14 +1456,21 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$app->response->setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], array('admin', 'editor'))) {
-		$app->response->setStatus($GLOBALS['forbidden']['code']);
-		$app->response->setBody(json_encode($GLOBALS['forbidden']));
-		return;
-	}
 
 	$event = json_decode($app->request()->getBody());
 	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
+
+	// Protect Shared labs for non-admin users
+	if ($user['role'] !== 'admin' && preg_match('#^/Shared(/|$)#i', $s)) {
+		$output = array(
+			'code' => 403,
+			'status' => 'fail',
+			'message' => 'Cannot delete labs inside Shared'
+		);
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
@@ -1515,11 +1536,100 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/pictures\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabPicture($lab, $id);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {
-		$output = apiDeleteLab($lab, $user);
+		$output = apiDeleteLab($lab, $user, $db);
 	} else {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
 		$output['message'] = $GLOBALS['messages'][60027];
+	}
+
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
+});
+
+/***************************************************************************
+ * User preferences
+ **************************************************************************/
+$app->put('/api/profile/lang', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$event = json_decode($app->request()->getBody());
+	$p = json_decode(json_encode($event), True);
+	$lang = isset($p['lang']) ? strtolower(trim($p['lang'])) : '';
+
+	$allowed = array('en', 'ru');
+	if ($lang === '' || !in_array($lang, $allowed)) {
+		$output = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Invalid language'
+		);
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$rc = updateUserLanguage($db, $user['username'], $lang);
+	if ($rc === 0) {
+		$output = array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Language updated'
+		);
+	} else {
+		$output = array(
+			'code' => 500,
+			'status' => 'error',
+			'message' => 'Unable to update language'
+		);
+	}
+
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
+});
+
+$app->put('/api/profile/theme', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$event = json_decode($app->request()->getBody());
+	$p = json_decode(json_encode($event), True);
+	$theme = isset($p['theme']) ? strtolower(trim($p['theme'])) : '';
+
+	$allowed = array('dark', 'light');
+	if ($theme === '' || !in_array($theme, $allowed)) {
+		$output = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Invalid theme'
+		);
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$rc = updateUserTheme($db, $user['username'], $theme);
+	if ($rc === 0) {
+		$output = array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Theme updated'
+		);
+	} else {
+		$output = array(
+			'code' => 500,
+			'status' => 'error',
+			'message' => 'Unable to update theme'
+		);
 	}
 
 	$app->response->setStatus($output['code']);

@@ -22,6 +22,14 @@
  * @return  Array                       Return code (JSend data)
  */
 function apiAddFolder($name, $path) {
+	// Folder names must be ASCII letters/digits/underscore/dash
+	if (!preg_match('/^[A-Za-z0-9_-]+$/', $name)) {
+		$output['code'] = 400;
+		$output['status'] = 'fail';
+		$output['message'] = 'Folder name must use A-Z, 0-9, dash or underscore.';
+		return $output;
+	}
+
 	$rc = checkFolder(BASE_LAB.$path);
 	if ($rc === 2) {
 		// Folder is not valid

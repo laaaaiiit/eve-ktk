@@ -133,6 +133,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			deleteSummaryMore: '+{{count}} more…',
 			deleteSelectionWarning: 'Please select items to delete.',
 			warningTitle: 'Warning',
+			sharedFolderDeleteBlocked: 'Cannot delete Shared folder.',
+			sharedLabDeleteBlocked: 'Cannot delete labs inside Shared.',
 			startWorkButton: 'Start working',
 			continueWorkButton: 'Continue',
 			restartWorkButton: 'Start over',
@@ -249,6 +251,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			deleteSummaryMore: '+ ещё {{count}}',
 			deleteSelectionWarning: 'Сначала выберите элементы для удаления.',
 			warningTitle: 'Предупреждение',
+			sharedFolderDeleteBlocked: 'Нельзя удалить папку Shared.',
+			sharedLabDeleteBlocked: 'Нельзя удалять лаборатории в папке Shared.',
 			startWorkButton: 'Начать работать',
 			continueWorkButton: 'Продолжить',
 			restartWorkButton: 'Начать сначала',
@@ -518,7 +522,17 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		if (elementType == 'Folder') {
 			$scope.blockButtons = true;
 			$scope.blockButtonsClass = 'm-progress';
-			var newName = $scope.folderData.newElementName.replace(/[\\'#$,@"\\/,%\*,,\.\(\):;^&[\]|]/g, '');
+			var originalName = $scope.folderData.newElementName;
+			var newName = originalName.replace(/[^A-Za-z0-9_-]/g, '');
+			if (newName === '') {
+				toastr["error"]("Only A-Z, 0-9, dash and underscore are allowed in folder names", "Error");
+				$scope.blockButtons = false;
+				$scope.blockButtonsClass = '';
+				return;
+			}
+			if (newName !== originalName) {
+				toastr["warning"]("Folder name adjusted to allowed characters (A-Z, 0-9, -, _)", "Warning");
+			}
 			//$scope.newElementName = $scope.newElementName.replace(/[\\s]+/g, '_');
 			$http({
 				method: 'POST',
@@ -652,28 +666,53 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	};
 	//Delete selected elements //END
 	//////////////////////////////////////////////////
+	function isProtectedSharedFolder(path) {
+		if (!path) { return false; }
+		var lower = path.toLowerCase();
+		return lower === '/shared' || lower.endsWith('/shared');
+	}
+
+	function isProtectedSharedLab(path) {
+		if (!path) { return false; }
+		var lower = path.toLowerCase();
+		return lower === '/shared' || lower.indexOf('/shared/') === 0;
+	}
+
 	function deleteFolderRequest(elementName) {
 		if (!elementName) {
+			return;
+		}
+		var t = currentTranslations();
+		if (isProtectedSharedFolder(elementName)) {
+			toastr["warning"](t.sharedFolderDeleteBlocked || 'Cannot delete Shared folder', t.warningTitle || 'Warning');
 			return;
 		}
 		console.log('deleting folder ' + elementName);
 		$http({
 			method: 'DELETE',
-			url: '/api/folders' + elementName + '\ '
+			url: '/api/folders' + elementName
 		})
 			.then(
 				function successCallback() {
 					$scope.fileMngDraw($scope.path);
 				},
-				function errorCallback() {
-					console.log("Unknown Error. Why did API doesn't respond?");
-					$location.path("/login");
+				function errorCallback(response) {
+					var message = (response.data && response.data.message) ? response.data.message : "Cannot delete folder";
+					toastr["error"](message, "Error");
+					if (response.status === 401) {
+						$location.path("/login");
+					}
 				}
 			);
 	}
 
 	function deleteLabRequest(elementName, hide) {
 		if (!elementName) {
+			return;
+		}
+		var t = currentTranslations();
+		if (isProtectedSharedLab(elementName)) {
+			toastr["warning"](t.sharedLabDeleteBlocked || 'Cannot delete labs inside Shared', t.warningTitle || 'Warning');
 			return;
 		}
 		console.log('delete file');
@@ -684,12 +723,22 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		})
 			.then(
 				function successCallback() {
-					$scope.fileSelected = (hide === undefined || hide === false) ? $scope.fileSelected : false;
+					if ($scope.fullPathToFile && elementName === $scope.fullPathToFile) {
+						$scope.fileSelected = false;
+						$scope.selectedLab = null;
+						$scope.fullPathToFile = null;
+						$scope.labInfo = {};
+					} else {
+						$scope.fileSelected = (hide === undefined || hide === false) ? $scope.fileSelected : false;
+					}
 					$scope.fileMngDraw($scope.path);
 				},
-				function errorCallback() {
-					console.log("Unknown Error. Why did API doesn't respond?");
-					$location.path("/login");
+				function errorCallback(response) {
+					var message = (response.data && response.data.message) ? response.data.message : "Cannot delete lab";
+					toastr["error"](message, "Error");
+					if (response.status === 401) {
+						$location.path("/login");
+					}
 				}
 			);
 	}
@@ -701,6 +750,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		var lastFolder = '';
 		var lastFile = '';
 		var fileArray = [];
+		var protectedSkipped = false;
 		for (var key in $scope.checkboxArray) {
 			//console.log($scope.fileManagerItem[key]);
 			if ($scope.checkboxArray[key].checked) {
@@ -718,13 +768,29 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		for (var foldername in folderArray) {
 			var folderBase = folderArray[foldername];
 			var fullpath = (folderBase != '/') ? folderBase + '/' + foldername : '/' + foldername;
+			if (isProtectedSharedFolder(fullpath)) {
+				protectedSkipped = true;
+				toastr["warning"](t.sharedFolderDeleteBlocked || 'Cannot delete Shared folder', t.warningTitle || 'Warning');
+				continue;
+			}
 			foldersToDelete.push({ label: t.deleteFolderItemPrefix + foldername, fullpath: fullpath });
 		}
 
 		var filesToDelete = [];
 		for (var filename in fileArray) {
 			var fullFilePath = ($scope.path === '/') ? $scope.path + filename : $scope.path + '/' + filename;
+			if (isProtectedSharedLab(fullFilePath)) {
+				protectedSkipped = true;
+				toastr["warning"](t.sharedLabDeleteBlocked || 'Cannot delete labs inside Shared', t.warningTitle || 'Warning');
+				continue;
+			}
 			filesToDelete.push({ label: t.deleteLabItemPrefix + filename, fullpath: fullFilePath });
+		}
+
+		if (foldersToDelete.length === 0 && filesToDelete.length === 0) {
+			if (protectedSkipped) { return; }
+			toastr["warning"](t.deleteSelectionWarning, t.warningTitle);
+			return;
 		}
 
 		var summary = [];
@@ -1648,6 +1714,22 @@ function buildPreviewFromTopology() {
 		}
 		return true;
 	};
+
+	$scope.selectedItemsCanBeDeleted = function () {
+		for (var key in $scope.checkboxArray) {
+			if ($scope.checkboxArray.hasOwnProperty(key) && $scope.checkboxArray[key].checked) {
+				var item = $scope.checkboxArray[key];
+				if (item.author === $rootScope.username || $scope.role === 'admin') {
+					continue;
+				}
+				if (isSharedPath(item.path)) {
+					continue;
+				}
+				return false;
+			}
+		}
+		return true;
+	};
 });
 
 function formatString(template, params) {
@@ -1655,6 +1737,12 @@ function formatString(template, params) {
 	return template.replace(/\{\{(\w+)\}\}/g, function (_, key) {
 		return (params && params[key] !== undefined) ? params[key] : '';
 	});
+}
+
+function isSharedPath(path) {
+	if (!path) { return false; }
+	var lower = path.toLowerCase();
+	return lower === '/shared' || lower.indexOf('/shared/') === 0 || lower.endsWith('/shared');
 }
 
 function ObjectLength(object) {

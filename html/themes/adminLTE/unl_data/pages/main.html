@@ -95,7 +95,7 @@
                             ng-class="themeClass('border-rose-500/50 text-rose-200 hover:bg-rose-500/10','border-rose-300 text-rose-600 hover:bg-rose-100')"
                             data-ng-attr-title="{{t.toolbarDeleteTitle}}"
                             data-ng-click="deleteALLElement(); hideAllEdit()"
-                            ng-disabled="!selectedItemsCanBeModified()">
+                            ng-disabled="!selectedItemsCanBeDeleted()">
                       <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
                     </button>
                     <button type="button"
@@ -145,7 +145,7 @@
                       <tr data-ng-repeat="x in rootDir.folders | orderBy:'name':reverseSort track by x.path"
                           ng-class="{'bg-white/5': checkboxArray['Fo_'+x.name] && checkboxArray['Fo_'+x.name].checked}"
                           class="hover:bg-white/5 transition"
-                          data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder' }">
+                          data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder', author:x.author, path:x.path }">
                         <td class="px-4 py-3 align-top">
                           <div class="flex items-center justify-center" data-ng-if="x.name != '..'">
                             <label class="inline-flex items-center gap-2 cursor-pointer">
@@ -212,7 +212,7 @@
                       <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder:reverseSort track by x.path"
                           ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
                           class="hover:bg-white/5 transition"
-                          data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author }">
+                          data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author, path:x.path }">
                         <td class="px-4 py-3 align-top">
                           <div class="flex items-center justify-center">
                             <label class="inline-flex items-center gap-2 cursor-pointer">

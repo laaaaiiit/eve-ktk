@@ -90,18 +90,17 @@
       </nav>
 
       <div class="flex items-center gap-3 flex-shrink-0 flex-wrap justify-end">
-        <div class="flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-sm font-semibold uppercase tracking-[0.08em] min-w-[100px] justify-center"
-             ng-class="themeClass('bg-white/5 border-white/15 text-slate-100','bg-white border-slate-200 text-slate-800')">
-          <button type="button" class="px-2 py-1 rounded-lg transition leading-none"
-                  ng-class="theme === 'dark' ? themeClass('bg-white/20 text-white','bg-slate-800 text-white') : themeClass('bg-transparent text-slate-300','bg-transparent text-slate-600')"
-                  ng-click="setTheme('dark')">
-            <i class="fa fa-moon-o"></i>
-          </button>
-          <button type="button" class="px-2 py-1 rounded-lg transition leading-none"
-                  ng-class="theme === 'light' ? themeClass('bg-white/20 text-white','bg-slate-800 text-white') : themeClass('bg-transparent text-slate-300','bg-transparent text-slate-600')"
-                  ng-click="setTheme('light')">
-            <i class="fa fa-sun-o"></i>
-          </button>
+        <div class="flex items-center gap-2">
+          <fancy-select class="min-w-[150px]"
+                        options="languageOptions"
+                        model="lang"
+                        on-change="onLanguageChange(value)"
+                        theme-class="themeClass(darkClasses, lightClasses)"></fancy-select>
+          <fancy-select class="min-w-[160px]"
+                        options="themeOptions"
+                        model="theme"
+                        on-change="onThemeChange(value)"
+                        theme-class="themeClass(darkClasses, lightClasses)"></fancy-select>
         </div>
         <div class="rounded-xl px-3 py-2 flex items-center gap-2 transition min-w-[150px]"
              ng-class="themeClass('bg-white/10','bg-white border border-slate-200 shadow-sm')">

@@ -355,12 +355,15 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     if (path != "/lab") $rootScope.lab = response.data.data.lab;
                     var cookieLang = $cookies.get('eve_login_lang');
                     var serverLang = response.data.data.lang;
+                    var serverTheme = response.data.data.theme;
                     var effectiveLang = serverLang || cookieLang || 'ru';
                     $rootScope.lang = effectiveLang;
                     if (cookieLang !== effectiveLang) {
                         $cookies.put('eve_login_lang', effectiveLang, { path: '/' });
                     }
-                    themeService.sync($rootScope.username);
+                    var storedTheme = themeService.read($rootScope.username);
+                    var effectiveTheme = serverTheme || storedTheme || 'dark';
+                    themeService.apply(effectiveTheme, $rootScope.username);
                     $rootScope.tenant = response.data.data.tenant;
                     $scope.userfolder = response.data.folder;
 
@@ -448,11 +451,40 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
         $rootScope.lang = $scope.lang;
     }
 
+    var languageList = [
+        { key: 'ru', label: 'Русский' },
+        { key: 'en', label: 'English' }
+    ];
+    var themeOptionLabels = {
+        en: { dark: 'Dark theme', light: 'Light theme' },
+        ru: { dark: 'Тёмная тема', light: 'Светлая тема' }
+    };
+
+    function buildPickerOptions() {
+        var lang = resolveLanguage();
+        var themeLabels = themeOptionLabels[lang] || themeOptionLabels.en;
+        $scope.languageOptions = languageList.map(function (item) { return { value: item.key, label: item.label }; });
+        $scope.themeOptions = [
+            { value: 'dark', label: themeLabels.dark },
+            { value: 'light', label: themeLabels.light }
+        ];
+    }
+
     refreshTranslations();
+    buildPickerOptions();
+    $scope.lang = resolveLanguage();
+    $scope.theme = $rootScope.theme || themeService.sync($rootScope.username);
 
     $scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
         if (newVal && newVal !== oldVal) {
             refreshTranslations();
+            buildPickerOptions();
+            $scope.lang = newVal;
+        }
+    });
+    $scope.$watch(function () { return $rootScope.theme; }, function (val) {
+        if (val) {
+            $scope.theme = val;
         }
     });
 
@@ -469,8 +501,28 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
             function errorCallback(response) {
                 console.log("Unknown Error. Why did API doesn't respond?")
                 $location.path("/login");
-            });
+        });
     }
+
+    $scope.onLanguageChange = function (value) {
+        var lang = translations[value] ? value : 'ru';
+        $scope.lang = lang;
+        $rootScope.lang = lang;
+        $cookies.put('eve_login_lang', lang, { path: '/' });
+        $http({
+            method: 'PUT',
+            url: '/api/profile/lang',
+            data: { lang: lang }
+        }).catch(function (error) {
+            console.log('Failed to persist language preference', error);
+        });
+        refreshTranslations();
+        buildPickerOptions();
+    };
+
+    $scope.onThemeChange = function (value) {
+        $scope.setTheme(value);
+    };
     $scope.$on('$locationChangeSuccess', function () {
         $scope.currentPath = $location.path();
     });
@@ -493,10 +545,18 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
         return themeHint[lang] || themeHint.en;
     };
     $scope.toggleTheme = function () {
-        $scope.theme = themeService.toggle();
+        $scope.setTheme(themeService.toggle());
     };
     $scope.setTheme = function (value) {
-        $scope.theme = themeService.apply(value, $rootScope.username);
+        var next = themeService.apply(value, $rootScope.username);
+        $scope.theme = next;
+        $http({
+            method: 'PUT',
+            url: '/api/profile/theme',
+            data: { theme: next }
+        }).catch(function (error) {
+            console.log('Failed to persist theme preference', error);
+        });
     };
     $scope.$watch(function () { return $rootScope.theme; }, function (val) {
         if (val) { $scope.theme = val; }

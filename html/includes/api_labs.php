@@ -151,11 +151,22 @@ function apiCloneLab($p, $tenant, $author)
  * @param	string		$lab_file		Lab file
  * @return	Array						Return code (JSend data)
  */
-function apiDeleteLab(Lab $lab, $user)
+function apiDeleteLab(Lab $lab, $user, $db)
 {
 	$tenant = $lab->getTenant();
 	$author = $lab->getAuthor();
 	$lab_file = $lab->getPath() . '/' . $lab->getFilename();
+
+	// If lab was shared, remove shared copies and related artifacts from each recipient
+	$sharedUsers = normalizeSharedUsers($lab->getSharedWith());
+	if (!empty($sharedUsers)) {
+		foreach ($sharedUsers as $sharedUser) {
+			if ($sharedUser === $user['username']) {
+				continue;
+			}
+			removeSharedArtifactsForUser($lab, $sharedUser, $db);
+		}
+	}
 
 	apiStopLabNodes($lab, $tenant, $user['username']);
 
@@ -799,6 +810,27 @@ function removeSharedArtifactsForUser($lab, $targetUser, $db)
 	$destDir = BASE_LAB . '/' . $targetUser . '/Shared';
 	$destFile = $destDir . '/' . $lab->getFilename();
 
+	// Stop running nodes in the shared copy for this user
+	if (is_file($destFile)) {
+		try {
+			$sharedLab = new Lab($destFile, $lab->getTenant(), $targetUser, false);
+			$sharedTenant = $sharedLab->getTenant() ?: getUserPodByUsername($db, $targetUser);
+			if ($sharedTenant) {
+				apiStopLabNodes($sharedLab, $sharedTenant, $targetUser);
+				$sharedLabId = $sharedLab->getId();
+				if ($sharedLabId) {
+					$sharedTmp = '/opt/unetlab/tmp/' . $sharedTenant . '/' . $sharedLabId;
+					rrmdir($sharedTmp);
+					if (is_dir($sharedTmp)) {
+						deleteTmpViaWrapper($destFile, $sharedTenant, $targetUser);
+					}
+				}
+			}
+		} catch (Exception $e) {
+			// ignore stop errors, continue cleanup
+		}
+	}
+
 	if (is_file($destFile)) {
 		@unlink($destFile);
 	}
@@ -808,11 +840,17 @@ function removeSharedArtifactsForUser($lab, $targetUser, $db)
 	if (is_file($workFile)) {
 		try {
 			$workLab = new Lab($workFile, $lab->getTenant(), $targetUser, false);
-			$targetPod = getUserPodByUsername($db, $targetUser);
-			$workLabId = $workLab->getId();
-			if ($targetPod !== false && $workLabId) {
-				$destTmp = '/opt/unetlab/tmp/' . $targetPod . '/' . $workLabId;
-				rrmdir($destTmp);
+			$targetPod = $workLab->getTenant() ?: getUserPodByUsername($db, $targetUser);
+			if ($targetPod) {
+				apiStopLabNodes($workLab, $targetPod, $targetUser);
+				$workLabId = $workLab->getId();
+				if ($workLabId) {
+					$destTmp = '/opt/unetlab/tmp/' . $targetPod . '/' . $workLabId;
+					rrmdir($destTmp);
+					if (is_dir($destTmp)) {
+						deleteTmpViaWrapper($workFile, $targetPod, $targetUser);
+					}
+				}
 			}
 		} catch (Exception $e) {
 			// ignore
@@ -1062,6 +1100,11 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	if ($action === 'reset' && is_file($workFile)) {
 		try {
 			$existingWork = new Lab($workFile, $targetPod, $user['username'], false);
+			// Stop all running nodes before wiping work copy
+			$stopResult = apiStopLabNodes($existingWork, $targetPod, $user['username']);
+			if (!isset($stopResult['status']) || $stopResult['status'] !== 'success') {
+				error_log('[apiCreateWorkLab] failed to stop nodes before reset: ' . json_encode($stopResult));
+			}
 			$existingId = $existingWork->getId();
 			if ($existingId) {
 				$tmpPath = '/opt/unetlab/tmp/' . $targetPod . '/' . $existingId;

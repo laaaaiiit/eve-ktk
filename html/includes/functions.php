@@ -27,6 +27,7 @@ function checkDatabase()
 		$db = new PDO('mysql:host=localhost;dbname=eve_ng_db', 'eve-ng', 'eve-ng');
 		$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		ensureUsersLangColumn($db);
+		ensureUsersThemeColumn($db);
 		return $db;
 	} catch (Exception $e) {
 		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][90003]);
@@ -53,6 +54,24 @@ function ensureUsersLangColumn($db)
 	}
 }
 
+function ensureUsersThemeColumn($db)
+{
+	try {
+		$query = "SHOW COLUMNS FROM users LIKE 'theme';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (empty($result)) {
+			$query = "ALTER TABLE users ADD COLUMN theme VARCHAR(8) DEFAULT 'dark';";
+			$statement = $db->prepare($query);
+			$statement->execute();
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to ensure theme column in users table');
+		error_log(date('M d H:i:s ') . (string) $e);
+	}
+}
+
 /**
  * Function to check if a string is valid as folder_path.
  *
@@ -61,9 +80,10 @@ function ensureUsersLangColumn($db)
  */
 function checkFolder($s)
 {
-	if (preg_match('/^\/[\/A-Za-z0-9_\\s-]*$/', $s) && is_dir($s)) {
+	// Accept existing paths with Unicode characters to allow cleanup/deletion of legacy folders
+	if (preg_match('/^\/[\/\p{L}\p{N}_\\s-]*$/u', $s) && is_dir($s)) {
 		return 0;
-	} else if (preg_match('/^\/[\/A-Za-z0-9_\\s-]*$/', $s)) {
+	} else if (preg_match('/^\/[\/\p{L}\p{N}_\\s-]*$/u', $s)) {
 		return 1;
 	} else {
 		return 2;
@@ -464,9 +484,14 @@ function getUserByCookie($db, $cookie)
 {
 	$now = time();
 	$lang_column_available = checkUsersLangColumn($db);
+	$theme_column_available = checkUsersThemeColumn($db);
 	try {
-		if ($lang_column_available) {
+		if ($lang_column_available && $theme_column_available) {
+			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, users.lang AS lang, users.theme AS theme, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
+		} else if ($lang_column_available) {
 			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, users.lang AS lang, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
+		} else if ($theme_column_available) {
+			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, users.theme AS theme, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
 		} else {
 			$query = 'SELECT users.role AS role, users.email AS email, users.name AS name, pods.id AS pod, users.username AS username, users.folder AS folder, users.html5 as html5, pods.lab_id AS lab FROM users LEFT JOIN pods ON users.username = pods.username WHERE cookie = :cookie AND users.session >= :session AND (users.expiration < 0 OR users.expiration >= :user_expiration) AND (pods.expiration < 0 OR pods.expiration > :pod_expiration);';
 		}
@@ -485,6 +510,7 @@ function getUserByCookie($db, $cookie)
 				'folder' => $result['folder'],
 				'lab' => $result['lab'],
 				'lang' => (empty($result['lang']) ? 'en' : $result['lang']),
+				'theme' => (empty($result['theme']) ? 'dark' : $result['theme']),
 				'name' => $result['name'],
 				'role' => $result['role'],
 				'tenant' => $result['pod'],
@@ -1043,6 +1069,23 @@ function checkUsersLangColumn($db)
 	return $GLOBALS['users_lang_column'];
 }
 
+function checkUsersThemeColumn($db)
+{
+	if (isset($GLOBALS['users_theme_column'])) {
+		return $GLOBALS['users_theme_column'];
+	}
+	try {
+		$query = "SHOW COLUMNS FROM users LIKE 'theme';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		$GLOBALS['users_theme_column'] = !empty($result);
+	} catch (Exception $e) {
+		$GLOBALS['users_theme_column'] = False;
+	}
+	return $GLOBALS['users_theme_column'];
+}
+
 /**
  * Function to update user session (expiration).
  *
@@ -1085,6 +1128,9 @@ function updateUserCookie($db, $username, $cookie)
  */
 function updateUserFolder($db, $cookie, $folder)
 {
+	if (!is_string($folder) || !preg_match('/^\/[\/A-Za-z0-9_-]*$/', $folder)) {
+		$folder = '/';
+	}
 	try {
 		$query = 'UPDATE users SET folder = :folder WHERE cookie = :cookie;';
 		$statement = $db->prepare($query);
@@ -1096,6 +1142,71 @@ function updateUserFolder($db, $cookie, $folder)
 		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][90033]);
 		error_log(date('M d H:i:s ') . (string) $e);
 		return 90033;
+	}
+}
+
+/**
+ * Function to update user preferred language.
+ *
+ * @param	PDO		$db					PDO object for database connection
+ * @param	string	$username			Username
+ * @param	string	$lang				Language code (e.g., en, ru)
+ * @return	int							0 means ok
+ */
+function updateUserLanguage($db, $username, $lang)
+{
+	$username = trim((string) $username);
+	$lang = trim((string) $lang);
+	if ($username === '' || $lang === '') {
+		return 400;
+	}
+
+	// Ensure column exists before attempting update
+	ensureUsersLangColumn($db);
+
+	try {
+		$query = 'UPDATE users SET lang = :lang WHERE username = :username;';
+		$statement = $db->prepare($query);
+		$statement->bindParam(':username', $username, PDO::PARAM_STR);
+		$statement->bindParam(':lang', $lang, PDO::PARAM_STR);
+		$statement->execute();
+		return 0;
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to update user language');
+		error_log(date('M d H:i:s ') . (string) $e);
+		return 90060;
+	}
+}
+
+/**
+ * Function to update user preferred theme.
+ *
+ * @param	PDO		$db					PDO object for database connection
+ * @param	string	$username			Username
+ * @param	string	$theme				Theme value (dark|light)
+ * @return	int							0 means ok
+ */
+function updateUserTheme($db, $username, $theme)
+{
+	$username = trim((string) $username);
+	$theme = trim((string) $theme);
+	if ($username === '' || $theme === '') {
+		return 400;
+	}
+
+	ensureUsersThemeColumn($db);
+
+	try {
+		$query = 'UPDATE users SET theme = :theme WHERE username = :username;';
+		$statement = $db->prepare($query);
+		$statement->bindParam(':username', $username, PDO::PARAM_STR);
+		$statement->bindParam(':theme', $theme, PDO::PARAM_STR);
+		$statement->execute();
+		return 0;
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to update user theme');
+		error_log(date('M d H:i:s ') . (string) $e);
+		return 90061;
 	}
 }
 
@@ -1606,15 +1717,20 @@ function transformUserLabListing($user, $data, $relativePath)
 		$data['labs'] = array();
 	}
 
+	$currentUser = isset($user['username']) ? trim((string) $user['username']) : '';
+
 	$folders = array();
 	foreach ($data['folders'] as $folder) {
 		if (isset($folder['path'])) {
 			$folder['path'] = stripUserLabPathPrefix($user, $folder['path']);
 		}
+		if (!isset($folder['author']) || trim((string) $folder['author']) === '') {
+			$folder['author'] = $currentUser;
+		}
 		$folders[] = $folder;
 	}
-    
-    if ($user['role'] !== 'admin' && $relativePath === '/') {
+
+	if ($user['role'] !== 'admin' && $relativePath === '/') {
 		$folders = array_values(array_filter($folders, function ($folder) {
 			return !isset($folder['name']) || $folder['name'] !== '..';
 		}));
@@ -1622,14 +1738,17 @@ function transformUserLabListing($user, $data, $relativePath)
 
 	$labs = array();
 	foreach ($data['labs'] as $lab) {
-	// Hide work copies for non-admin users
-	if ($user['role'] !== 'admin') {
-		if (isset($lab['file']) && preg_match('/__work\\.unl$/', $lab['file'])) {
-			continue;
+		// Hide work copies for non-admin users
+		if ($user['role'] !== 'admin') {
+			if (isset($lab['file']) && preg_match('/__work\\.unl$/', $lab['file'])) {
+				continue;
+			}
 		}
-	}
 		if (isset($lab['path'])) {
 			$lab['path'] = stripUserLabPathPrefix($user, $lab['path']);
+		}
+		if (!isset($lab['author']) || trim((string) $lab['author']) === '') {
+			$lab['author'] = $currentUser;
 		}
 		$labs[] = $lab;
 	}
