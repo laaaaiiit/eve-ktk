@@ -52,6 +52,21 @@
               </div>
             </div>
 
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.modalDescriptionLabel"></label>
+              <textarea class="w-full theme-input min-h-[6rem]"
+                        ng-model="description"
+                        data-ng-attr-placeholder="{{t.modalDescriptionLabel}}"></textarea>
+            </div>
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.modalTasksLabel"></label>
+              <textarea class="w-full theme-input min-h-[6rem]"
+                        ng-model="body"
+                        data-ng-attr-placeholder="{{t.modalTasksLabel}}"></textarea>
+            </div>
+          </div>
+
+          <div class="space-y-2">
             <div class="space-y-1">
               <label class="flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 cursor-pointer select-none transition-colors duration-300"
                      ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
@@ -121,22 +136,6 @@
                   <p class="text-xs text-rose-400 mt-1" data-ng-if="sharedWithError">{{sharedWithError}}</p>
                 </div>
               </div>
-            </div>
-
-          </div>
-
-          <div class="space-y-2">
-            <div>
-              <label class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.modalDescriptionLabel"></label>
-              <textarea class="w-full theme-input min-h-[6rem]"
-                        ng-model="description"
-                        data-ng-attr-placeholder="{{t.modalDescriptionLabel}}"></textarea>
-            </div>
-            <div>
-              <label class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.modalTasksLabel"></label>
-              <textarea class="w-full theme-input min-h-[6rem]"
-                        ng-model="body"
-                        data-ng-attr-placeholder="{{t.modalTasksLabel}}"></textarea>
             </div>
           </div>
         </div>

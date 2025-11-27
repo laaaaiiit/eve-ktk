@@ -1,27 +1,25 @@
 <div class="space-y-6 transition-colors duration-300">
   <div class="space-y-4">
-    <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h3 class="text-2xl font-semibold theme-heading">{{labInfo.name}}</h3>
-        <p class="text-sm theme-muted break-all">Path: {{fullPathToFile}}</p>
-      </div>
-      <div class="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em]">
-        <span class="px-4 py-1 rounded-full"
-              ng-class="themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')">Version {{labInfo.version}}</span>
-        <span class="px-4 py-1 rounded-full"
-              ng-class="themeClass('bg-white/10 text-slate-200','bg-slate-100 text-slate-800')">UUID {{labInfo.id}}</span>
-      </div>
-    </div>
+    <div class="space-y-1"></div>
 
     <div class="rounded-3xl border p-5 space-y-5 transition-colors duration-300"
-         ng-class="themeClass('border-white/10 bg-slate-950/60','border-slate-200 bg-white')">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p class="text-xs uppercase tracking-[0.3em] theme-muted">Topology preview</p>
-          <p class="text-sm theme-muted" data-ng-if="!zeroNodes">
-            {{previewNodes.length}} nodes · {{previewNetworks.length}} networks · {{previewLinks.length}} connections
-          </p>
-          <p class="text-sm theme-muted" data-ng-if="zeroNodes">No nodes inside lab.</p>
+        ng-class="themeClass('border-white/10 bg-slate-950/60','border-slate-200 bg-white')">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+        <div class="flex flex-col gap-1">
+          <div class="flex flex-wrap items-center gap-3 text-xs theme-muted" data-ng-if="labInfo && labInfo.name">
+            <span class="inline-flex items-center gap-1">
+              <span class="uppercase tracking-[0.25em]" data-ng-bind="t.pathLabelInline"></span>:
+              <span class="font-semibold theme-heading break-all">{{fullPathToFile}}</span>
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-3 text-xs theme-muted" data-ng-if="labInfo && labInfo.name">
+            <span class="inline-flex items-center gap-1">
+              <span class="uppercase tracking-[0.25em]" data-ng-bind="t.versionInline"></span> {{labInfo.version}}
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="uppercase tracking-[0.25em]" data-ng-bind="t.uuidInline"></span> {{labInfo.id}}
+            </span>
+          </div>
         </div>
         <div class="relative" data-ng-if="!zeroNodes">
           <button type="button"
@@ -88,17 +86,17 @@
         <div class="grid gap-4 lg:grid-cols-3">
           <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
                ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
-            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Nodes</p>
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.previewNodesLabel"></p>
             <p class="text-2xl font-semibold theme-heading">{{previewNodes.length}}</p>
           </div>
           <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
                ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
-            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Networks</p>
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.previewNetworksLabel"></p>
             <p class="text-2xl font-semibold theme-heading">{{previewNetworks.length}}</p>
           </div>
           <div class="rounded-2xl border p-4 text-center transition-colors duration-300"
                ng-class="themeClass('border-white/10 bg-slate-900/60','border-slate-200 bg-white')">
-            <p class="text-xs uppercase tracking-[0.3em] theme-muted">Connections</p>
+            <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.previewConnectionsLabel"></p>
             <p class="text-2xl font-semibold theme-heading">{{previewLinks.length}}</p>
           </div>
         </div>
@@ -111,36 +109,29 @@
       <div class="rounded-2xl border p-5 space-y-3 text-sm transition-colors duration-300"
            ng-class="themeClass('border-white/10 bg-slate-950/50','border-slate-200 bg-white')">
         <div class="flex items-center justify-between">
-          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Author</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs" data-ng-bind="t.previewAuthorLabel"></span>
           <span class="font-semibold theme-heading">{{labInfo.author}}</span>
         </div>
         <div class="flex items-center justify-between">
-          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Shared</span>
-          <span class="font-semibold theme-heading">{{labInfo.shared ? 'Yes' : 'No'}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs" data-ng-bind="t.previewSharedLabel"></span>
+          <span class="font-semibold theme-heading">{{labInfo.shared ? t.booleanYes : t.booleanNo}}</span>
         </div>
         <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
-          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Shared with</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs" data-ng-bind="t.previewSharedWithLabel"></span>
           <span class="font-semibold theme-heading break-all">{{labInfo.sharedWith}}</span>
         </div>
         <div class="flex items-center justify-between" data-ng-if="labInfo.shared">
-          <span class="theme-muted uppercase tracking-[0.3em] text-xs">Collaborate allowed</span>
-          <span class="font-semibold theme-heading">{{labInfo.collaborateAllowed ? 'Yes' : 'No'}}</span>
+          <span class="theme-muted uppercase tracking-[0.3em] text-xs" data-ng-bind="t.previewCollaborateAllowedLabel"></span>
+          <span class="font-semibold theme-heading">{{labInfo.collaborateAllowed ? t.booleanYes : t.booleanNo}}</span>
         </div>
       </div>
 
       <div class="space-y-3">
         <div class="flex flex-wrap gap-2">
-          <button ng-if="!labInfo.isMirror && labInfo.author !== username && role !== 'admin'"
-                  type="button"
-                  class="px-4 py-2 rounded-2xl text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
-                  ng-class="themeClass('bg-purple-500/40 text-white hover:bg-purple-500/60','bg-purple-100 text-purple-800 hover:bg-purple-200')"
-                  ng-click="openLab('private')">
-            Private
-          </button>
           <button type="button"
                   class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                   ng-class="themeClass('bg-emerald-500/40 text-white hover:bg-emerald-500/60','bg-emerald-100 text-emerald-800 hover:bg-emerald-200')"
-                  ng-if="labInfo.collaborateAllowed"
+                  ng-if="labInfo.collaborateAllowed && !isSharedCopy"
                   ng-click="openLab('collaborate')">
             <span data-ng-bind="t.previewCollaborateButton"></span>
           </button>
@@ -151,7 +142,30 @@
                   ng-click="labopen(fullPathToFile)">
             <span data-ng-bind="t.previewEnterButton"></span>
           </button>
-          <div class="flex flex-wrap gap-2" ng-if="(isSharedCopy || (labInfo.shared && labInfo.author !== username))">
+          <div class="flex flex-col gap-2 w-full" ng-if="(isSharedCopy || (labInfo.shared && labInfo.author !== username))">
+            <div class="flex items-center gap-2" ng-if="isSharedCopy && labInfo.collaborateAllowed">
+              <span class="text-[11px] font-semibold tracking-[0.25em] uppercase"
+                    ng-class="themeClass('text-emerald-200','text-emerald-800')">
+                {{t.previewCollaborateButton}}
+              </span>
+              <span class="flex-1 h-px"
+                    ng-class="themeClass('bg-emerald-500/30','bg-emerald-200')"></span>
+            </div>
+            <button type="button"
+                    class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
+                    ng-class="themeClass('bg-emerald-500/40 text-white hover:bg-emerald-500/60','bg-emerald-100 text-emerald-800 hover:bg-emerald-200')"
+                    ng-if="isSharedCopy && labInfo.collaborateAllowed"
+                    ng-click="openLab('collaborate')">
+              <span data-ng-bind="t.previewCollaborateButton"></span>
+            </button>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-semibold tracking-[0.25em] uppercase"
+                    ng-class="themeClass('text-slate-200','text-slate-700')">
+                {{t.startWorkButton}}
+              </span>
+              <span class="flex-1 h-px"
+                    ng-class="themeClass('bg-white/20','bg-slate-200')"></span>
+            </div>
             <button type="button"
                     class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                     ng-class="themeClass('bg-amber-500/30 text-white hover:bg-amber-500/50','bg-amber-100 text-amber-800 hover:bg-amber-200')"
@@ -211,13 +225,6 @@
                   data-ng-click="deleteElement(fullPathToFile, 'File')">
             <span data-ng-bind="t.actionDelete"></span>
           </button>
-          <button type="button"
-                  class="px-4 py-2 rounded-2xl border text-sm font-semibold uppercase tracking-[0.2em] transition cursor-pointer"
-                  ng-class="themeClass('border-rose-400/60 text-rose-200 hover:bg-rose-500/10','border-rose-300 text-rose-700 hover:bg-rose-100')"
-                  ng-if="privateCopyMap[labInfo.name + '.unl'] && (( !labInfo.isMirror && labInfo.author !== username && role !== 'admin') || (labInfo.isMirror && role !== 'admin'))"
-                  data-ng-click="deletePrivateLab(fullPathToFile)">
-            Delete Private Copy
-          </button>
         </div>
         <div class="flex items-center gap-2 text-xs mt-1"
              ng-class="themeClass('text-amber-200','text-amber-700')"
@@ -230,7 +237,7 @@
 
     <div class="rounded-2xl border p-5 space-y-3 transition-colors duration-300"
          ng-class="themeClass('border-white/10 bg-slate-950/50','border-slate-200 bg-white')">
-      <p class="text-xs uppercase tracking-[0.3em] theme-muted">Description</p>
+      <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.previewDescriptionLabel"></p>
       <div class="max-h-[20rem] overflow-auto rounded-xl border p-4 transition-colors duration-300"
            ng-class="themeClass('border-white/5 bg-slate-950/40','border-slate-200 bg-slate-50')">
         <span class="whitespace-pre-wrap text-sm" ng-class="themeClass('text-slate-100','text-slate-900')">{{labInfo.description}}</span>

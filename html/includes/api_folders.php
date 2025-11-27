@@ -204,6 +204,7 @@ function apiGetFolders($path) {
 	// Listing content
 	$folders = Array();
 	$labs = Array();
+	$workSuffix = defined('LAB_WORK_SUFFIX') ? LAB_WORK_SUFFIX : '__work';
 
 	if ($path != '/') {
 		// Adding '..' folder
@@ -235,7 +236,12 @@ function apiGetFolders($path) {
 				$labIsMirror = false;
 				$labShared = false;
 				$labSharedWith = '';
+				$labCollaborateAllowed = false;
 				$labFilePath = BASE_LAB.$path.'/'.$element;
+				$labDir = dirname($labFilePath);
+				$isWorkCopy = (preg_match('/'.preg_quote($workSuffix, '/').'\\.unl$/', $element) === 1);
+				$workFilePath = $labDir . '/' . basename($element, '.unl') . $workSuffix . '.unl';
+				$workExists = (!$isWorkCopy && is_file($workFilePath));
 				$xml = @simplexml_load_file($labFilePath);
 				
 				if ($xml !== false) {
@@ -266,6 +272,13 @@ function apiGetFolders($path) {
 					}
 				}
 
+				if ($xml !== false) {
+					$result = $xml->xpath('//lab/@collaborateAllowed');
+					if (!empty($result)) {
+						$labCollaborateAllowed = ((string)$result[0] === 'true');
+					}
+				}
+
 				if ($path == '/') {
 					$labs[] = [
 						'file'   => $element,
@@ -275,7 +288,9 @@ function apiGetFolders($path) {
 						'author' => $labAuthor,
 						'shared' => $labShared,
 						'sharedWith' => $labSharedWith,
-						'isMirror' => $labIsMirror
+						'isMirror' => $labIsMirror,
+						'workExists' => $workExists,
+						'collaborateAllowed' => $labCollaborateAllowed
 					];
 				} else {
 					$labs[] = [
@@ -286,7 +301,9 @@ function apiGetFolders($path) {
 						'author' => $labAuthor,
 						'shared' => $labShared,
 						'sharedWith' => $labSharedWith,
-						'isMirror' => $labIsMirror
+						'isMirror' => $labIsMirror,
+						'workExists' => $workExists,
+						'collaborateAllowed' => $labCollaborateAllowed
 					];
 				}
 				

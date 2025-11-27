@@ -173,7 +173,7 @@
                                   <span data-ng-if="x.name === '..'">{{t.treeParentLabel || '..'}}</span>
                                 </button>
                               </div>
-                              <div class="flex items-center gap-2" data-ng-if="x.name != '..'">
+                              <div class="flex items-center gap-2" data-ng-if="x.name != '..' && (!isSharedPath(x.path) || role === 'admin')">
                                 <button type="button"
                                         class="px-2 py-1 rounded-full text-xs cursor-pointer transition"
                                         ng-class="themeClass('text-slate-300 hover:text-white hover:bg-white/10','text-slate-500 hover:text-slate-800 hover:bg-slate-100')"
@@ -229,20 +229,23 @@
                         </td>
                         <td class="px-4 py-3 space-y-2">
                           <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
-                            <div class="space-y-1">
+                              <div class="space-y-1">
                               <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex items-center gap-1">
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-emerald-400/80','bg-emerald-500/80')" title="{{t.previewCollaborateButton}}" data-ng-if="x.collaborateAllowed"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.listSharedBadge}}" data-ng-if="x.shared"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.listMirrorBadge}}" data-ng-if="x.isMirror"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-amber-400/80','bg-amber-500/80')" title="{{t.startWorkButton}}" data-ng-if="x.workExists"></span>
+                                </div>
                                 <span class="font-semibold cursor-pointer"
                                       ng-class="themeClass('text-white hover:text-blue-200','text-slate-900 hover:text-blue-700')"
                                       data-ng-click="$event.stopPropagation(); getLabInfo(x.path, x.file)">
                                   <i class="fa fa-file-text-o mr-2 text-slate-400"></i>{{x.file}}
                                 </span>
-                                <span class="text-xs px-2 py-1 rounded-full bg-emerald-500/30 text-emerald-50 uppercase tracking-[0.3em]" data-ng-if="x.shared" data-ng-bind="t.listSharedBadge"></span>
-                                <span class="text-xs px-2 py-1 rounded-full bg-indigo-500/30 text-indigo-50 uppercase tracking-[0.3em]" data-ng-if="x.isMirror" data-ng-bind="t.listMirrorBadge"></span>
-                                <span class="text-xs px-2 py-1 rounded-full bg-purple-500/30 text-purple-50 uppercase tracking-[0.3em]" data-ng-if="privateCopyMap[x.file]" data-ng-bind="t.listPrivateBadge"></span>
                               </div>
                               <p class="text-xs text-slate-400" data-ng-if="x.sharedWith">{{t.previewSharedWithLabel}}: {{x.sharedWith}}</p>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2" data-ng-if="!isSharedPath(x.path) || role === 'admin'">
                               <div class="text-slate-400" data-ng-show="fileManagerItem['Fi_'+x.file].img">
                                 <i class="fa fa-circle-o-notch fa-spin"></i>
                               </div>
@@ -292,7 +295,8 @@
             <section class="h-full rounded-3xl theme-surface shadow-2xl p-6 card-glow flex flex-col transition-colors duration-300">
               <div class="flex flex-wrap items-start justify-between gap-4">
                   <div class="space-y-1">
-                    <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.topologyPreviewCardTitle"></h2>
+                    <h2 class="text-2xl font-semibold theme-heading"
+                        data-ng-bind="t.topologyPreviewCardTitle + (labInfo && labInfo.name ? (' ' + labInfo.name) : '')"></h2>
                   </div>
                   <div class="flex flex-wrap gap-2">
                   </div>

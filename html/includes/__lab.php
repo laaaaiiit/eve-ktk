@@ -50,6 +50,7 @@ class Lab
 	private $sharedWith;
 	private $isMirror;
 	private $collaborateAllowed;
+	private $mirrorPath;
 	private $version;
 	private $scripttimeout;
 	private $lock;
@@ -74,6 +75,7 @@ class Lab
 			$this->isOwner = $isOwner;
 			$this->author = $author;
 			$this->collaborateAllowed = false;
+			$this->mirrorPath = '';
 
 			if (!checkLabFilename($this->filename)) {
 				// Invalid filename
@@ -99,6 +101,7 @@ class Lab
 			$this->tenant = (int) $tenant;
 			$this->shared = 'false';
 			$this->author = $author;
+			$this->mirrorPath = '';
 
 			if (!checkLabFilename($this->filename)) {
 				// Invalid filename
@@ -155,6 +158,11 @@ class Lab
 			$result = $xml->xpath('//lab/@isMirror');
 			if (!empty($result)) {
 				$this->isMirror = ((string)$result[0] === 'true');
+			}
+
+			$result = $xml->xpath('//lab/@mirrorPath');
+			if (!empty($result)) {
+				$this->mirrorPath = (string)$result[0];
 			}
 
 			$result = $xml->xpath('//lab/@collaborateAllowed');
@@ -1154,12 +1162,22 @@ class Lab
 		return $this->isMirror;
 	}
 
+	public function getMirrorPath()
+	{
+		return $this->mirrorPath;
+	}
+
 	/**
 	 * Method for change mirroring status
 	 */
 	public function setIsMirror()
 	{
 		$this->isMirror = true;
+	}
+
+	public function setMirrorPath(string $mirrorPath)
+	{
+		$this->mirrorPath = $mirrorPath;
 	}
 
 	public function getCollaborateAllowed()
@@ -1381,6 +1399,9 @@ class Lab
 		$xml->addAttribute('sharedWith', $this->sharedWith);
 		$xml->addAttribute('isMirror', $this->isMirror ? 'true' : 'false');
 		$xml->addAttribute('collaborateAllowed', $this->collaborateAllowed ? 'true' : 'false');
+		if (!empty($this->mirrorPath)) {
+			$xml->addAttribute('mirrorPath', $this->mirrorPath);
+		}
 
 		if (isset($this->version)) $xml->addAttribute('version', $this->version);
 		if (isset($this->scripttimeout)) $xml->addAttribute('scripttimeout', $this->scripttimeout);

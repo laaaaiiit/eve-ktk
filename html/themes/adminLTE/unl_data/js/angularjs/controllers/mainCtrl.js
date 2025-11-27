@@ -1,9 +1,8 @@
 angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $cookies, themeService) {
 	$rootScope.openLaba = false;
 	$scope.testAUTH("/main"); //TEST AUTH
-	// шеринг
-	$scope.labViewMode = 'collaborate';
-	// шеринг
+	// Current lab view mode (e.g. collaborate). Default is empty/standard.
+	$scope.labViewMode = '';
 	$scope.path = ($rootScope.folder === undefined || $rootScope.folder == '') ? '/' : $rootScope.folder;
 	$scope.folderData = { newElementName: '' };
 	$scope.newElementToggle = false;
@@ -26,6 +25,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			heroEyebrow: 'Workspace',
 			heroTitle: 'File manager',
 			heroDescription: 'Browse folders, import/export labs, and preview a topology before launching it into a POD.',
+			topologyPreviewLabel: 'Topology preview',
+			pathLabelInline: 'Path',
+			versionInline: 'Version',
+			uuidInline: 'UUID',
 			pathLabel: 'Path',
 			newLabButton: 'New lab',
 			refreshButton: 'Refresh',
@@ -74,8 +77,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalTimeoutLabel: 'Script timeout (sec)',
 			modalSharedLabel: 'Shared lab',
 			modalSharedHint: 'Make this lab visible to other users.',
-			modalCollaborateLabel: 'Collaborate allowed',
-			modalCollaborateHint: 'Permit collaborators to edit the lab.',
+			modalCollaborateLabel: 'Collaborative work',
+			modalCollaborateHint: 'Allow selected users to collaborate on the lab.',
 			modalSharedWithLabel: 'Shared with (comma separated)',
 			modalDescriptionLabel: 'Description',
 			modalTasksLabel: 'Tasks',
@@ -89,6 +92,16 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalVersionHint: 'Must be an integer value.',
 			editBlockedRunning: 'Stop all running nodes before editing lab settings.',
 			previewEnterButton: 'Enter',
+			previewNodesLabel: 'Nodes',
+			previewNetworksLabel: 'Networks',
+			previewConnectionsLabel: 'Connections',
+			previewAuthorLabel: 'Author',
+			previewSharedLabel: 'Shared',
+			previewSharedWithLabel: 'Shared with',
+			previewCollaborateAllowedLabel: 'Collaborative work',
+			previewDescriptionLabel: 'Description',
+			booleanYes: 'Yes',
+			booleanNo: 'No',
 			validationUserNotFound: 'User not found in system.',
 			actionApply: 'Apply',
 			actionRename: 'Rename',
@@ -135,7 +148,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			warningTitle: 'Warning',
 			sharedFolderDeleteBlocked: 'Cannot delete Shared folder.',
 			sharedLabDeleteBlocked: 'Cannot delete labs inside Shared.',
-			startWorkButton: 'Start working',
+			startWorkButton: 'Personal work',
 			continueWorkButton: 'Continue',
 			restartWorkButton: 'Start over',
 			workBlockedTooltip: 'Stop all running nodes before editing lab settings.'
@@ -144,6 +157,10 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			heroEyebrow: 'Рабочая зона',
 			heroTitle: 'Файловый менеджер',
 			heroDescription: 'Просматривайте каталоги, импортируйте/экспортируйте лаборатории и смотрите превью перед запуском в POD.',
+			topologyPreviewLabel: 'Превью топологии',
+			pathLabelInline: 'Путь',
+			versionInline: 'Версия',
+			uuidInline: 'UUID',
 			pathLabel: 'Путь',
 			newLabButton: 'Новая лаборатория',
 			refreshButton: 'Обновить',
@@ -192,8 +209,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalTimeoutLabel: 'Таймаут скрипта (сек)',
 			modalSharedLabel: 'Общая лаба',
 			modalSharedHint: 'Сделать эту лабу видимой другим пользователям.',
-			modalCollaborateLabel: 'Разрешено редактирование',
-			modalCollaborateHint: 'Разрешить другим редактировать лабу.',
+			modalCollaborateLabel: 'Совместная работа',
+			modalCollaborateHint: 'Разрешить выбранным пользователям совместно работать с лабораторией.',
 			modalSharedWithLabel: 'Доступ (через запятую)',
 			modalDescriptionLabel: 'Описание',
 			modalTasksLabel: 'Задачи',
@@ -207,6 +224,16 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			modalVersionHint: 'Должно быть целое число.',
 			editBlockedRunning: 'Остановите все запущенные устройства в лаборатории перед изменением настроек.',
 			previewEnterButton: 'Войти',
+			previewNodesLabel: 'Узлы',
+			previewNetworksLabel: 'Сети',
+			previewConnectionsLabel: 'Соединения',
+			previewAuthorLabel: 'Автор',
+			previewSharedLabel: 'Общий доступ',
+			previewSharedWithLabel: 'Доступ для',
+			previewCollaborateAllowedLabel: 'Совместная работа',
+			previewDescriptionLabel: 'Описание',
+			booleanYes: 'Да',
+			booleanNo: 'Нет',
 			validationUserNotFound: 'Пользователь не найден в системе.',
 			actionApply: 'Применить',
 			actionRename: 'Переименовать',
@@ -253,7 +280,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			warningTitle: 'Предупреждение',
 			sharedFolderDeleteBlocked: 'Нельзя удалить папку Shared.',
 			sharedLabDeleteBlocked: 'Нельзя удалять лаборатории в папке Shared.',
-			startWorkButton: 'Начать работать',
+			startWorkButton: 'Личная работа',
 			continueWorkButton: 'Продолжить',
 			restartWorkButton: 'Начать сначала',
 			workBlockedTooltip: 'Остановите все запущенные устройства, чтобы изменить параметры лаборатории.'
@@ -435,30 +462,6 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				$scope.fileManagerItem = [];
 				$scope.rootDir = response.data.data;
 
-				if ($scope.rootDir && $scope.rootDir.labs) {
-					var username = $rootScope.username || '';
-
-					// Формируем словарь приватных копий.
-					// Например, если имя приватной копии имеет вид "labname_username.unl",
-					// то ключом будет "labname.unl".
-					$scope.privateCopyMap = {};
-					$scope.rootDir.labs.forEach(function (lab) {
-						if (lab.file.indexOf('_' + username + '.unl') !== -1) {
-							// Удаляем из конца строки "_username.unl", заменяя его на ".unl"
-							var regex = new RegExp('_' + username + '\\.unl$', 'i');
-							var originalFile = lab.file.replace(regex, '.unl');
-							$scope.privateCopyMap[originalFile] = lab.file;
-						}
-					});
-
-					// Фильтруем приватные копии из списка, чтобы в основном отображались только оригиналы.
-					$scope.rootDir.labs = $scope.rootDir.labs.filter(function (lab) {
-						return lab.file.indexOf('_' + username + '.unl') === -1;
-					});
-				} else {
-					$scope.privateCopyMap = {};
-				}
-
 				$scope.currentPosition();
 				$scope.loading = false;
 				$scope.showTable = true;
@@ -479,7 +482,11 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.getLabInfo = function (file, name) {
 		var path = ($scope.path === '/') ? $scope.path : $scope.path + '/';
 		if (name !== undefined) $scope.fileManagerItem['Fi_' + name].img = true;
-		$http.get('/api/labs' + file, { params: { mode: $scope.labViewMode } }).then(
+		var infoParams = {};
+		if ($scope.labViewMode === 'collaborate') {
+			infoParams.mode = 'collaborate';
+		}
+		$http.get('/api/labs' + file, { params: infoParams }).then(
 			function successCallback(response) {
 				$scope.labInfo = response.data.data;
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
@@ -652,18 +659,6 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		//$scope.fileMngDraw($scope.path); //recreate tree
 	}
 
-	$scope.deletePrivateLab = function (labname) {
-		// Получаем путь и имя файла
-		var lastSlashIndex = labname.lastIndexOf('/');
-		var path = labname.substring(0, lastSlashIndex + 1);
-		var filename = labname.substring(lastSlashIndex + 1);
-
-		// Преобразуем имя файла в private-формат
-		var parts = filename.split('.');
-		var privateLabName = path + parts[0] + '_' + $scope.username + '.' + parts[1];
-
-		$scope.deleteElement(privateLabName, 'File', 'true');
-	};
 	//Delete selected elements //END
 	//////////////////////////////////////////////////
 	function isProtectedSharedFolder(path) {
@@ -923,6 +918,15 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			return;
 		}
 		if (itemType == 'Fo_') {
+			var fullFolderPath = tempPath + $scope.fileManagerItem[itemType + item.oldvalue].oldvalue;
+			if ($scope.role !== 'admin' && isSharedPath(fullFolderPath)) {
+				var t = currentTranslations();
+				toastr["warning"](t.sharedFolderDeleteBlocked || 'Cannot rename Shared folder', t.warningTitle || 'Warning');
+				$scope.blockButtons = false;
+				$scope.blockButtonsClass = '';
+				$scope.hideAllEdit();
+				return;
+			}
 			$scope.blockButtons = true;
 			$scope.blockButtonsClass = 'm-progress';
 			console.log('Rename folder:' + $scope.fileManagerItem[itemType + item.oldvalue].oldvalue + ' to ' + $scope.fileManagerItem[itemType + item.oldvalue].value)
@@ -951,6 +955,16 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		}
 		else if (itemType == 'Fi_') {
 			console.log('Rename file:' + $scope.fileManagerItem[itemType + item.oldvalue].oldvalue.replace(/.unl$/, "") + ' to ' + $scope.fileManagerItem[itemType + item.oldvalue].value)
+
+			var fullFilePath = tempPath + $scope.fileManagerItem[itemType + item.oldvalue].oldvalue;
+			if ($scope.role !== 'admin' && isSharedPath(fullFilePath)) {
+				var t2 = currentTranslations();
+				toastr["warning"](t2.sharedLabDeleteBlocked || 'Cannot rename labs inside Shared', t2.warningTitle || 'Warning');
+				$scope.blockButtons = false;
+				$scope.blockButtonsClass = '';
+				$scope.hideAllEdit();
+				return;
+			}
 
 			$http({
 				method: 'PUT',
@@ -1095,16 +1109,22 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	//Open Lab //END
 	//Open Lagacy LAB//START
 	$scope.legacylabopen = function (labname) {
+		// For shared copies with collaborate enabled, open the owner's lab directly
+		if ($scope.labViewMode === 'collaborate' && $scope.isSharedCopy && $scope.labInfo && $scope.labInfo.mirrorPath) {
+			// Navigate via user-visible shared copy; backend will map to owner using mirrorPath when mode=collaborate
+			$window.location.href = "/legacy" + $scope.fullPathToFile + "/topology?mode=collaborate";
+			return;
+		}
+
 		const baseLabName = labname;
 		let finalLabName = labname;
 
-		$http.get('/api/labs' + baseLabName + '?mode=' + $scope.labViewMode).then(function (response) {
-			if ($scope.labViewMode === "private") {
-				var parts = baseLabName.split('.');
-				finalLabName = parts[0] + '_' + $scope.username + '.' + parts[1];
-			}
+		var labUrl = '/api/labs' + baseLabName;
+		if ($scope.labViewMode === 'collaborate') {
+			labUrl += '?mode=collaborate';
+		}
 
-			// Теперь, когда копия создана — запрашиваем топологию и переходим
+		$http.get(labUrl).then(function () {
 			return $http.get('/api/labs' + finalLabName + '/topology');
 		}).then(function (response) {
 			// Всё готово — можно переходить
@@ -1136,15 +1156,13 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 
 
 	$scope.openLab = function (mode) {
-		$scope.labViewMode = mode; // сохраняем выбранный режим
-
-		if (mode === 'private') {
-			// Логика для открытия в private режиме
-			$scope.legacylabopen($scope.fullPathToFile);
-		} else {
-			// Логика для открытия в collaborate режиме
-			$scope.legacylabopen($scope.fullPathToFile);
+		$scope.labViewMode = (mode === 'collaborate') ? 'collaborate' : '';
+		var targetPath = $scope.fullPathToFile;
+		if (mode === 'collaborate' && $scope.isSharedCopy && $scope.labInfo && $scope.labInfo.mirrorPath) {
+			targetPath = $scope.labInfo.mirrorPath;
 		}
+
+		$scope.legacylabopen(targetPath);
 	};
 
 	$scope.startLabWork = function (action) {
@@ -1152,6 +1170,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		var act = action || 'start';
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';
+		$scope.labViewMode = '';
 		$http.post('/api/labs/work' + $scope.fullPathToFile, { action: act }).then(function (response) {
 			if (response.data && response.data.data) {
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
@@ -1176,6 +1195,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 
 	$scope.continueLabWork = function () {
 		if ($scope.labInfo && $scope.labInfo.workPath) {
+			$scope.labViewMode = '';
 			$scope.labopen($scope.labInfo.workPath);
 		}
 	};

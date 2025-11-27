@@ -56,6 +56,21 @@
                      ng-model="author">
             </div>
 
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Description</label>
+              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        name="description"
+                        ng-model="description"></textarea>
+            </div>
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Tasks</label>
+              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        name="body"
+                        ng-model="body"></textarea>
+            </div>
+          </div>
+
+          <div class="space-y-4">
             <div class="space-y-3">
               <label class="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 cursor-pointer select-none">
                 <div>
@@ -70,8 +85,8 @@
               </label>
               <label class="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 cursor-pointer select-none">
                 <div>
-                  <p class="text-sm font-semibold text-white">Collaborate allowed</p>
-                  <span class="text-xs text-slate-400">Permit collaborators to edit this lab.</span>
+                  <p class="text-sm font-semibold text-white">Collaborative work</p>
+                  <span class="text-xs text-slate-400">Allow selected users to collaborate on the lab.</span>
                 </div>
                 <span class="relative inline-flex items-center">
                   <input type="checkbox" class="sr-only peer" ng-model="collaborateAllowed">
@@ -90,21 +105,6 @@
             </div>
 
             <p class="text-xs text-slate-400"><span class="text-rose-300">*</span> Required fields</p>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Description</label>
-              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        name="description"
-                        ng-model="description"></textarea>
-            </div>
-            <div>
-              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Tasks</label>
-              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        name="body"
-                        ng-model="body"></textarea>
-            </div>
           </div>
         </div>
 

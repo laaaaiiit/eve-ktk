@@ -364,7 +364,8 @@ function apiGetLab(Lab $lab)
 		'shared' => $lab->getShared(),
 		'sharedWith' => $lab->getSharedWith(),
 		'isMirror' => $lab->getIsMirror(),
-		'collaborateAllowed' => $lab->getCollaborateAllowed()
+		'collaborateAllowed' => $lab->getCollaborateAllowed(),
+		'mirrorPath' => $lab->getMirrorPath()
 	);
 
 	return $output;
@@ -793,6 +794,8 @@ function ensureSharedCopyForUser($lab, $targetUser, $db)
 		$sharedLab->setShared(false);
 		$sharedLab->setSharedWith('');
 		$sharedLab->setIsMirror();
+		$sourceRelative = str_replace(BASE_LAB, '', $srcFile);
+		$sharedLab->setMirrorPath($sourceRelative);
 		$sharedLab->setAuthor($lab->getAuthor());
 		$sharedLab->setTenant($lab->getTenant());
 		$sharedLab->save();
@@ -1254,92 +1257,4 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 			'copy_debug' => $copyDebug
 		)
 	);
-}
-
-/**
- * Wrapper function to clone a lab for private use using the existing cloning mechanism.
- *
- * @param string $originalRelative      The relative path of the source lab (e.g., "/shared/lab1.unl")
- * @param string $destinationRelative   The relative path of the private copy to be created (e.g., "/shared/lab1_alice.unl")
- * @param array  $user                  The current user information array (must include tenant and username)
- *
- * @return array Returns an associative array with a code, status, and message.
- */
-function apiCloneLabPrivate($originalRelative, $destinationRelative, $user)
-{
-	// Prepare parameters for the existing clone:
-	$params = [];
-	$params['source'] = $originalRelative;
-	// Generate the name for the private copy by appending '_' and the username.
-	$basename = basename($originalRelative, '.unl');
-	$params['name'] = $basename . '_' . $user['username'];
-
-	// Call the existing clone function.
-	$result = apiCloneLab($params, $user['tenant'], $user['username']);
-
-	// Define the full path to the private lab.
-	$privateLabPath = BASE_LAB . dirname($originalRelative) . '/' . $params['name'] . '.unl';
-
-	try {
-		// Load the cloned lab.
-		$privateLab = new Lab($privateLabPath, $user['tenant'], $user['username']);
-	} catch (Exception $e) {
-		return [
-			'code' => 400,
-			'status' => 'fail',
-			'message' => 'Error loading private lab: ' . $e->getMessage()
-		];
-	}
-
-	// Set properties for the private lab.
-	$privateLab->setIsMirror();            // Set as mirror (private copy)
-	$privateLab->setShared(false);           // Disable shared access
-	$privateLab->setSharedWith('');          // Clear shared users list
-	$privateLab->setTenant($user['tenant']); // Update tenant to current user's tenant
-	$privateLab->setAuthor($user['username']); // Update author to current username
-
-	// Save changes before updating IDs.
-	$rc = $privateLab->save();
-	if ($rc !== 0) {
-		return [
-			'code' => 400,
-			'status' => 'fail',
-			'message' => $GLOBALS['messages'][$rc]
-		];
-	}
-
-	try {
-		// Update node and network IDs to new private values.
-		$rc = $privateLab->updatePrivateIds();
-	} catch (Exception $e) {
-		// If updatePrivateIds fails, remove the cloned lab file.
-		if (file_exists($privateLabPath)) {
-			@unlink($privateLabPath);
-		}
-		return [
-			'code' => 400,
-			'status' => 'fail',
-			'message' => $e->getMessage()
-		];
-	}
-
-	if ($rc !== 0) {
-		return [
-			'code' => 400,
-			'status' => 'fail',
-			'message' => $GLOBALS['messages'][$rc]
-		];
-	}
-
-	// Save the lab with updated IDs.
-	$rc = $privateLab->save();
-	if ($rc !== 0) {
-		return [
-			'code' => 400,
-			'status' => 'fail',
-			'message' => $GLOBALS['messages'][$rc]
-		];
-	}
-
-	return $result;
 }
