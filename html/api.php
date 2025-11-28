@@ -1265,8 +1265,8 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	$isOwner = $lab->getAuthor() == $user['username'];
 	$isAdmin = $user['role'] == 'admin';
 
-	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
-	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+	$collaborators = array_map('trim', explode(',', strtolower($lab->getSharedWith())));
+	$isCollaborator = $lab->getCollaborateAllowed() && in_array(strtolower($user['username']), $collaborators);
 
 	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
 		$output['code'] = 403;
@@ -1646,8 +1646,8 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$isOwner = $lab->getAuthor() == $user['username'];
 	$isAdmin = $user['role'] == 'admin';
-	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
-	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+	$collaborators = array_map('trim', explode(',', strtolower($lab->getSharedWith())));
+	$isCollaborator = $lab->getCollaborateAllowed() && in_array(strtolower($user['username']), $collaborators);
 
 	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
 		$output['code'] = 403;
