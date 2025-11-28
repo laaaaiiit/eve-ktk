@@ -1,4 +1,4 @@
-function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log, $compile, $timeout, $window, $timeout, $state) {
+function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log, $compile, $timeout, $window, $timeout, $state, $interval) {
 	
 	//$scope.testAUTH("/lab"); //TEST AUTH
 	$('body').removeClass().addClass('skin-blue sidebar-mini sidebar-collapse');
@@ -27,6 +27,44 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 	$scope.collapseSidebar = function(){
 		$('body').removeClass('sidebar-expanded-on-hover').addClass('sidebar-collapse');
 	}
+
+	var topologyPoller;
+	var lastModified = 0;
+	function pollTopology() {
+		var params = {
+			lastmodified: lastModified
+		};
+
+		if ($location.search().mode === 'collaborate') {
+			params.mode = 'collaborate';
+		}
+
+		console.log('Polling for topology changes with params:', params);
+		$http.get('/api/labs' + $rootScope.lab + '/status', { params: params })
+			.then(function(response) {
+				console.log('Poll response received:', response.data);
+				if (response.data.status === 'changed') {
+					console.log('Topology has changed, reloading.');
+					$scope.topologyRefresh();
+				}
+				lastModified = response.data.lastmodified;
+			}, function(error) {
+				console.error('Error during topology poll:', error);
+			});
+	}
+
+	if ($location.search().mode === 'collaborate') {
+		console.log('Starting topology poller.');
+		topologyPoller = $interval(pollTopology, 5000);
+	}
+
+	$scope.$on('$destroy', function() {
+		if (topologyPoller) {
+			console.log('Stopping topology poller.');
+			$interval.cancel(topologyPoller);
+		}
+	});
+	
 	
 	// $scope.refreshPage = function(){
 	// 	location.reload();
@@ -1109,9 +1147,13 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		} else {
 			sendingData = {'left':left, 'top':top }
 		}
+		var url = '/api/labs'+$rootScope.lab+'/'+type+'s/'+id;
+		if ($location.search().mode === 'collaborate') {
+			url += '?mode=collaborate';
+		}
 		$http({
 			method: 'PUT',
-			url:'/api/labs'+$rootScope.lab+'/'+type+'s/'+id,
+			url: url,
 			data: sendingData}).then(
 			function successCallback(response){
 				//console.log(response)

@@ -698,8 +698,8 @@ function listNetworkTypes($username)
 
 	// Формируем результирующий список
 	foreach ($clouds as $cloud) {
-		$userList = array_map('trim', explode(',', $cloud['username']));
-		if (in_array($cloud['pnet'], $availablePnets) && ($user['role'] === 'admin' || in_array($username, $userList))) {
+		$userList = array_map('trim', explode(',', strtolower($cloud['username'])));
+		if (in_array($cloud['pnet'], $availablePnets) && ($user['role'] === 'admin' || in_array(strtolower($username), $userList))) {
 			if ($user['role'] === 'admin') {
 				// Для админа выводим cloudname и имя пользователя
 				$results[$cloud['pnet']] = $cloud['cloudname'] . ' (' . $cloud['username'] . ')';

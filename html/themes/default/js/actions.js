@@ -1429,6 +1429,10 @@ $('body').on('submit', '#form-picture-add', function (e) {
 
     // Get action URL
     var url = '/api/labs' + lab_file + '/pictures';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -2465,6 +2469,10 @@ $(document).on('submit', '#form-network-add, #form-network-edit', function (e) {
         var url = '/api/labs' + lab_filename + '/networks/' + form_data['id'];
         var type = 'PUT';
     }
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
 
     if ($(this).attr('id') == 'form-network-add') {
         // If adding need to manage multiple add
@@ -2583,6 +2591,10 @@ $(document).on('submit', '#form-node-add, #form-node-edit', function (e) {
         logger(1, 'DEBUG: posting form-node-edit form.');
         var url = '/api/labs' + lab_filename + '/nodes/' + form_data['id'];
         var type = 'PUT';
+    }
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
     }
 
 

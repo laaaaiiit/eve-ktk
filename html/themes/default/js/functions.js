@@ -327,6 +327,10 @@ function deleteNetwork(id) {
     var type = 'DELETE';
     var lab_filename = $('#lab-viewport').attr('data-path');
     var url = '/api/labs' + lab_filename + '/networks/' + id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -360,6 +364,10 @@ function deleteNode(id) {
     var type = 'DELETE';
     var lab_filename = $('#lab-viewport').attr('data-path');
     var url = '/api/labs' + lab_filename + '/nodes/' + id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -661,16 +669,25 @@ function deleteSingleNetworks() {
 }
 
 // Get available network types
-function getNetworkTypes() {
+function getNetworkTypes(lab_filename) {
     var deferred = $.Deferred();
     var url = '/api/list/networks';
     var type = 'GET';
+	var data = {};
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        data['mode'] = 'collaborate';
+    }
+    if (lab_filename) {
+        data['lab_path'] = lab_filename;
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
         type: type,
         url: encodeURI(url),
         dataType: 'json',
+		data: data,
         success: function (data) {
             if (data['status'] == 'success') {
                 logger(1, 'DEBUG: got network types.');
@@ -1211,6 +1228,10 @@ function deletePicture(lab_file, picture_id, cb) {
 
     // Delete network
     var url = '/api/labs' + lab_file + '/pictures/' + picture_id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -1291,6 +1312,10 @@ function setNetwork(nodeName, left, top) {
     form_data['postfix'] = 0;
 
     var url = '/api/labs' + lab_filename + '/networks';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'POST';
     $.ajax({
         cache: false,
@@ -1446,6 +1471,10 @@ function setNetworkiVisibility(networkId, visibility) {
     var form_data = {};
     form_data['visibility'] = visibility;
     var url = '/api/labs' + lab_filename + '/networks/' + networkId;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1485,6 +1514,10 @@ function setNetworkPosition(network_id, left, top) {
     form_data['left'] = left;
     form_data['top'] = top;
     var url = '/api/labs' + lab_filename + '/networks/' + network_id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1524,6 +1557,10 @@ function setNetworksPosition(networks) {
     var form_data = {};
     form_data = networks;
     var url = '/api/labs' + lab_filename + '/networks';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1599,6 +1636,10 @@ function setNodePosition(node_id, left, top) {
     form_data['left'] = left;
     form_data['top'] = top;
     var url = '/api/labs' + lab_filename + '/nodes/' + node_id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1636,6 +1677,10 @@ function setNodesPosition(nodes) {
     var form_data = [];
     form_data = nodes;
     var url = '/api/labs' + lab_filename + '/nodes';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1725,6 +1770,10 @@ function setNodeInterface(node_id, network_id, interface_id) {
     form_data[interface_id] = network_id;
 
     var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/interfaces';
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -2188,8 +2237,9 @@ function printFormNetwork(action, values) {
     var type = (values == null || values['type'] == null) ? '' : values['type'];
     var icon = (values == null || values['icon'] == null) ? '' : values['icon'];
     var title = (action == 'add') ? MESSAGES[89] : MESSAGES[90];
+	var lab_filename = $('#lab-viewport').attr('data-path');
 
-    $.when(getNetworkTypes()).done(function (network_types, icons) {
+    $.when(getNetworkTypes(lab_filename)).done(function (network_types, icons) {
         // Read privileges and set specific actions/elements
         var html = '<form id="form-network-' + action + '" class="form-horizontal">';
         if (action == 'add') {
@@ -3469,15 +3519,19 @@ function printLabTopology() {
                 // if lock then freeze node network
                 if (labinfo['lock'] == 1) {
                     window.LOCK = 1;
-                    //alert("lock it ")
-                    defer.resolve();
-                    // if (ROLE == 'admin' || ROLE == 'editor' ) {
-                    //      lab_topology.setDraggable($('customShape, .node_frame, .network_frame'), false );
-                    //}
+                    lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), false);
+					$('.customShape').resizable('disable');
                     $('.action-lock-lab').html('<i style="color:red" class="glyphicon glyphicon-remove-circle"></i>' + MESSAGES[167])
                     $('.action-lock-lab').removeClass('action-lock-lab').addClass('action-unlock-lab')
-
-                }
+                } else {
+					window.LOCK = 0;
+					$('.action-unlock-lab').html('<i class="glyphicon glyphicon-ok-circle"></i>' + MESSAGES[166])
+					$('.action-unlock-lab').removeClass('action-unlock-lab').addClass('action-lock-lab')
+					if (ROLE == 'admin' || ROLE == 'editor') {
+						lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true);
+						$('.customShape').resizable('enable');
+					}
+				}
                 defer.resolve(LOCK);
                 $labViewport.data('refreshing', false);
                 labNodesResolver.resolve();
@@ -3999,11 +4053,38 @@ function printPageLabList(folder) {
     });
 }
 
-// Print lab open page
 function printPageLabOpen(lab) {
     if ($.cookie("topo") == undefined) $.cookie("topo", 'light');
     var html = '<div id="lab-sidebar"><ul></ul></div><div id="lab-viewport" data-path="' + lab + '"></div>';
     $('#body').html(html);
+
+	// Polling for topology changes in collaborative mode
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+				var lastModified = 0;
+				var topologyPoller = setInterval(function() {
+					var params = {
+						lastmodified: lastModified,
+						mode: 'collaborate'
+					};
+					$.ajax({
+						url: '/api/labs' + lab + '/status',
+						type: 'GET',
+						data: params,
+						dataType: 'json',
+						success: function(data) {
+							if (data.status === 'changed') {
+								console.log('Topology has changed, reloading.');
+								printLabTopology();
+							}
+							lastModified = data.lastmodified;
+						},
+						error: function(xhr, status, error) {
+							console.error('Error during topology poll:', error);
+						}
+					});
+				}, 5000);							console.log('Starting topology poller.');
+						}
     // Print topology
     $.when(printLabTopology(), getPictures()).done(function (rc, pic) {
         if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
@@ -4469,6 +4550,10 @@ function createTextObject(newData) {
         , lab_filename = $('#lab-viewport').attr('data-path')
         , url = '/api/labs' + lab_filename + '/textobjects'
         , type = 'POST';
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
 
     if (newData.data) {
         newData.data = fromByteArray(new TextEncoderLite('utf-8').encode(newData.data));
@@ -4509,6 +4594,10 @@ function editTextObject(id, newData) {
     var deferred = $.Deferred();
     var type = 'PUT';
     var url = '/api/labs' + lab_filename + '/textobjects/' + id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
 
     if (newData.data) {
         newData.data = fromByteArray(new TextEncoderLite('utf-8').encode(newData.data));
@@ -4549,6 +4638,10 @@ function editTextObjects(newData) {
     if (newData.length == 0) { deferred.resolve(); return deferred.promise(); }
     var type = 'PUT';
     var url = '/api/labs' + lab_filename + '/textobjects';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
 
     $.ajax({
         cache: false,
@@ -4583,6 +4676,10 @@ function deleteTextObject(id) {
     var type = 'DELETE';
     var lab_filename = $('#lab-viewport').attr('data-path');
     var url = '/api/labs' + lab_filename + '/textobjects/' + id;
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -5025,6 +5122,10 @@ function lockLab() {
     var deferred = $.Deferred();
     var lab_filename = $('#lab-viewport').attr('data-path');
     var url = '/api/labs' + lab_filename + '/Lock';
+    var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -5072,6 +5173,10 @@ function unlockLab() {
     var deferred = $.Deferred();
     var lab_filename = $('#lab-viewport').attr('data-path');
     var url = '/api/labs' + lab_filename + '/Unlock';
+	var urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     var type = 'PUT';
     $.ajax({
         cache: false,

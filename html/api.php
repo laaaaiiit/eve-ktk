@@ -327,10 +327,58 @@ $app->get('/api/list/networks', function () use ($app, $db) {
 		return;
 	}
 
+	$lab_path_param = $app->request()->params('lab_path');
+    $owner_username = $user['username']; // Default to current user
+
+    if ($lab_path_param) {
+        $labFileRelative = normalizeUserLabRelativePath($lab_path_param);
+        $modeParam = strtolower((string) $app->request()->params('mode'));
+        $mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+
+        $patterns[0] = '/(.+).unl.*$/';
+        $replacements[0] = '$1.unl';
+        $lab_file = preg_replace($patterns[0], $replacements[0], $labFileRelative);
+        $collaborateBasePath = '';
+
+        if ($user['role'] !== 'admin' && $mode === 'collaborate') {
+            $lab_file_absolute_for_collab = buildUserLabAbsolutePath($user, $lab_file);
+			$sharedCopyCandidate = BASE_LAB . '/' . $user['username'] . '/Shared/' . basename($lab_file);
+			if (is_file($sharedCopyCandidate)) {
+				try {
+					$sharedMirror = new Lab($sharedCopyCandidate, $user['tenant'], $user['username'], false);
+					$mirrorPath = normalizeUserLabRelativePath($sharedMirror->getMirrorPath());
+					if ($sharedMirror->getCollaborateAllowed()) {
+						$collaborateBasePath = $mirrorPath;
+						$lab_file = $mirrorPath;
+					}
+				} catch (Exception $e) {
+					// ignore
+				}
+			}
+        }
+
+        if ($collaborateBasePath !== '') {
+            $lab_file_absolute = $collaborateBasePath;
+        } else {
+            $lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+        }
+        $lab_file_full = BASE_LAB . $lab_file_absolute;
+
+        if (is_file($lab_file_full)) {
+            try {
+                $lab = new Lab($lab_file_full, $user['tenant'], $user['username'], false);
+                $owner_username = $lab->getAuthor();
+            } catch (Exception $e) {
+                // Invalid lab file, fall back to current user
+                $owner_username = $user['username'];
+            }
+        }
+    }
+
 	$output['code'] = 200;
 	$output['status'] = 'success';
 	$output['message'] = $GLOBALS['messages']['60002'];
-	$output['data'] = listNetworkTypes($user['username']);
+	$output['data'] = listNetworkTypes($owner_username);
 	$output['icons'] = listNetworkIcons();
 
 	$app->response->setStatus($output['code']);
@@ -757,6 +805,79 @@ $app->get('/api/nodes', function () use ($app, $db) {
 	$app->response->setBody(json_encode($output));
 });
 
+
+// Get lab status (for polling)
+$app->get('/api/labs/(:path+)/status', function ($path = array()) use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$labFileRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+
+	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
+	$replacements[0] = '$1.unl';
+	
+	$lab_file = preg_replace($patterns[0], $replacements[0], $labFileRelative);
+	$labSuffix = substr($labFileRelative, strlen($lab_file));
+	$collaborateBasePath = '';
+
+	// For shared copies opened in collaborate mode, redirect to the owner's lab (mirrorPath)
+	if ($user['role'] !== 'admin') {
+		$sharedCopyCandidate = BASE_LAB . '/' . $user['username'] . '/Shared/' . basename($lab_file);
+		if (is_file($sharedCopyCandidate)) {
+			try {
+				$sharedMirror = new Lab($sharedCopyCandidate, $user['tenant'], $user['username'], false);
+				$mirrorPath = normalizeUserLabRelativePath($sharedMirror->getMirrorPath());
+				$isTargetMatch = ($mirrorPath !== '/' && $mirrorPath !== '' && normalizeUserLabRelativePath($lab_file) === $mirrorPath);
+				if ($sharedMirror->getCollaborateAllowed() && ($isTargetMatch || $mode === 'collaborate')) {
+					$collaborateBasePath = $mirrorPath;
+					$lab_file = $mirrorPath;
+				}
+			} catch (Exception $e) {
+				// ignore and keep original path
+			}
+		}
+	}
+
+	if ($collaborateBasePath !== '') {
+		$lab_file_absolute = $collaborateBasePath;
+	} else {
+		$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+	}
+	$lab_file_full = BASE_LAB . $lab_file_absolute;
+
+
+	if (!is_file($lab_file_full)) {
+		// Lab file does not exists
+		$output['code'] = 404;
+		$output['status'] = 'fail';
+		$output['message'] = $GLOBALS['messages'][60000];
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	clearstatcache();
+	$last_modified = filemtime($lab_file_full);
+	$client_last_modified = (int) $app->request()->params('lastmodified');
+
+	if ($client_last_modified > 0 && $last_modified > $client_last_modified) {
+		$output['status'] = 'changed';
+	} else {
+		$output['status'] = 'unchanged';
+	}
+
+	$output['code'] = 200;
+	$output['lastmodified'] = $last_modified;
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
+});
+
 // Get an object
 $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
@@ -1060,16 +1181,47 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	if (isset($p['path'])) {
 		$p['path'] = buildUserLabAbsolutePath($user, normalizeUserLabRelativePath($p['path']));
 	}
-	$s = normalizeUserLabRelativePath('/' . implode('/', $path));
+
+	$labFileRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
 	$patterns[1] = '/.+\/([0-9]+)\/*.*$/';	// Drop after lab file (ending with .unl)
 	$replacements[1] = '$1';
 
-	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
+	$lab_file = preg_replace($patterns[0], $replacements[0], $labFileRelative);
+	$labSuffix = substr($labFileRelative, strlen($lab_file));
+	$collaborateBasePath = '';
+
+	// For shared copies opened in collaborate mode, redirect to the owner's lab (mirrorPath)
+	if ($user['role'] !== 'admin') {
+		$sharedCopyCandidate = BASE_LAB . '/' . $user['username'] . '/Shared/' . basename($lab_file);
+		if (is_file($sharedCopyCandidate)) {
+			try {
+				$sharedMirror = new Lab($sharedCopyCandidate, $user['tenant'], $user['username'], false);
+				$mirrorPath = normalizeUserLabRelativePath($sharedMirror->getMirrorPath());
+				$isTargetMatch = ($mirrorPath !== '/' && $mirrorPath !== '' && normalizeUserLabRelativePath($lab_file) === $mirrorPath);
+				if ($sharedMirror->getCollaborateAllowed() && ($isTargetMatch || $mode === 'collaborate')) {
+					$collaborateBasePath = $mirrorPath;
+					$lab_file = $mirrorPath;
+					$labFileRelative = $mirrorPath . $labSuffix;
+				}
+			} catch (Exception $e) {
+				// ignore and keep original path
+			}
+		}
+	}
+	
+	$s = $labFileRelative;
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+
+	if ($collaborateBasePath !== '') {
+		$lab_file_absolute = $collaborateBasePath;
+	} else {
+		$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+	}
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 	$relativeCheck = stripUserLabPathPrefix($user, $lab_file_absolute);
 
@@ -1101,6 +1253,25 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		unlockFile($lab_file_full);
+		return;
+	}
+
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+
+	$isOwner = $lab->getAuthor() == $user['username'];
+	$isAdmin = $user['role'] == 'admin';
+
+	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
+	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+
+	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
+		$output['code'] = 403;
+		$output['status'] = 'fail';
+		$output['message'] = 'Permission denied to modify the lab.';
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
 		unlockFile($lab_file_full);
@@ -1404,7 +1575,36 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$lab_file = preg_replace($patterns[0], $replacements[0], $s);
 	$id = preg_replace($patterns[1], $replacements[1], $s);	// Intefer after lab_file.unl
-	$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+	
+	$labFileRelative = $s;
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+	$labSuffix = substr($labFileRelative, strlen($lab_file));
+	$collaborateBasePath = '';
+
+	// For shared copies opened in collaborate mode, redirect to the owner's lab (mirrorPath)
+	if ($user['role'] !== 'admin') {
+		$sharedCopyCandidate = BASE_LAB . '/' . $user['username'] . '/Shared/' . basename($lab_file);
+		if (is_file($sharedCopyCandidate)) {
+			try {
+				$sharedMirror = new Lab($sharedCopyCandidate, $user['tenant'], $user['username'], false);
+				$mirrorPath = normalizeUserLabRelativePath($sharedMirror->getMirrorPath());
+				$isTargetMatch = ($mirrorPath !== '/' && $mirrorPath !== '' && normalizeUserLabRelativePath($lab_file) === $mirrorPath);
+				if ($sharedMirror->getCollaborateAllowed() && ($isTargetMatch || $mode === 'collaborate')) {
+					$collaborateBasePath = $mirrorPath;
+					$lab_file = $mirrorPath;
+				}
+			} catch (Exception $e) {
+				// ignore and keep original path
+			}
+		}
+	}
+
+	if ($collaborateBasePath !== '') {
+		$lab_file_absolute = $collaborateBasePath;
+	} else {
+		$lab_file_absolute = buildUserLabAbsolutePath($user, $lab_file);
+	}
 	$lab_file_full = BASE_LAB . $lab_file_absolute;
 
 	// Reading options from POST/PUT
@@ -1414,7 +1614,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		// Lab file does not exists
 		$output['code'] = 404;
 		$output['status'] = 'fail';
-		$output['message'] = $GLOBALS['messages']['60000'];
+		$output['message'] = $GLOBALS['messages'][60000];
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
 		return;
@@ -1438,6 +1638,21 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		unlockFile($lab_file_full);
+		return;
+	}
+
+	$isOwner = $lab->getAuthor() == $user['username'];
+	$isAdmin = $user['role'] == 'admin';
+	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
+	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+
+	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
+		$output['code'] = 403;
+		$output['status'] = 'fail';
+		$output['message'] = 'Permission denied to add objects to the lab.';
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
 		unlockFile($lab_file_full);
@@ -1619,8 +1834,16 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
-	if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
-		unlockFile($lab_file_full);
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+
+	$isOwner = $lab->getAuthor() == $user['username'];
+	$isAdmin = $user['role'] == 'admin';
+
+	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
+	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+
+	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
 		$output['code'] = 403;
 		$output['status'] = 'fail';
 		$output['message'] = 'Недостаточно прав для удаления лаборатории';
