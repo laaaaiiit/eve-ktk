@@ -115,6 +115,42 @@ function apiGetUUsers($db) {
 }
 
 /**
+ * Function to provide a sanitized list of usernames and roles.
+ *
+ * @param	PDO		$db					PDO object for database connection
+ * @return  Array						User directory (JSend data)
+ */
+function apiGetUserDirectory($db) {
+	$data = array();
+	$query = 'SELECT username, role FROM users ORDER BY username ASC;';
+
+	try {
+		$statement = $db->prepare($query);
+		$statement->execute();
+		while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+			if (!isset($row['username']) || $row['username'] === '') {
+				continue;
+			}
+			$data[] = array(
+				'username' => $row['username'],
+				'role' => isset($row['role']) && $row['role'] !== '' ? $row['role'] : 'user'
+			);
+		}
+
+		$output['code'] = 200;
+		$output['status'] = 'success';
+		$output['message'] = 'ok';
+		$output['data'] = $data;
+	} catch (Exception $e) {
+		$output['code'] = 500;
+		$output['status'] = 'fail';
+		$output['message'] = $GLOBALS['messages'][90003];
+	}
+
+	return $output;
+}
+
+/**
  * Function to delete a UNetLab user.
  *
  * @param	PDO		$db					PDO object for database connection

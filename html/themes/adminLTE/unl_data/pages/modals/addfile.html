@@ -82,13 +82,14 @@
                 </span>
               </label>
               <label class="flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 cursor-pointer select-none transition-colors duration-300"
-                     ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
+                     ng-class="[themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white'), !shared ? 'opacity-60 cursor-not-allowed' : '']">
                 <div>
                   <p class="text-sm font-semibold theme-heading" data-ng-bind="t.modalCollaborateLabel"></p>
                   <span class="text-xs theme-muted" data-ng-bind="t.modalCollaborateHint"></span>
+                  <span class="text-[11px] text-amber-400 mt-1 block" data-ng-if="!shared" data-ng-bind="t.modalCollaborateRequirement"></span>
                 </div>
-                <span class="relative inline-flex items-center">
-                  <input type="checkbox" class="sr-only peer" ng-model="collaborateAllowed">
+                <span class="relative inline-flex items-center" ng-class="{'opacity-60 cursor-not-allowed': !shared}">
+                  <input type="checkbox" class="sr-only peer" ng-model="collaborateAllowed" ng-disabled="!shared">
                   <span class="w-16 h-8 rounded-full border transition-colors duration-300 peer-checked:bg-emerald-500/80"
                         ng-class="themeClass('border-white/10 bg-slate-700/70','border-slate-300 bg-slate-200')"></span>
                   <span class="absolute left-1 top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform duration-300 peer-checked:translate-x-8"></span>
@@ -124,12 +125,13 @@
                       ng-class="themeClass('bg-slate-900/90 border-white/10','bg-white border-slate-200')"
                       style="max-height: 12rem;"
                       data-ng-if="sharedWithFocused && sharedWithSuggestions.length">
-                    <li data-ng-repeat="user in sharedWithSuggestions track by user">
+                    <li data-ng-repeat="user in sharedWithSuggestions track by user.username">
                       <button type="button"
-                              class="w-full text-left px-3 py-2 hover:bg-emerald-500/20 rounded-xl"
+                              class="w-full text-left px-3 py-2 hover:bg-emerald-500/20 rounded-xl flex items-center justify-between gap-3"
                               ng-class="themeClass('text-slate-100 hover:text-white','text-slate-800 hover:text-slate-900')"
-                              ng-click="addSharedWithUser(user)">
-                        {{user}}
+                              ng-click="addSharedWithUser(user.username)">
+                        <span>{{user.username}}</span>
+                        <span class="text-[11px] uppercase tracking-wide opacity-70" ng-bind="user.role"></span>
                       </button>
                     </li>
                   </ul>

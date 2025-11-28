@@ -1190,6 +1190,8 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	// 	return;
 	// }
 
+	$refreshSharedCopies = false;
+
 	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/networks\/[0-9]+$/', $s)) {
 		$p['id'] = $id;
 		$p['username'] = $lab->getAuthor();
@@ -1199,13 +1201,16 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			unset($p['count']);
 		}
 		$output = apiEditLabNetwork($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/networks$/', $s)) {
 		$output = apiEditLabNetworks($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/configs\/[0-9]+$/', $s)) {
 		$p['id'] = $id;
 		$p['username'] = $lab->getAuthor();
 
 		$output = apiEditLabConfig($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/export$/', $s)) {
 		if (!in_array($user['role'], array('admin', 'editor'))) {
 			$app->response->setStatus($GLOBALS['forbidden']['code']);
@@ -1225,8 +1230,10 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+$/', $s)) {
 		$p['id'] = $id;
 		$output = apiEditLabNode($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes$/', $s)) {
 		$output = apiEditLabNodes($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+\/export$/', $s)) {
 		if ($user['tenant'] < 0) {
 			// User does not have an assigned tenant
@@ -1240,22 +1247,30 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output = apiExportLabNode($lab, $id, $user['tenant'], $user['username']);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+\/interfaces$/', $s)) {
 		$output = apiEditLabNodeInterfaces($lab, $id, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects\/[0-9]+$/', $s)) {
 		$p['id'] = $id;
 		$output = apiEditLabTextObject($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects$/', $s)) {
 		$output = apiEditLabTextObjects($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/pictures\/[0-9]+$/', $s)) {
 		$p['id'] = $id;
 		$output = apiEditLabPicture($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {
 		$output = apiEditLab($lab, $p);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/Lock$/', $s)) {
 		$output = apiLockLab($lab);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/Unlock$/', $s)) {
 		$output = apiUnlockLab($lab);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/move$/', $s)) {
 		$output = apiMoveLab($lab, $p['path']);
+		$refreshSharedCopies = true;
 	} else {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
@@ -1266,6 +1281,10 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['status'] === 'success') {
 			syncSharedLabCopies($lab, $originalShared, $originalSharedWith, $db, $user);
 		}
+	}
+
+	if ($refreshSharedCopies && $output['status'] === 'success') {
+		refreshSharedLabCopies($lab, $db, $user);
 	}
 
 	$app->response->setStatus($output['code']);
@@ -1425,16 +1444,21 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
+	$refreshSharedCopies = false;
+
 	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/networks$/', $s)) {
 		$output = apiAddLabNetwork($lab, $p, $o);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes$/', $s)) {
 		if (isset($p['count'])) {
 			// count cannot be set from API
 			unset($p['count']);
 		}
 		$output = apiAddLabNode($lab, $p, $o);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects$/', $s)) {
 		$output = apiAddLabTextObject($lab, $p, $o);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/pictures$/', $s)) {
 		// Cannot use $app->request()->getBody()
 		$p = $_POST;
@@ -1452,6 +1476,7 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			}
 		}
 		$output = apiAddLabPicture($lab, $p);
+		$refreshSharedCopies = true;
 	} else {
 		$output['code'] = 400;
 		$output['status'] = 'fail';
@@ -1460,6 +1485,11 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
+
+	if ($refreshSharedCopies && $output['status'] === 'success') {
+		refreshSharedLabCopies($lab, $db, $user);
+	}
+
 	unlockFile($lab_file_full);
 });
 
@@ -1599,14 +1629,20 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
+	$refreshSharedCopies = false;
+
 	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/networks\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabNetwork($lab, $id);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabNode($lab, $id, $user);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabTextObject($lab, $id);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/pictures\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabPicture($lab, $id);
+		$refreshSharedCopies = true;
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {
 		$output = apiDeleteLab($lab, $user, $db);
 	} else {
@@ -1617,6 +1653,10 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
+
+	if ($refreshSharedCopies && $output['status'] === 'success') {
+		refreshSharedLabCopies($lab, $db, $user);
+	}
 });
 
 /***************************************************************************
@@ -1782,6 +1822,20 @@ $app->get('/api/labs/collaborate-open/(:path+)', function ($path = array()) use 
 /***************************************************************************
  * Users
  **************************************************************************/
+// Lightweight user directory for sharing dialogs
+$app->get('/api/user-directory', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$output = apiGetUserDirectory($db);
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
+});
+
 // Get a user
 $app->get('/api/users/(:uuser)', function ($uuser = False) use ($app, $db) {
 	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));

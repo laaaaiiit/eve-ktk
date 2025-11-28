@@ -205,6 +205,7 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 	$scope.sharedWithSuggestions = [];
 	$scope.sharedUsersLoaded = false;
 	$scope.availableUsernames = [];
+	$scope.availableUsersRaw = [];
 	$scope.sharedWithError = '';
 	$scope.sharedWithFocused = false;
 	var sharedWithBlurPromise = null;
@@ -215,14 +216,18 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 
 	function normalizeSuggestions() {
 		var term = ($scope.sharedWithInput || '').toLowerCase();
-		$scope.sharedWithSuggestions = $scope.availableUsernames.filter(function (user) {
-			if ($scope.sharedWithUsers.indexOf(user) !== -1) {
+		$scope.sharedWithSuggestions = $scope.availableUsersRaw.filter(function (user) {
+			var username = (user && user.username) ? user.username : '';
+			if (!username) {
+				return false;
+			}
+			if ($scope.sharedWithUsers.indexOf(username) !== -1) {
 				return false;
 			}
 			if (!term) {
 				return true;
 			}
-			return user.toLowerCase().indexOf(term) !== -1;
+			return username.toLowerCase().indexOf(term) !== -1;
 		});
 	}
 
@@ -230,23 +235,33 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 		if ($scope.sharedUsersLoaded) {
 			return;
 		}
-		$http.get('/api/users/').then(function (response) {
+		$http.get('/api/user-directory').then(function (response) {
 			var list = (response.data && response.data.data) ? response.data.data : [];
-			if (!Array.isArray(list) && typeof list === 'object') {
+			if (!Array.isArray(list) && typeof list === 'object' && list !== null) {
 				list = Object.keys(list).map(function (key) { return list[key]; });
 			}
 			if (!Array.isArray(list)) {
 				list = [];
 			}
 			var currentUser = $rootScope.username || '';
-			$scope.availableUsernames = list.map(function (u) { return u.username; }).filter(function (u) {
-				if (!u) { return false; }
-				if (currentUser && u === currentUser) { return false; }
+			$scope.availableUsersRaw = list.map(function (u) {
+				if (typeof u === 'string') {
+					return { username: u, role: 'user' };
+				}
+				return {
+					username: u && u.username ? u.username : '',
+					role: u && u.role ? u.role : 'user'
+				};
+			}).filter(function (u) {
+				if (!u.username) { return false; }
+				if (currentUser && u.username === currentUser) { return false; }
 				return true;
 			});
+			$scope.availableUsernames = $scope.availableUsersRaw.map(function (u) { return u.username; });
 			$scope.sharedUsersLoaded = true;
 			normalizeSuggestions();
 		}).catch(function () {
+			$scope.availableUsersRaw = [];
 			$scope.availableUsernames = [];
 			$scope.sharedUsersLoaded = true;
 			normalizeSuggestions();
@@ -256,6 +271,8 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 	$scope.$watch('shared', function (newVal) {
 		if (newVal) {
 			$scope.loadSharedUsers();
+		} else if ($scope.collaborateAllowed) {
+			$scope.collaborateAllowed = false;
 		}
 	});
 
@@ -350,6 +367,11 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			return;
 		}
 
+		syncSharedWithString();
+		var isShared = !!$scope.shared;
+		var sharedWithValue = isShared ? $scope.sharedWith : '';
+		var collaborateAllowed = (isShared && $scope.collaborateAllowed);
+
 		$scope.newdata = {
 			'author': resolvedAuthor,
 			'description': $scope.description,
@@ -358,9 +380,9 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			'name': $scope.labName,
 			'body': $scope.body,
 			'path': $scope.path,
-			'shared': $scope.shared,
-			'sharedWith': $scope.sharedWith,
-			'collaborateAllowed': $scope.collaborateAllowed
+			'shared': isShared,
+			'sharedWith': sharedWithValue,
+			'collaborateAllowed': collaborateAllowed
 		}
 
 		if ($scope.labName === '') {
@@ -373,8 +395,6 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 			$scope.errorClass = 'has-error sharedWith';
 			return;
 		}
-
-		syncSharedWithString();
 
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';

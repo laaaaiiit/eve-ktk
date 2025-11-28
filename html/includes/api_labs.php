@@ -365,7 +365,8 @@ function apiGetLab(Lab $lab)
 		'sharedWith' => $lab->getSharedWith(),
 		'isMirror' => $lab->getIsMirror(),
 		'collaborateAllowed' => $lab->getCollaborateAllowed(),
-		'mirrorPath' => $lab->getMirrorPath()
+		'mirrorPath' => $lab->getMirrorPath(),
+		'updatedAt' => @filemtime($lab->getPath() . '/' . $lab->getFilename()) ?: time()
 	);
 
 	return $output;
@@ -724,6 +725,9 @@ function apiEditLabSharedWith(Lab $lab, string $sharedWith)
 function apiEditLabShared(Lab $lab, bool $shared)
 {
 	$lab->setShared($shared);
+	if ($shared === false && $lab->getCollaborateAllowed()) {
+		$lab->setCollaborateAllowed(false);
+	}
 
 	$rc = $lab->save();
 
@@ -742,6 +746,13 @@ function apiEditLabShared(Lab $lab, bool $shared)
 
 function apiEditLabCollaborateAllowed(Lab $lab, bool $collaborateAllowed)
 {
+	if ($collaborateAllowed && !$lab->getShared()) {
+		$output['code'] = 400;
+		$output['status'] = 'fail';
+		$output['message'] = 'Collaborate mode requires the lab to be shared.';
+		return $output;
+	}
+
 	$lab->setCollaborateAllowed($collaborateAllowed);
 
 	$rc = $lab->save();
@@ -889,6 +900,33 @@ function syncSharedLabCopies($lab, $prevShared, $prevSharedWith, $db, $currentUs
 		foreach ($prevList as $username) {
 			removeSharedArtifactsForUser($lab, $username, $db);
 		}
+	}
+}
+
+/**
+ * Force-refresh shared lab copies for every recipient.
+ *
+ * @param Lab $lab
+ * @param mixed $db
+ * @param array $currentUser
+ * @return void
+ */
+function refreshSharedLabCopies($lab, $db, $currentUser)
+{
+	if (!$lab->getShared()) {
+		return;
+	}
+
+	$sharedUsers = normalizeSharedUsers($lab->getSharedWith());
+	if (empty($sharedUsers)) {
+		return;
+	}
+
+	foreach ($sharedUsers as $username) {
+		if ($username === $currentUser['username']) {
+			continue;
+		}
+		ensureSharedCopyForUser($lab, $username, $db);
 	}
 }
 

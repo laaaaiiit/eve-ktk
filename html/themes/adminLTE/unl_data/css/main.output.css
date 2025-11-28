@@ -114,6 +114,7 @@
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --tracking-normal: 0em;
+    --tracking-wide: 0.025em;
     --leading-tight: 1.25;
     --leading-snug: 1.375;
     --leading-relaxed: 1.625;
@@ -2118,6 +2119,10 @@
   .tracking-normal {
     --tw-tracking: var(--tracking-normal);
     letter-spacing: var(--tracking-normal);
+  }
+  .tracking-wide {
+    --tw-tracking: var(--tracking-wide);
+    letter-spacing: var(--tracking-wide);
   }
   .text-wrap {
     text-wrap: wrap;
