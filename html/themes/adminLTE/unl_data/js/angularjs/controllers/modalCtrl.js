@@ -320,7 +320,22 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 		}
 	});
 
+	function resolveLabCreationErrorMessage(response, tr) {
+		var raw = (response && response.data && response.data.message) ? response.data.message : '';
+		if (raw && /60016/.test(raw)) {
+			return tr.validationLabExists || 'Lab with this name already exists.';
+		}
+		if (raw && /60017/.test(raw)) {
+			return tr.validationLabNameRequired || "Name can't be empty!";
+		}
+		return raw || tr.validationLabExists || 'Lab with the same name found';
+	}
+
 	$scope.addNewLab = function () {
+
+		$scope.errorClass = '';
+		$scope.errorMessage = '';
+		var tr = $scope.t || {};
 
 		$scope.path = ($scope.labPath === '/') ? $scope.labPath : $scope.labPath + '/';
 
@@ -349,8 +364,8 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 		}
 
 		if ($scope.labName === '') {
-			$scope.errorMessage = "Name can't be empty!";
-			$scope.errorClass = 'has-error';
+			$scope.errorMessage = tr.validationLabNameRequired || "Name can't be empty!";
+			$scope.errorClass = 'has-error name';
 			return;
 		}
 
@@ -393,9 +408,9 @@ angular.module("unlMainApp").controller('AddElModalCtrl', function AddElModalCtr
 					$scope.blockButtons = false;
 					$scope.blockButtonsClass = '';
 					$scope.result = false;
-					if (response.status == 400 && response.data.status == 'fail') {
-						$scope.errorMessage = "Lab with the same name found";
-						$scope.errorClass = 'has-error';
+					if (response.status == 400 && response.data && response.data.status == 'fail') {
+						$scope.errorMessage = resolveLabCreationErrorMessage(response, tr);
+						$scope.errorClass = 'has-error name';
 						return;
 					}
 					if (response.status == 412 && response.data.status == "unauthorized") {

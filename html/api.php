@@ -680,6 +680,17 @@ $app->get('/api/nodes', function () use ($app, $db) {
 
 	$allNodes = array();
 
+	function resolveLabOwnerFromPath($labPath)
+	{
+		$relative = str_replace(BASE_LAB, '', $labPath);
+		$relative = trim($relative, '/');
+		if ($relative === '') {
+			return '';
+		}
+		$segments = explode('/', $relative);
+		return isset($segments[0]) ? $segments[0] : '';
+	}
+
 	// Рекурсивная функция для сканирования всех .unl файлов
 	function scanLabs($dir, &$allNodes, $user)
 	{
@@ -692,14 +703,24 @@ $app->get('/api/nodes', function () use ($app, $db) {
 				scanLabs($path, $allNodes, $user);
 			} elseif (preg_match('/\.unl$/', $file)) {
 				try {
-					$lab = new Lab($path, $user['tenant'], $user['username']);
+					$labOwner = resolveLabOwnerFromPath($path);
+					$lab = new Lab($path, $user['tenant'], $labOwner ?: $user['username'], false);
+					$labAuthor = $lab->getAuthor();
+					if (empty($labAuthor)) {
+						$labAuthor = $labOwner ?: $user['username'];
+					}
+
+					if ($labOwner && $labAuthor && strcasecmp(trim($labOwner), trim($labAuthor)) !== 0) {
+						// Пропускаем опубликованные лаборатории, которые лежат в чужих папках.
+						continue;
+					}
 					$nodes = $lab->getNodes();
 
 					foreach ($nodes as $nodeId => $node) {
 						$allNodes[] = array(
 							'lab' => str_replace(BASE_LAB, '', $path),
 							'id' => $nodeId,
-							'user' => $lab->getAuthor(),
+							'user' => $labAuthor,
 							'name' => $node->getName(),
 							'type' => $node->getNType(),
 							'template' => $node->getTemplate(),
@@ -712,7 +733,7 @@ $app->get('/api/nodes', function () use ($app, $db) {
 							'eth' => $node->getEthernetCount(),
 							'ser' => $node->getSerialCount(),
 							'console' => $node->getConsole(),
-							'url' => $node->getConsoleUrl($user['html5'], $user, $lab->getAuthor()),
+							'url' => $node->getConsoleUrl($user['html5'], $user, $labAuthor),
 							'port' => $node->getPort()
 						);
 					}
