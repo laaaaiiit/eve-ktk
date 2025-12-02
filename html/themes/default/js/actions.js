@@ -2036,26 +2036,19 @@ $(document).on('click', '.action-nodestop, .action-nodesstop, .action-nodestop-g
     }
     
     // Все ноды
-    else if (stopAll) {
-        $.when(getNodes(null)).done(function (nodes) {
-            nodeLenght = Object.keys(nodes).length;
-            $.each(nodes, function (key, values) {
-                $.when(stop(key)).done(function () {
-                    addMessage('success', values.name + ': ' + MESSAGES[77]);
-                    $('#node' + values.id).attr('data-status', 0);
-                }).fail(function (message) {
-                    addMessage('danger', values.name + ': ' + message);
-                }).always(function () {
-                    nodeLenght--;
-                    if (nodeLenght < 1) {
-                        setTimeout(printLabStatus, 3000);
-                    }
-                });
-            });
-        }).fail(function (message) {
-            addModalError(message);
-        });
-    }
+	else if (stopAll) {
+		$.when(getNodes(null)).done(function (nodes) {
+			nodeLenght = Object.keys(nodes).length;
+			addMessage('info', 'Stop all...');
+			$.when(recursive_stop(nodes, nodeLenght)).done(function () {
+				setTimeout(printLabStatus, 3000);
+			}).fail(function (message) {
+				addMessage('danger', 'Stop all: Error');
+			});
+		}).fail(function (message) {
+			addModalError(message);
+		});
+	}
 });
 
 // Wipe a node

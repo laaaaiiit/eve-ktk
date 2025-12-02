@@ -33,7 +33,7 @@ require_once(BASE_DIR . '/html/includes/api_clouds.php');
 
 $app = new \Slim\Slim(array(
 	'mode' => 'production',
-	'debug' => True,					// Change to False for production
+	'debug' => False,					// Disabled in production to avoid leaking sensitive data
 	'log.level' => \Slim\Log::WARN,		// Change to WARN for production, DEBUG to develop
 	'log.enabled' => True,
 	'log.writer' => new \Slim\LogWriter(fopen('/opt/unetlab/data/Logs/api.txt', 'a'))
@@ -123,7 +123,8 @@ $app->post('/api/auth/login', function () use ($app, $db, $html5_db) {
 	$output = apiLogin($db, $html5_db, $p, $cookie);
 	if ($output['code'] == 200) {
 		// User is authenticated, need to set the cookie httpOnly to avoid identity stealth
-		$app->setCookie('unetlab_session', $cookie, SESSION, '/api/', $_SERVER['SERVER_NAME'], False, True);
+		$cookieSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+		$app->setCookie('unetlab_session', $cookie, SESSION, '/api/', $_SERVER['SERVER_NAME'], $cookieSecure, True);
 	}
 	$http_code = $output['code'];
 	if ($http_code == 400 && $output['status'] == 'fail') {
@@ -248,6 +249,7 @@ $app->get('/api/status', function () use ($app, $db) {
 		$output['data']['docker'],
 		$output['data']['vpcs']
 	) = apiGetRunningWrappers();
+	$output['data']['jobs'] = fetchJobSummary($db, $user['username'], $user['role'], 8);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
@@ -1671,6 +1673,50 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		}
 		$output = apiAddLabNode($lab, $p, $o);
 		$refreshSharedCopies = true;
+	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/actions$/', $s)) {
+		if (!isset($p['action']) || !isset($p['ids']) || !is_array($p['ids']) || empty($p['ids'])) {
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			$output['message'] = 'Action and ids are required.';
+		} else {
+			$action = strtolower($p['action']);
+			$ids = array_values(array_unique(array_map('intval', $p['ids'])));
+			if (empty($ids)) {
+				$output['code'] = 400;
+				$output['status'] = 'fail';
+				$output['message'] = 'No valid node IDs specified.';
+			} else {
+				if (in_array($action, array('start', 'stop', 'wipe')) && $user['tenant'] < 0) {
+					$output['code'] = 400;
+					$output['status'] = 'fail';
+					$output['message'] = $GLOBALS['messages']['60052'];
+					$app->response->setStatus($output['code']);
+					$app->response->setBody(json_encode($output));
+					unlockFile($lab_file_full);
+					return;
+				}
+				if ($action === 'delete' && !$isOwner && !$isAdmin) {
+					$output['code'] = 403;
+					$output['status'] = 'fail';
+					$output['message'] = 'Permission denied to delete nodes.';
+					$app->response->setStatus($output['code']);
+					$app->response->setBody(json_encode($output));
+					unlockFile($lab_file_full);
+					return;
+				}
+				$jobPayload = array(
+					'operation' => $action,
+					'ids' => $ids
+				);
+				$jobId = enqueueJob($db, $lab_file_absolute, $user['tenant'], $user['username'], $user['role'], 'nodes_batch', $jobPayload);
+				$output['code'] = 202;
+				$output['status'] = 'accepted';
+				$output['message'] = 'Batch node action queued.';
+				$output['data'] = array(
+					'job_id' => (int) $jobId
+				);
+			}
+		}
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects$/', $s)) {
 		$output = apiAddLabTextObject($lab, $p, $o);
 		$refreshSharedCopies = true;
@@ -2475,6 +2521,96 @@ $app->get('/api/token', function () use ($app, $db) {
 
 	$app->response->setStatus(200);
 	$app->response->setBody(json_encode($response));
+});
+
+$app->get('/api/jobs', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$request = $app->request;
+	$filters = array(
+		'page' => $request->params('page'),
+		'per_page' => $request->params('per_page'),
+		'status' => $request->params('status'),
+		'username' => $request->params('username'),
+		'node' => $request->params('node'),
+		'lab' => $request->params('lab'),
+		'q' => $request->params('q')
+	);
+
+	if ($user['role'] !== 'admin') {
+		$filters['username'] = $user['username'];
+	}
+
+	try {
+		$result = fetchJobsList($db, $user, $filters);
+		$response = array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Job queue',
+			'data' => $result
+		);
+		$app->response->setStatus(200);
+		$app->response->setBody(json_encode($response));
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to load jobs list');
+		error_log(date('M d H:i:s ') . (string) $e);
+		$response = array(
+			'code' => 500,
+			'status' => 'fail',
+			'message' => 'Unable to load job queue.'
+		);
+		$app->response->setStatus(500);
+		$app->response->setBody(json_encode($response));
+	}
+});
+
+$app->get('/api/jobs/(:job_id)', function ($job_id) use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$jobId = intval($job_id);
+	if ($jobId <= 0) {
+		$output['code'] = 400;
+		$output['status'] = 'fail';
+		$output['message'] = 'Invalid job identifier.';
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$job = getJobById($db, $jobId);
+	if ($job === null) {
+		$output['code'] = 404;
+		$output['status'] = 'fail';
+		$output['message'] = 'Job not found.';
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	if ($user['role'] !== 'admin' && $job['username'] !== $user['username']) {
+		$app->response->setStatus($GLOBALS['forbidden']['code']);
+		$app->response->setBody(json_encode($GLOBALS['forbidden']));
+		return;
+	}
+
+	$output = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => 'Job status',
+		'data' => $job
+	);
+	$app->response->setStatus($output['code']);
+	$app->response->setBody(json_encode($output));
 });
 
 /***************************************************************************

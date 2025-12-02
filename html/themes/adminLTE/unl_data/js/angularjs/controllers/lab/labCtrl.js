@@ -159,24 +159,34 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		if (!fl){
 			alert('There are running nodes, you need to power off them before closing the lab.')
 		}
-		else {
-			$http({
-				method: 'DELETE',
-				url: '/api/labs/close'})
-				.then(
-					function successCallback(response) {
-						console.log(response)
-						console.log($location.url())
-						blockUI();
+	else {
+		$http({
+			method: 'DELETE',
+			url: '/api/labs/close'})
+			.then(
+				function successCallback(response) {
+					console.log(response)
+					console.log($location.url())
+					blockUI();
+					if ($rootScope.testAUTH) {
+						$rootScope.testAUTH("/main", true);
 						$location.path('/main');
-					}, 
-					function errorCallback(response) {
-						console.log(response)
+					} else {
 						$location.path('/main');
 					}
-			);
-			jsPlumb.detachEveryConnection();
-		}
+				}, 
+				function errorCallback(response) {
+					console.log(response)
+					if ($rootScope.testAUTH) {
+						$rootScope.testAUTH("/main", true);
+						$location.path('/main');
+					} else {
+						$location.path('/main');
+					}
+				}
+		);
+		jsPlumb.detachEveryConnection();
+	}
 		//jsPlumb.reset();
 		
 
@@ -197,25 +207,18 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 	$scope.wipeAllNode = function(){
 		closePopUp();
 		openrightHide();
-		console.log("wipe 111");
-		var h_flague = false;
-		$(".free-selected").each(function(){
-		  var id = $(this).attr("id");
-		  id = id.replace("nodeID_", "");
-		  var node = $scope.node[id];
-		  $scope.wipeNode(node.id);
-			h_flague = true;
-		})
-		if (!h_flague)
-		{
-			for(i in $scope.node)
-			{
-				var node = $scope.node[i];
-				$scope.wipeNode(node.id);
-				console.log("wipe 222");
-				
-			}
+		var ids = collectSelectedNodeIds();
+		if (!ids.length) {
+			ids = collectAllNodeIds();
 		}
+		if (!ids.length) {
+			return;
+		}
+		if (ids.length === 1) {
+			queueSingleNodeAction('wipe', ids[0]);
+			return;
+		}
+		runBatchNodeAction('wipe', ids);
 	}
 
 	$scope.wipeNode = function(id){
@@ -225,19 +228,7 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			id = $("#tempElID").val();
 			id = id.replace("nodeID_", "");
 		}
-		$http.get('/api/labs'+$rootScope.lab+'/nodes/'+id+'/wipe').then(
-			function successCallback(response){
-				toastr["success"](response.data.message, "success");
-				$("#messages .inner").append("<div class='success'> <i class='fa fa-check'></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
-			},
-			function errorCallback(response){
-				toastr["error"](response.data.message, "Error");
-				$("#messages .inner").append("<div class='error'> <i class='fa fa-exclamation-triangle '></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
-			}
-		);
-		$scope.stopThisNode();
-		console.log("s-a transmis wipe")
-		 
+		queueSingleNodeAction('wipe', id);
 	}
 	///////////////////////////////////////////////
 	//// Wipe all nodes /END
@@ -263,54 +254,252 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		}
 	}
 
-	$scope.startAllNode = function(){
-		closePopUp();
-		openrightHide();
-		var h_flague = false;
+	function collectNodeIdsByStatus(targetStatus) {
+		var ids = [];
+		var selectionDetected = false;
 		$(".free-selected").each(function(){
-		  var id = $(this).attr("id");
-		  id = id.replace("nodeID_", "");
-		  var node = $scope.node[id];
-			if (node.status == 0){
-				$scope.startstopNode(node.id);
+			var domId = $(this).attr("id");
+			if (domId && domId.indexOf("nodeID_") !== -1) {
+				selectionDetected = true;
+				var nodeId = domId.replace("nodeID_", "");
+				var nodeObj = $scope.node[nodeId];
+				if (nodeObj && nodeObj.status == targetStatus) {
+					ids.push(nodeId);
+				}
 			}
-			h_flague = true;
-		})
-		if (!h_flague)
-		{
-			for(i in $scope.node)
-			{
-				var node = $scope.node[i];
-				if (node.status == 0){
-					$scope.startstopNode(node.id);
+		});
+		if (!selectionDetected) {
+			for (var key in $scope.node) {
+				if (!$scope.node.hasOwnProperty(key)) continue;
+				var node = $scope.node[key];
+				if (node && node.status == targetStatus) {
+					ids.push(node.id || key);
 				}
 			}
 		}
+		return ids;
+	}
+
+	function collectSelectedNodeIds() {
+		var ids = [];
+		$(".free-selected").each(function(){
+			var domId = $(this).attr("id");
+			if (domId && domId.indexOf("nodeID_") !== -1) {
+				var nodeId = domId.replace("nodeID_", "");
+				ids.push(nodeId);
+			}
+		});
+		return ids;
+	}
+
+	function collectAllNodeIds() {
+		var ids = [];
+		for (var key in $scope.node) {
+			if (!$scope.node.hasOwnProperty(key)) {
+				continue;
+			}
+			var node = $scope.node[key];
+			if (node) {
+				ids.push(node.id || key);
+			}
+		}
+		return ids;
+	}
+
+	function removeNodeElement(nodeId, elementPrefix) {
+		var prefix = elementPrefix || 'node';
+		jsPlumb.select({source: prefix + 'ID_' + nodeId}).detach();
+		jsPlumb.select({target: prefix + 'ID_' + nodeId}).detach();
+		$('#' + prefix + 'ID_' + nodeId).remove();
+		if ($scope.node[nodeId]) {
+			delete $scope.node[nodeId];
+		}
+	}
+
+	$scope.activeJob = null;
+
+	function applySingleNodeResult(nodeId, action, entry) {
+		var node = $scope.node[nodeId];
+		if (!node) {
+			return;
+		}
+		node.loadclassShow = false;
+		if (entry.code !== 200) {
+			toastr["error"](entry.message || ('Failed to ' + action + ' node #' + nodeId), "Error");
+			return;
+		}
+		if (action === 'start') {
+			node.upstatus = true;
+			node.status = 2;
+		} else if (action === 'stop') {
+			node.upstatus = false;
+			node.status = 0;
+		} else if (action === 'wipe') {
+			node.upstatus = false;
+			node.status = 0;
+		} else if (action === 'delete') {
+			removeNodeElement(nodeId);
+		}
+	}
+
+	function handleBatchResults(action, resultPayload) {
+		if (!resultPayload || !resultPayload.data || !resultPayload.data.results) {
+			return;
+		}
+		resultPayload.data.results.forEach(function(entry){
+			applySingleNodeResult(entry.id, action, entry);
+		});
+	}
+
+	function runBatchNodeAction(action, ids) {
+		if (!ids || !ids.length) {
+			return $q.when();
+		}
+		ids.forEach(function(nodeId){
+			var node = $scope.node[nodeId];
+			if (node) {
+				node.loadclassShow = true;
+			}
+		});
+		return $scope.applyBatchNodeAction(action, ids, function(data){
+			handleBatchResults(action, data);
+		}).catch(function(error){
+			ids.forEach(function(nodeId){
+				var node = $scope.node[nodeId];
+				if (node) {
+					node.loadclassShow = false;
+				}
+			});
+			return $q.reject(error);
+		});
+	}
+
+	function queueSingleNodeAction(action, nodeId) {
+		return runBatchNodeAction(action, [nodeId]);
+	}
+
+	$scope.pollJobStatus = function(jobId) {
+		var deferred = $q.defer();
+		function check() {
+			$http.get('/api/jobs/' + jobId).then(function(response){
+				if (!response.data || !response.data.data) {
+					deferred.reject({message: 'Malformed job response'});
+					return;
+				}
+				var job = response.data.data;
+				if ($scope.activeJob && $scope.activeJob.id == jobId) {
+					$scope.activeJob.progress = job.progress || 0;
+					$scope.activeJob.status = job.status;
+				}
+				if (job.status === 'success' || job.status === 'failed') {
+					deferred.resolve(job);
+					if ($scope.activeJob && $scope.activeJob.id == jobId) {
+						$scope.activeJob.progress = 100;
+						$scope.activeJob.status = job.status;
+					}
+				} else {
+					$timeout(check, 2000);
+				}
+			}, function(error){
+				deferred.reject(error);
+			});
+		}
+		check();
+		return deferred.promise;
+	};
+
+	$scope.applyBatchNodeAction = function(action, ids, onComplete) {
+		if (!ids || !ids.length) {
+			return;
+		}
+		var jobContext = {
+			action: action,
+			progress: 0,
+			status: 'queued',
+			id: null
+		};
+		$scope.activeJob = jobContext;
+		return $http.post('/api/labs' + $rootScope.lab + '/nodes/actions', { action: action, ids: ids })
+			.then(function successCallback(response) {
+				if ((response.status === 202 || response.data.status === 'accepted') && response.data.data && response.data.data.job_id) {
+					var jobId = response.data.data.job_id;
+					toastr["info"]('Batch queued (Job #' + jobId + ')', 'Queued');
+					jobContext.id = jobId;
+					jobContext.status = 'running';
+					jobContext.progress = 0;
+					return $scope.pollJobStatus(jobId);
+				}
+				jobContext.progress = 100;
+				jobContext.status = response.data.status || 'success';
+				return response.data;
+			}, function errorCallback(error) {
+				var message = (error.data && error.data.message) ? error.data.message : 'Server Error';
+				toastr["error"](message, "Error");
+				$scope.activeJob = null;
+				return $q.reject(error);
+			})
+			.then(function(resultData){
+				if (!resultData) {
+					return;
+				}
+				var finalResult = resultData.result || resultData;
+				if (typeof onComplete === 'function') {
+					onComplete(finalResult);
+				}
+				if (resultData.status === 'failed') {
+					var failMessage = (finalResult && finalResult.message) ? finalResult.message : 'Job failed';
+					toastr["error"](failMessage, "Error");
+				} else if (finalResult && finalResult.status === 'partial') {
+					toastr["warning"](finalResult.message || 'Batch completed with issues', "Partial");
+				} else {
+					var successMessage = (finalResult && finalResult.message) ? finalResult.message : 'Batch completed';
+					toastr["success"](successMessage, "Success");
+				}
+				jobContext.status = 'complete';
+				jobContext.progress = 100;
+				$timeout(function () {
+					if ($scope.activeJob === jobContext) {
+						$scope.activeJob = null;
+					}
+				}, 2000);
+				return finalResult;
+			})
+			.catch(function(error){
+				var message = (error && error.data && error.data.message) ? error.data.message : 'Job polling failed';
+				toastr["error"](message, "Error");
+				if ($scope.activeJob === jobContext) {
+					$scope.activeJob = null;
+				}
+				return $q.reject(error);
+			});
+	};
+
+	$scope.startAllNode = function(){
+		closePopUp();
+		openrightHide();
+		var ids = collectNodeIdsByStatus(0);
+		if (!ids.length) {
+			return;
+		}
+		if (ids.length === 1) {
+			queueSingleNodeAction('start', ids[0]);
+			return;
+		}
+		runBatchNodeAction('start', ids);
 	}
 
 	$scope.stopAllNode = function(){
 		closePopUp();
 		openrightHide();
-		var h_flague = false;
-		$(".free-selected").each(function(){
-		  var id = $(this).attr("id");
-		  id = id.replace("nodeID_", "");
-		  var node = $scope.node[id];
-			if (node.status == 2){
-				$scope.startstopNode(node.id);
-			}
-			h_flague = true;
-		})
-		if (!h_flague)
-		{
-			for(i in $scope.node)
-			{
-				var node = $scope.node[i];
-				if (node.status == 2){
-					$scope.startstopNode(node.id);
-				}
-			}
+		var ids = collectNodeIdsByStatus(2);
+		if (!ids.length) {
+			return;
 		}
+		if (ids.length === 1) {
+			queueSingleNodeAction('stop', ids[0]);
+			return;
+		}
+		runBatchNodeAction('stop', ids);
 	}
 
 
@@ -323,54 +512,9 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		}
 
 		if(!$scope.node[id].upstatus){
-			//START NODE //START
-			$scope.node[id].loadclassShow=true;
-			$http.get('/api/labs'+$rootScope.lab+'/nodes/'+id+'/start').then(
-				function successCallback(response){
-					$scope.node[id].upstatus=true;
-					$scope.node[id].loadclassShow=false;
-					$scope.node[id].status=2;
-					toastr["success"](response.data.message, "Success");
-					$("#messages .inner").append("<div class='success'> <i class='fa fa-check'></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
-				}, function errorCallback(response){
-					$scope.node[id].upstatus=false;
-					$scope.node[id].loadclassShow=false;
-					console.log('Server Error');
-					console.log(response.data);
-					toastr["error"](response.data.message, "Error");
-					$("#messages .inner").append("<div class='error'> <i class='fa fa-exclamation-triangle '></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
-				}
-			);
-			//$timeout(function () {
-			//	$scope.node[id].upstatus=true;
-			//	$scope.node[id].loadclassShow=false;
-			//}, 4000);
-			
-			//START NODE //END
+			queueSingleNodeAction('start', id);
 		} else {
-			//STOP NODE //START
-			$scope.node[id].loadclassShow=true;
-			$http.get('/api/labs'+$rootScope.lab+'/nodes/'+id+'/stop').then(
-				function successCallback(response){
-					$scope.node[id].upstatus=false;
-					$scope.node[id].status=0;
-					$scope.node[id].loadclassShow=false;
-					toastr["success"](response.data.message, "Success");
-					$("#messages .inner").append("<div class='success'> <i class='fa fa-check'></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
-				}, function errorCallback(response){
-					$scope.node[id].upstatus=false;
-					$scope.node[id].loadclassShow=false;
-					console.log('Server Error');
-					console.log(response.data);
-					toastr["error"](response.data.message, "Error");
-				}
-				
-			);
-			//$timeout(function () {
-			//	$scope.node[id].upstatus=false;
-			//	$scope.node[id].loadclassShow=false;
-			//}, 4000);
-			//STOP NODE //END
+			queueSingleNodeAction('stop', id);
 		}
 	}
 	///////////////////////////////////////////////
@@ -866,17 +1010,58 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		var id = $scope.tempElID.replace(element ? element + 'ID_' : type + 'ID_','');
 		if (confirm('Are you sure?')){
 			console.log("deteling id + type: "+ id+' '+type)
-			var h_flague = false;
-			$(".free-selected").each(function(ii){
-				console.log("each select")
-		  		var id = $(this).attr("id");
-				console.log(id.indexOf("nodeID_"));
-				console.log(id.indexOf("networkID_"));
-				if (id.indexOf("nodeID_") != -1) 
-		  		{
-		  			id = id.replace("nodeID_", "");
-			  		var node = $scope.node[id];
-					setTimeout(function(){
+			var selectedNodes = collectSelectedNodeIds();
+			var handledBatch = false;
+			if (type == 'node' && selectedNodes.length > 0) {
+				handledBatch = true;
+				$scope.applyBatchNodeAction('delete', selectedNodes, function(data){
+					if (!data || !data.data || !data.data.results) {
+						return;
+					}
+					data.data.results.forEach(function(entry){
+						if (entry.code === 200) {
+							removeNodeElement(entry.id, element ? element : type);
+						} else {
+							toastr["error"](entry.message, "Error");
+						}
+					});
+				}).catch(function(){
+					toastr["error"]('Unable to delete selected nodes', "Error");
+				});
+			}
+			if (!handledBatch) {
+				var h_flague = false;
+				$(".free-selected").each(function(ii){
+					console.log("each select")
+					var id = $(this).attr("id");
+					console.log(id.indexOf("nodeID_"));
+					console.log(id.indexOf("networkID_"));
+					if (id.indexOf("nodeID_") != -1) 
+					{
+						id = id.replace("nodeID_", "");
+						var node = $scope.node[id];
+						setTimeout(function(){
+							$http({
+								method: 'DELETE',
+								url:'/api/labs'+$rootScope.lab+'/'+type+'s/'+id}).then(
+								function successCallback(response){
+									console.log(response)
+									jsPlumb.select({source:type+'ID_'+id}).detach();
+									jsPlumb.select({target:type+'ID_'+id}).detach();
+									var selector = element ? element : type; 
+									console.log($('#'+selector+'ID_'+id))
+									$('#' + selector +'ID_'+id).remove()
+								}, function errorCallback(response){
+									console.log('Server Error');
+									console.log(response);
+								}
+							);
+						}, ii * 750 , id, node);
+					}
+					if (id.indexOf("networkID_") != -1) 
+					{
+						id = id.replace("networkID_", "");
+						var node = $scope.node[id];
 						$http({
 							method: 'DELETE',
 							url:'/api/labs'+$rootScope.lab+'/'+type+'s/'+id}).then(
@@ -892,35 +1077,14 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 								console.log(response);
 							}
 						);
-					}, ii * 750 , id, node);
-		  		}
-		  		if (id.indexOf("networkID_") != -1) 
-		  		{
-		  			id = id.replace("networkID_", "");
-			  		var node = $scope.node[id];
+					}
+					h_flague = true;
+				})
+				if (!h_flague)
+				{
+					console.log("aaa");
 					$http({
 						method: 'DELETE',
-						url:'/api/labs'+$rootScope.lab+'/'+type+'s/'+id}).then(
-						function successCallback(response){
-							console.log(response)
-							jsPlumb.select({source:type+'ID_'+id}).detach();
-							jsPlumb.select({target:type+'ID_'+id}).detach();
-							var selector = element ? element : type; 
-							console.log($('#'+selector+'ID_'+id))
-							$('#' + selector +'ID_'+id).remove()
-						}, function errorCallback(response){
-							console.log('Server Error');
-							console.log(response);
-						}
-					);
-		  		}
-				h_flague = true;
-			})
-			if (!h_flague)
-			{
-				console.log("aaa");
-				$http({
-					method: 'DELETE',
 					url:'/api/labs'+$rootScope.lab+'/'+type+'s/'+id}).then(
 					function successCallback(response){
 						console.log(response)
@@ -940,8 +1104,9 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 						console.log(response);
 					}
 				);
+				}
 			}
-		}
+	}
 	}
 	//////////////////////////////////////////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////

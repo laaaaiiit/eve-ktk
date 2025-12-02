@@ -26,7 +26,20 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
                         ksmTitle: 'KSM status',
                         ksmSubtitle: 'Kernel same-page merging',
                         cpulimitTitle: 'CPULimit status',
-                        cpulimitSubtitle: 'Scheduler throttling'
+                        cpulimitSubtitle: 'Scheduler throttling',
+                        jobTitle: 'Job queue',
+                        jobSubtitle: 'Monitor asynchronous operations and recent lab actions.',
+                        jobPending: 'Queued',
+                        jobRunning: 'Running',
+                        jobSuccess: 'Completed',
+                        jobFailed: 'Failed',
+                        jobTableId: 'Job ID',
+                        jobTableAction: 'Action',
+                        jobTableStatus: 'Status',
+                        jobTableUser: 'User',
+                        jobTableProgress: 'Progress',
+                        jobTableUpdated: 'Updated',
+                        jobEmpty: 'No jobs scheduled yet.'
                 },
                 ru: {
                         heroEyebrow: 'Состояние инфраструктуры',
@@ -54,7 +67,20 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
                         ksmTitle: 'Статус KSM',
                         ksmSubtitle: 'Объединение страниц',
                         cpulimitTitle: 'Статус CPULimit',
-                        cpulimitSubtitle: 'Ограничение планировщика'
+                        cpulimitSubtitle: 'Ограничение планировщика',
+                        jobTitle: 'Очередь задач',
+                        jobSubtitle: 'Отслеживайте асинхронные операции и последние действия с лабораториями.',
+                        jobPending: 'В очереди',
+                        jobRunning: 'Выполняются',
+                        jobSuccess: 'Завершены',
+                        jobFailed: 'С ошибками',
+                        jobTableId: 'ID задачи',
+                        jobTableAction: 'Действие',
+                        jobTableStatus: 'Статус',
+                        jobTableUser: 'Пользователь',
+                        jobTableProgress: 'Прогресс',
+                        jobTableUpdated: 'Обновлено',
+                        jobEmpty: 'Очередь задач пуста.'
                 }
         };
 
@@ -108,9 +134,60 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
                         applyGaugeTranslations();
                 }
         });
+        $scope.$watch(function () { return $rootScope.role; }, function (newVal, oldVal) {
+                if (newVal && newVal !== oldVal) {
+                    $scope.role = newVal;
+                }
+        });
+        $scope.$watch(function () { return $rootScope.role; }, function (newVal) {
+                if (newVal) {
+                        $scope.role = newVal;
+                }
+        });
 	$scope.testAUTH("/sysstat"); //TEST AUTH
+	$scope.role = $rootScope.role;
 	$scope.versiondata='';
 	$scope.serverstatus=[];
+	function defaultJobSummary() {
+		return {
+			counts: { pending: 0, running: 0, success: 0, failed: 0 },
+			recent: []
+		};
+	}
+	function normalizeJobSummary(data) {
+		var summary = defaultJobSummary();
+		if (data && data.counts) {
+			summary.counts.pending = data.counts.pending || 0;
+			summary.counts.running = data.counts.running || 0;
+			summary.counts.success = data.counts.success || 0;
+			summary.counts.failed = data.counts.failed || 0;
+		}
+		if (data && Array.isArray(data.recent)) {
+			summary.recent = data.recent;
+		}
+		return summary;
+	}
+	$scope.jobSummary = defaultJobSummary();
+	$scope.jobStatusClass = function(status) {
+		var normalized = (status || '').toLowerCase();
+		switch (normalized) {
+			case 'pending':
+				return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200';
+			case 'running':
+				return 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200';
+			case 'success':
+				return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200';
+			case 'failed':
+				return 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200';
+			default:
+				return 'bg-slate-200 text-slate-800 dark:bg-slate-500/20 dark:text-slate-200';
+		}
+	};
+	$scope.jobStatusLabel = function(status) {
+		if (!status) return '';
+		var label = status.toString();
+		return label.charAt(0).toUpperCase() + label.slice(1);
+	};
 	$scope.valueCPU = 0;
 	$scope.valueMem = 0;
 	$scope.valueSwap = 0;
@@ -245,6 +322,8 @@ $scope.optionsSwap = {
 				function successCallback(response) {
 					//console.log(response.data.data)
 					$scope.serverstatus=response.data.data;
+					$scope.role = $rootScope.role;
+					$scope.jobSummary = normalizeJobSummary(response.data.data.jobs);
 					$scope.valueCPU = $scope.serverstatus.cpu;
 					$scope.valueMem = $scope.serverstatus.mem;
 					$scope.valueSwap = $scope.serverstatus.swap;

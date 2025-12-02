@@ -32,45 +32,20 @@ function dirname(path) {
 
 // Alert management
 function addMessage(severity, message, notFromLabviewport) {
-    // Severity can be success (green), info (blue), warning (yellow) and danger (red)
-    // Param 'notFromLabviewport' is used to filter notification
-    $('#alert_container').show();
-    var timeout = 10000;        // by default close messages after 10 seconds
-    if (severity == 'danger') timeout = 5000;
-    if (severity == 'alert') timeout = 10000;
-    if (severity == 'warning') timeout = 10000;
-
-    // Add notifications to #alert_container only when labview is open
-    if ($("#lab-viewport").length) {
-        if (!$('#alert_container').length) {
-            // Add the frame container if not exists
-            $('body').append('<div id="alert_container"><b><i class="fa fa-bell-o"></i> Notifications<i id="alert_container_close" class="pull-right fa fa-times" style="color: red; margin: 5px;cursor:pointer;"></b><div class="inner"></div></div></div>');
-        }
-        var msgalert = $('<div class="alert alert-' + severity.toLowerCase() + ' fade in">').append($('<button type="button" class="close" data-dismiss="alert">').append("&times;")).append(message);
-
-        // Add the alert div to top (prepend()) or to bottom (append())
-        $('#alert_container .inner').prepend(msgalert);
-
+    // Legacy severity values commonly include SUCCESS, INFO, WARNING, DANGER, ALERT
+    var normalized = (severity || '').toString().toLowerCase();
+    var toastMap = {
+        success: { fn: 'success', title: 'Success' },
+        info:    { fn: 'info',    title: 'Info' },
+        warning: { fn: 'warning', title: 'Warning' },
+        danger:  { fn: 'error',   title: 'Error' },
+        alert:   { fn: 'warning', title: 'Alert' }
+    };
+    var target = toastMap[normalized] || toastMap.info;
+    var title = target.title;
+    if (window.toastr && typeof toastr[target.fn] === 'function') {
+        toastr[target.fn](message, title);
     }
-
-    if ($("#lab-viewport").length || (!$("#lab-viewport").length && notFromLabviewport)) {
-        if (!$('#notification_container').length) {
-            $('body').append('<div id="notification_container"></div>');
-        }
-
-        //if (severity == "danger" )
-        if (severity != "") {
-            var notification_alert = $('<div class="alert alert-' + severity.toLowerCase() + ' fade in">').append($('<button type="button" class="close" data-dismiss="alert">').append("&times;")).append(message);
-
-            $('#notification_container').prepend(notification_alert);
-            if (timeout) {
-                window.setTimeout(function () {
-                    notification_alert.alert("close");
-                }, timeout);
-            }
-        }
-    }
-    $('#alert_container').next().first().slideDown();
 }
 
 /* Add Modal
@@ -1112,7 +1087,6 @@ function logger(severity, message) {
     if (DEBUG >= severity) {
         console.log(message);
     }
-    $('#alert_container').next().first().slideDown();
 }
 
 // Logout user
@@ -1804,164 +1778,301 @@ function setNodeInterface(node_id, network_id, interface_id) {
 
 }
 
-// Start node(s)
-function start(node_id) {
+function pollJob(jobId) {
+    var deferred = $.Deferred();
+    function check() {
+        $.ajax({
+            cache: false,
+            timeout: TIMEOUT,
+            type: 'GET',
+            url: encodeURI('/api/jobs/' + jobId),
+            dataType: 'json'
+        }).done(function (data) {
+            if (data && data.data) {
+                var job = data.data;
+                if (job && typeof updateJobOverlay === 'function') {
+                    updateJobOverlay(job);
+                }
+                if (job.status === 'success' || job.status === 'failed') {
+                    deferred.resolve(job);
+                    if (typeof updateJobOverlay === 'function') {
+                        setTimeout(function () {
+                            hideJobOverlay();
+                        }, 1200);
+                    }
+                } else {
+                    setTimeout(check, 1500);
+                }
+            } else {
+                deferred.reject('Malformed job response');
+            }
+        }).fail(function (xhr) {
+            var message = getJsonMessage(xhr['responseText']);
+            deferred.reject(message);
+        });
+    }
+    check();
+    return deferred.promise();
+}
+
+function enqueueNodeAction(action, ids) {
     var deferred = $.Deferred();
     var lab_filename = $('#lab-viewport').attr('data-path');
-    var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/start';
-    var type = 'GET';
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
-        type: type,
-        url: encodeURI(url),
+        type: 'POST',
+        url: encodeURI('/api/labs' + lab_filename + '/nodes/actions'),
         dataType: 'json',
-        success: function (data) {
-            if (data['status'] == 'success') {
-                logger(1, 'DEBUG: node(s) started.');
-                //$('#node' + node_id + ' img').removeClass('grayscale')
-                deferred.resolve(data['data']);
-            } else {
-                // Application error
-                logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
-                deferred.reject(data['message']);
+        contentType: 'application/json',
+        processData: false,
+        data: JSON.stringify({ action: action, ids: ids })
+    }).done(function (data) {
+        if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
+            if (typeof updateJobOverlay === 'function') {
+                updateJobOverlay({ id: data.data.job_id, action: action, progress: 0, status: 'running' });
             }
-        },
-        error: function (data) {
-            // Server error
-            var message = getJsonMessage(data['responseText']);
-            logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
-            logger(1, 'DEBUG: ' + message);
-            deferred.reject(message);
+            pollJob(data.data.job_id).done(function (job) {
+                deferred.resolve(job.result || job);
+            }).fail(function (err) {
+                if (typeof updateJobOverlay === 'function') {
+                    hideJobOverlay();
+                }
+                deferred.reject(err);
+            });
+        } else if (data.status === 'success' || data.status === 'partial') {
+            if (typeof updateJobOverlay === 'function') {
+                hideJobOverlay();
+            }
+            deferred.resolve(data);
+        } else {
+            deferred.reject(data.message || 'Unknown error');
         }
+    }).fail(function (xhr) {
+        var message = getJsonMessage(xhr['responseText']);
+        if (typeof updateJobOverlay === 'function') {
+            hideJobOverlay();
+        }
+        deferred.reject(message);
+    });
+    return deferred.promise();
+}
+
+function extractJobResults(payload) {
+    if (payload && payload.data && payload.data.results) {
+        return payload.data.results;
+    }
+    return [];
+}
+
+function ensureJobOverlayElement() {
+    var existing = $('#job-overlay-panel');
+    if (existing.length) {
+        return existing;
+    }
+    var panel = $(
+        '<div id="job-overlay-panel" style="position:fixed;right:20px;bottom:20px;z-index:1050;width:260px;background:#0f172a;box-shadow:0 10px 25px rgba(0,0,0,0.45);border-radius:16px;border:1px solid rgba(255,255,255,0.1);color:#f8fafc;padding:16px;font-family:\'Inter\',sans-serif;">' +
+            '<div class="job-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                '<div>' +
+                    '<div class="job-action" style="font-size:12px;text-transform:uppercase;letter-spacing:0.2em;color:#94a3b8;">Batch action</div>' +
+                    '<div class="job-title" style="font-size:16px;font-weight:600;">Pending...</div>' +
+                '</div>' +
+                '<div class="job-percent" style="font-size:18px;font-weight:700;">0%</div>' +
+            '</div>' +
+            '<div class="job-progress-wrap" style="width:100%;height:8px;border-radius:999px;background:rgba(148,163,184,0.4);overflow:hidden;">' +
+                '<div class="job-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#2563eb);transition:width 0.3s ease;"></div>' +
+            '</div>' +
+            '<div class="job-meta" style="margin-top:12px;font-size:12px;color:#94a3b8;">Job #<span class="job-id">--</span> • <span class="job-status">queued</span></div>' +
+        '</div>'
+    );
+    $('body').append(panel);
+    return panel;
+}
+
+function updateJobOverlay(job) {
+    if (!job || !job.id) {
+        return;
+    }
+    var panel = ensureJobOverlayElement();
+    panel.find('.job-action').text((job.action || '').toUpperCase());
+    panel.find('.job-title').text(job.status === 'running' ? 'Processing...' : job.status);
+    panel.find('.job-id').text(job.id);
+    panel.find('.job-status').text(job.status || 'queued');
+    var percent = job.progress !== undefined ? parseInt(job.progress, 10) : 0;
+    percent = Math.max(0, Math.min(100, percent));
+    panel.find('.job-progress-bar').css('width', percent + '%');
+    panel.find('.job-percent').text(percent + '%');
+}
+
+function hideJobOverlay() {
+    $('#job-overlay-panel').remove();
+}
+
+// Start node(s)
+function start(node_id) {
+    var deferred = $.Deferred();
+    enqueueNodeAction('start', [node_id]).done(function (payload) {
+        var results = extractJobResults(payload);
+        if (results.length && results[0].code !== 200) {
+            deferred.reject(results[0].message || 'Failed to start node');
+        } else {
+            deferred.resolve(results[0] || {});
+        }
+    }).fail(function (err) {
+        deferred.reject(err.message || err);
     });
     return deferred.promise();
 }
 
 // Start nodes recursive
-function recursive_start(nodes, i) {
-    i = i - 1;
-    var deferred = $.Deferred();
-    var lab_filename = $('#lab-viewport').attr('data-path');
-    if (typeof nodes[Object.keys(nodes)[i]]['path'] === 'undefined') {
-        var url = '/api/labs' + lab_filename + '/nodes/' + Object.keys(nodes)[i] + '/start';
-    } else {
-        var url = '/api/labs' + lab_filename + '/nodes/' + nodes[Object.keys(nodes)[i]]['path'] + '/start';
+function normalizeBatchNodeTargets(nodes) {
+    var resolved = [];
+    if (!nodes) {
+        return resolved;
     }
-    var type = 'GET';
-    $.ajax({
-        cache: false,
-        timeout: TIMEOUT,
-        type: type,
-        url: encodeURI(url),
-        dataType: 'json',
-        success: function (data) {
-            if (data['status'] == 'success') {
-                logger(1, 'DEBUG: node(s) started.');
-                addMessage('success', nodes[Object.keys(nodes)[i]]['name'] + ': ' + MESSAGES[76]);
-                //$('#node' + nodes[Object.keys(nodes)[i]]['id'] + ' img').removeClass('grayscale')
-
-                //set start status
-            } else {
-                // Application error
-                logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
-                addMessage('danger', nodes[Object.keys(nodes)[i]]['name'] + ': ' + MESSAGES[76] + 'failed');
-            }
-            if (i > 0) {
-                recursive_start(nodes, i);
-            } else {
-                addMessage('info', 'Start All: done');
-            }
-        },
-        error: function (data) {
-            // Server error
-            var message = getJsonMessage(data['responseText']);
-            logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
-            logger(1, 'DEBUG: ' + message);
-            addMessage('danger', message);
-            if (i > 0) {
-                recursive_start(nodes, i);
-            } else {
-                addMessage('info', 'Start All: done');
-            }
-
+    function pushNode(node, fallbackKey) {
+        if (node === undefined || node === null) {
+            return;
         }
+        var id = null;
+        var name = null;
+        if (typeof node === 'object') {
+            id = node.path || node.id || node.eve_id || fallbackKey;
+            name = node.name || fallbackKey;
+        } else {
+            id = node;
+            name = fallbackKey || ('Node ' + node);
+        }
+        if (id === undefined || id === null || id === '') {
+            return;
+        }
+        if (!name) {
+            name = 'Node ' + id;
+        }
+        resolved.push({
+            id: id.toString(),
+            name: name
+        });
+    }
+    if ($.isArray(nodes)) {
+        $.each(nodes, function (_, node) {
+            pushNode(node);
+        });
+    } else if (typeof nodes === 'object') {
+        $.each(nodes, function (key, node) {
+            pushNode(node, key);
+        });
+    }
+    return resolved;
+}
+
+function recursive_start(nodes, count) {
+    var deferred = $.Deferred();
+    var targets = normalizeBatchNodeTargets(nodes);
+    if (!targets.length) {
+        deferred.resolve();
+        return deferred.promise();
+    }
+    var ids = targets.map(function (t) { return t.id; });
+    enqueueNodeAction('start', ids).done(function (payload) {
+        var results = extractJobResults(payload);
+        var resultMap = {};
+        $.each(results, function (_, entry) {
+            if (entry && entry.id !== undefined && entry.id !== null) {
+                resultMap[entry.id.toString()] = entry;
+            }
+        });
+        targets.forEach(function (meta) {
+            var entry = resultMap[meta.id];
+            if (entry && entry.code === 200) {
+                addMessage('success', meta.name + ': ' + MESSAGES[76]);
+            } else {
+                var errorMsg = entry && entry.message ? entry.message : 'Failed to start node';
+                addMessage('danger', meta.name + ': ' + errorMsg);
+            }
+        });
+        deferred.resolve(results);
+    }).fail(function (err) {
+        addMessage('danger', err && err.message ? err.message : err);
+        deferred.reject(err);
     });
     return deferred.promise();
 }
 
 function recursive_stop(nodes, count) {
     var dfd = $.Deferred();
-
-    var keys = $.isArray(nodes) ? nodes.map(n => n.path) : Object.keys(nodes);
-    var i = 0;
-
-    function next() {
-        if (i >= keys.length) {
-            dfd.resolve(); // Все узлы остановлены
-            return;
-        }
-
-        var node_id = keys[i];
-        var node = $.isArray(nodes) ? nodes[i] : nodes[node_id];
-        var delay = (node.delay || 0) * 10;
-
-        setTimeout(function () {
-            $.when(stop(node_id)).done(function () {
-                addMessage('success', node.name + ': ' + MESSAGES[77]);
-
-                // Обновление UI: выключенное состояние
-                if ($('input[data-path=' + node_id + '][name="node[type]"]').parent()) {
-                    $('input[data-path=' + node_id + '][name="node[type]"]').parent().removeClass('node-running');
-                    $('input[data-path=' + node_id + '][disabled]').prop('disabled', false);
-                    $('select[data-path=' + node_id + '][disabled]').prop('disabled', false);
-                    $("a[data-path=" + node_id + "].action-nodeedit").removeClass('disabled');
-                    $("a[data-path=" + node_id + "].action-nodedelete").removeClass('disabled');
-                    $("a[data-path=" + node_id + "].action-nodeinterfaces").attr('data-status', 0);
-                }
-
-                $('#node' + node_id + ' img').addClass('grayscale');
-            }).fail(function (message) {
-                addMessage('danger', node.name + ': ' + message);
-            }).always(function () {
-                i++;
-                next();
-            });
-        }, delay);
+    var targets = normalizeBatchNodeTargets(nodes);
+    if (!targets.length) {
+        printLabStatus();
+        dfd.resolve();
+        return dfd.promise();
     }
-
-    next();
+    var ids = targets.map(function (t) { return t.id; });
+    enqueueNodeAction('stop', ids).done(function (payload) {
+        var results = extractJobResults(payload);
+        var resultMap = {};
+        $.each(results, function (_, entry) {
+            if (entry && entry.id !== undefined && entry.id !== null) {
+                resultMap[entry.id.toString()] = entry;
+            }
+        });
+        targets.forEach(function (meta) {
+            var entry = resultMap[meta.id];
+            if (entry && entry.code === 200) {
+                addMessage('success', meta.name + ': ' + MESSAGES[77]);
+                if ($('input[data-path=' + meta.id + '][name="node[type]"]').parent()) {
+                    $('input[data-path=' + meta.id + '][name="node[type]"]').parent().removeClass('node-running');
+                    $('input[data-path=' + meta.id + '][disabled]').prop('disabled', false);
+                    $('select[data-path=' + meta.id + '][disabled]').prop('disabled', false);
+                    $("a[data-path=" + meta.id + "].action-nodeedit").removeClass('disabled');
+                    $("a[data-path=" + meta.id + "].action-nodedelete").removeClass('disabled');
+                    $("a[data-path=" + meta.id + "].action-nodeinterfaces").attr('data-status', 0);
+                }
+                $('#node' + meta.id + ' img').addClass('grayscale');
+            } else {
+                var errorMsg = entry && entry.message ? entry.message : 'Failed to stop node';
+                addMessage('danger', meta.name + ': ' + errorMsg);
+            }
+        });
+        printLabStatus();
+        dfd.resolve(results);
+    }).fail(function (err) {
+        addMessage('danger', err && err.message ? err.message : err);
+        dfd.reject(err);
+    });
     return dfd.promise();
 }
 
 function recursive_wipe(nodes, count) {
     var dfd = $.Deferred();
-
-    var keys = $.isArray(nodes) ? nodes.map(n => n.path) : Object.keys(nodes);
-    var i = 0;
-
-    function next() {
-        if (i >= keys.length) {
-            dfd.resolve();
-            return;
-        }
-
-        var node_id = keys[i];
-        var node = $.isArray(nodes) ? nodes[i] : nodes[node_id];
-        var delay = (node.delay || 0) * 10;
-
-        setTimeout(function () {
-            $.when(wipe(node_id)).done(function () {
-                addMessage('success', node.name + ': ' + MESSAGES[78]);
-            }).fail(function (message) {
-                addMessage('danger', node.name + ': ' + message);
-            }).always(function () {
-                i++;
-                next();
-            });
-        }, delay);
+    var targets = normalizeBatchNodeTargets(nodes);
+    if (!targets.length) {
+        dfd.resolve();
+        return dfd.promise();
     }
-    next();
+    var ids = targets.map(function (t) { return t.id; });
+    enqueueNodeAction('wipe', ids).done(function (payload) {
+        var results = extractJobResults(payload);
+        var resultMap = {};
+        $.each(results, function (_, entry) {
+            if (entry && entry.id !== undefined && entry.id !== null) {
+                resultMap[entry.id.toString()] = entry;
+            }
+        });
+        targets.forEach(function (meta) {
+            var entry = resultMap[meta.id];
+            if (entry && entry.code === 200) {
+                addMessage('success', meta.name + ': ' + MESSAGES[78]);
+            } else {
+                var errorMsg = entry && entry.message ? entry.message : 'Failed to wipe node';
+                addMessage('danger', meta.name + ': ' + errorMsg);
+            }
+        });
+        dfd.resolve(results);
+    }).fail(function (err) {
+        addMessage('danger', err && err.message ? err.message : err);
+        dfd.reject(err);
+    });
     return dfd.promise();
 }
 
@@ -1969,34 +2080,16 @@ function recursive_wipe(nodes, count) {
 // Stop node(s)
 function stop(node_id) {
     var deferred = $.Deferred();
-    var lab_filename = $('#lab-viewport').attr('data-path');
-    var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/stop';
-    var type = 'GET';
-    $.ajax({
-        cache: false,
-        timeout: TIMEOUT,
-        type: type,
-        url: encodeURI(url),
-        dataType: 'json',
-        success: function (data) {
-            if (data['status'] == 'success') {
-                logger(1, 'DEBUG: node(s) stopped.');
-                $('#node' + node_id).removeClass('jsplumb-connected');
-                deferred.resolve(data['data']);
-
-            } else {
-                // Application error
-                logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
-                deferred.reject(data['message']);
-            }
-        },
-        error: function (data) {
-            // Server error
-            var message = getJsonMessage(data['responseText']);
-            logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
-            logger(1, 'DEBUG: ' + message);
-            deferred.reject(message);
+    enqueueNodeAction('stop', [node_id]).done(function (payload) {
+        var results = extractJobResults(payload);
+        if (results.length && results[0].code !== 200) {
+            deferred.reject(results[0].message || 'Failed to stop node');
+        } else {
+            $('#node' + node_id).removeClass('jsplumb-connected');
+            deferred.resolve(results[0] || {});
         }
+    }).fail(function (err) {
+        deferred.reject(err.message || err);
     });
     return deferred.promise();
 }
@@ -2071,32 +2164,15 @@ function update(path) {
 // Wipe node(s)
 function wipe(node_id) {
     var deferred = $.Deferred();
-    var lab_filename = $('#lab-viewport').attr('data-path');
-    var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/wipe';
-    var type = 'GET';
-    $.ajax({
-        cache: false,
-        timeout: TIMEOUT,
-        type: type,
-        url: encodeURI(url),
-        dataType: 'json',
-        success: function (data) {
-            if (data['status'] == 'success') {
-                logger(1, 'DEBUG: node(s) wiped.');
-                deferred.resolve(data['data']);
-            } else {
-                // Application error
-                logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
-                deferred.reject(data['message']);
-            }
-        },
-        error: function (data) {
-            // Server error
-            var message = getJsonMessage(data['responseText']);
-            logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
-            logger(1, 'DEBUG: ' + message);
-            deferred.reject(message);
+    enqueueNodeAction('wipe', [node_id]).done(function (payload) {
+        var results = extractJobResults(payload);
+        if (results.length && results[0].code !== 200) {
+            deferred.reject(results[0].message || 'Failed to wipe node');
+        } else {
+            deferred.resolve(results[0] || {});
         }
+    }).fail(function (err) {
+        deferred.reject(err.message || err);
     });
     return deferred.promise();
 }
@@ -3935,8 +4011,6 @@ function printPageLabList(folder) {
         url: encodeURI(url),
         dataType: 'json',
         success: function (data) {
-            // Clear the message container
-            $("#notification_container").empty()
             if (data['status'] == 'success') {
                 logger(1, 'DEBUG: folder "' + folder + '" found.');
 
@@ -3946,8 +4020,6 @@ function printPageLabList(folder) {
                     "username": USERNAME,
                     "role": ROLE
                 })
-                $("#alert_container").remove();
-
                 // Adding to the page
                 $('#body').html(html);
 

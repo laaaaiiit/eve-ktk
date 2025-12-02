@@ -1,0 +1,174 @@
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
+
+<main class="min-h-screen theme-page transition-colors duration-300">
+  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10">
+    <div class="flex flex-col gap-4">
+      <p class="text-xs uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.heroEyebrow"></p>
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div class="space-y-3">
+          <h1 class="text-4xl font-semibold theme-heading" data-ng-bind="t.heroTitle"></h1>
+          <p class="theme-muted text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button type="button"
+                  class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
+                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10','border-slate-200 bg-white text-slate-900 hover:bg-slate-100')"
+                  ng-click="refresh()">
+            <span data-ng-bind="loading ? t.refreshing : t.refreshButton"></span>
+          </button>
+          <button type="button"
+                  class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
+                  ng-class="themeClass('border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30','border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100')"
+                  ng-click="clearFilters()"
+                  data-ng-bind="t.resetButton"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-6 space-y-6 transition-colors duration-300">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.searchLabel"></label>
+          <input type="text"
+                 class="px-4 py-3 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input"
+                 ng-model="filters.search"
+                 ng-attr-placeholder="{{t.searchPlaceholder}}">
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.nodeLabel"></label>
+          <input type="text"
+                 class="px-4 py-3 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input"
+                 ng-model="filters.node"
+                 ng-attr-placeholder="{{t.nodePlaceholder}}">
+        </div>
+        <div class="flex flex-col gap-2" ng-if="isAdmin()">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.userLabel"></label>
+          <input type="text"
+                 class="px-4 py-3 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input"
+                 ng-model="filters.username"
+                 ng-attr-placeholder="{{t.userPlaceholder}}">
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.perPageLabel"></label>
+          <select class="px-4 py-3 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input"
+                  ng-model="pagination.perPage"
+                  ng-options="size as size for size in pageSizeOptions"
+                  ng-change="changePerPage()">
+          </select>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-xs uppercase theme-muted" data-ng-bind="t.statusToggleLabel"></p>
+        <div class="flex flex-wrap gap-3">
+          <button type="button"
+                  class="px-4 py-2 rounded-2xl text-sm font-semibold transition"
+                  ng-repeat="status in statusDefinitions track by status.key"
+                  ng-click="toggleStatus(status.key)"
+                  ng-class="[statusButtonClass(status.key), statusActive(status.key) ? 'opacity-100' : 'opacity-40']">
+            <span>{{t.statusLabels[status.key]}}</span>
+            <span class="font-bold ml-2">{{counts[status.key] || 0}}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-6 space-y-4 transition-colors duration-300">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-sm font-semibold theme-muted" data-ng-bind="formatRange()"></p>
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                  ng-disabled="pagination.page <= 1"
+                  ng-click="changePage(-1)">‹</button>
+          <span class="text-sm font-semibold">{{pagination.page}} / {{pagination.totalPages || 1}}</span>
+          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                  ng-disabled="pagination.page >= pagination.totalPages"
+                  ng-click="changePage(1)">›</button>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border p-4 text-sm" ng-if="errorMessage"
+           ng-class="themeClass('border-rose-500/40 bg-rose-500/10 text-rose-200','border-rose-200 bg-rose-100 text-rose-800')"
+           data-ng-bind="errorMessage"></div>
+
+      <div class="rounded-2xl border p-4 flex items-center gap-3 text-sm"
+           ng-if="loading"
+           ng-class="themeClass('border-white/10 bg-slate-900/40 text-slate-200','border-slate-200 bg-slate-50 text-slate-700')">
+        <i class="fa fa-circle-notch fa-spin"></i>
+        <span data-ng-bind="t.loading"></span>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border transition-colors duration-300"
+           ng-class="themeClass('border-white/10 bg-slate-900/30','border-slate-200 bg-white')">
+        <table class="min-w-full divide-y" ng-class="themeClass('divide-white/10 text-slate-200','divide-slate-200 text-slate-900')">
+          <thead ng-class="themeClass('bg-white/5','bg-slate-50')">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableId"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableAction"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableTargets"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableStatus"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableProgress"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-if="isAdmin()" data-ng-bind="t.tableUser"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableLab"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableCreated"></th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.tableUpdated"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" ng-class="themeClass('divide-white/10','divide-slate-200')">
+            <tr data-ng-repeat="job in jobs track by job.id">
+              <td class="px-4 py-3 font-semibold">#{{job.id}}</td>
+              <td class="px-4 py-3">
+                <div class="font-semibold uppercase tracking-wide text-sm" data-ng-bind="job.operationLabel"></div>
+                <div class="text-xs theme-muted" data-ng-if="job.payload && job.payload.operation">
+                  {{job.payload.operation}}
+                </div>
+                <div class="text-xs theme-muted" data-ng-if="job.payload && job.payload.ids && job.payload.ids.length">
+                  {{job.payload.ids.length}} target(s)
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm">
+                <span data-ng-bind="describeTargets(job)"></span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold"
+                      ng-class="statusBadgeClass(job.status)"
+                      data-ng-bind="jobStatusLabel(job.status)"></span>
+                <p class="text-xs mt-1 text-rose-400" data-ng-if="job.status === 'failed' && job.result && job.result.message">{{job.result.message}}</p>
+              </td>
+              <td class="px-4 py-3">
+                <div class="w-full bg-slate-200/40 dark:bg-white/10 rounded-full h-2 overflow-hidden">
+                  <div class="h-full bg-blue-500 dark:bg-cyan-400 transition-all duration-300" ng-style="{'width': (job.progress || 0) + '%'}"></div>
+                </div>
+                <span class="text-xs theme-muted mt-1 inline-block">{{job.progress || 0}}%</span>
+              </td>
+              <td class="px-4 py-3 text-sm" ng-if="isAdmin()">{{job.username}}</td>
+              <td class="px-4 py-3 text-sm font-mono break-all">{{job.lab_path || '—'}}</td>
+              <td class="px-4 py-3 text-sm" data-ng-bind="job.created_at | date:'short'"></td>
+              <td class="px-4 py-3 text-sm" data-ng-bind="job.updated_at | date:'short'"></td>
+            </tr>
+            <tr data-ng-if="!loading && !jobs.length">
+              <td class="px-4 py-6 text-center text-sm theme-muted" ng-attr-colspan="{{ isAdmin() ? 9 : 8 }}" data-ng-bind="t.emptyState"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <p class="text-sm font-semibold theme-muted" data-ng-bind="formatRange()"></p>
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                  ng-disabled="pagination.page <= 1"
+                  ng-click="changePage(-1)">‹</button>
+          <span class="text-sm font-semibold">{{pagination.page}} / {{pagination.totalPages || 1}}</span>
+          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                  ng-disabled="pagination.page >= pagination.totalPages"
+                  ng-click="changePage(1)">›</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>

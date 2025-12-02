@@ -342,7 +342,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
     $.get('/themes/adminLTE/VERSION?' + Date.now(), function (data) {
         if (data.trim() != $rootScope.EVE_VERSION) window.location.reload(true);
     });
-    $scope.testAUTH = function (path) {
+    $scope.testAUTH = function (path, suppressRedirect) {
         $scope.userfolder = 'none';
         $http.get('/api/auth').then(
             function successCallback(response) {
@@ -389,22 +389,25 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     }
 
                     // Preview need to get back to legacy UI
-                    if ($rootScope.UIlegacy == 1) {
-                        if ($rootScope.lab === null) { $location.path(path) } else { location.href = '/legacy/' };
-                    } else {
-                        if ($rootScope.lab === null) { $location.path(path) } else { $location.path('/lab') };
+                    if (!suppressRedirect) {
+                        if ($rootScope.UIlegacy == 1) {
+                            if ($rootScope.lab === null) { $location.path(path) } else { location.href = '/legacy/' };
+                        } else {
+                            if ($rootScope.lab === null) { $location.path(path) } else { $location.path('/lab') };
+                        }
                     }
                     $.unblockUI(); // Unblock UI on successful authentication
                 }
             },
             function errorCallback(response) {
-                if (response.status == '401' && response.statusText == 'Unauthorized') {
+                if (response.status == '401' && response.statusText == 'Unauthorized' && !suppressRedirect) {
                     $location.path("/login");
                 }
                 else { console.log("Unknown Error. Why did API doesn't respond?") }
                 $.unblockUI(); // Unblock UI on authentication error
             });
     }
+    $rootScope.testAUTH = $scope.testAUTH;
 }]);
 
 /* Setup Layout Part - Header */
@@ -418,6 +421,7 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
             menuNodeMgmt: 'Node management',
             menuCloudMgmt: 'Cloud management',
             menuSysStatus: 'System status',
+            menuJobQueue: 'Job queue',
             menuSyslog: 'System logs',
             menuGuac: 'Guacamole',
             logout: 'Sign out'
@@ -430,6 +434,7 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
             menuNodeMgmt: 'Узлы',
             menuCloudMgmt: 'Облака',
             menuSysStatus: 'Статус системы',
+            menuJobQueue: 'Очередь задач',
             menuSyslog: 'Системные логи',
             menuGuac: 'Guacamole',
             logout: 'Выход'
@@ -720,6 +725,24 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
                         files: [
                             '/themes/adminLTE/unl_data/js/angularjs/controllers/sysstatCtrl.js',
                             '/themes/adminLTE/plugins/ng-knob/d3.min.js'
+                        ]
+                    });
+                }]
+            }
+        })
+        // JOB QUEUE
+        .state('jobsqueue', {
+            url: "/jobs",
+            templateUrl: "/themes/adminLTE/unl_data/pages/jobsqueue.html",
+            data: { pageTitle: 'Job queue' },
+            controller: "jobsQueueController",
+            resolve: {
+                deps: ['$ocLazyLoad', function ($ocLazyLoad) {
+                    return $ocLazyLoad.load({
+                        name: 'app_main_unl',
+                        insertBefore: '#load_files_before',
+                        files: [
+                            '/themes/adminLTE/unl_data/js/angularjs/controllers/jobsQueueCtrl.js'
                         ]
                     });
                 }]

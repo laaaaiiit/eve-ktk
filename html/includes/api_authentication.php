@@ -38,20 +38,41 @@ function apiLogin($db, $html5_db, $p, $cookie)
 		$output['status'] = 'fail';
 		$output['message'] = $GLOBALS['messages'][90012];
 		return $output;
-	} else {
-		$hash = hash('sha256', $p['password']);
 	}
+	$plainPassword = $p['password'];
 
 	if (!isset($p['html5'])) $p['html5'] = 1;
 
-	$query = 'SELECT COUNT(*) as urows FROM users WHERE username = :username AND password = :password;';
+	$query = 'SELECT username, role, password FROM users WHERE username = :username LIMIT 1;';
 	$statement = $db->prepare($query);
 	$statement->bindParam(':username', $username, PDO::PARAM_STR);
-	$statement->bindParam(':password', $hash, PDO::PARAM_STR);
 	$statement->execute();
-	$result = $statement->fetch();
+	$result = $statement->fetch(PDO::FETCH_ASSOC);
 
-	if ($result['urows'] == 1) {
+	if ($result) {
+		$storedHash = $result['password'];
+		$passwordValid = password_verify($plainPassword, $storedHash);
+		$legacyHashMatch = False;
+		if (!$passwordValid && hash('sha256', $plainPassword) === $storedHash) {
+			$passwordValid = True;
+			$legacyHashMatch = True;
+		}
+
+		if (!$passwordValid) {
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			$output['message'] = $GLOBALS['messages'][90014];
+			return $output;
+		}
+
+		if ($legacyHashMatch || password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+			$newHash = password_hash($plainPassword, PASSWORD_DEFAULT);
+			$rehashStatement = $db->prepare('UPDATE users SET password = :password WHERE username = :username;');
+			$rehashStatement->bindParam(':password', $newHash, PDO::PARAM_STR);
+			$rehashStatement->bindParam(':username', $username, PDO::PARAM_STR);
+			$rehashStatement->execute();
+		}
+
 		// User/Password match
 		if (checkUserExpiration($db, $username) === False) {
 			$output['code'] = 401;
@@ -79,92 +100,93 @@ function apiLogin($db, $html5_db, $p, $cookie)
 			return $output;
 		}
 
-		$query = 'SELECT role FROM users WHERE username = :username;';
-		$statement = $db->prepare($query);
-		$statement->bindParam(':username', $username, PDO::PARAM_STR);
-		$statement->execute();
-		$result = $statement->fetch();
-		$role = $result['role'];
+		$role = isset($result['role']) ? $result['role'] : 'user';
 
 		if ($p['html5'] == 1) {
 			//enable on database
-			$query = "update users set html5 = 1 where username = '" . $username . "' ;";
-			$statement = $db->prepare($query);
+			$statement = $db->prepare('UPDATE users SET html5 = 1 WHERE username = :username;');
+			$statement->bindParam(':username', $username, PDO::PARAM_STR);
 			$statement->execute();
 
-			$query = "select id from pods where username = '" . $username . "';";
-			$statement = $db->prepare($query);
-			$statement->execute();
-			$result = $statement->fetch();
-			$pod = $result["id"];
-
-			$query = "delete from guacamole_user where user_id = '" . ($pod + 1000) . "';";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
-
-			$query = "delete from guacamole_entity where entity_id = '" . ($pod + 1000) . "';";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
-
-			$query = "replace into guacamole_entity( entity_id, name, type ) values  ( " . ($pod + 1000) . " , '" . $username . "', 'USER' );";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
-
-			$query = "select password from users where username = '" . $username . "' ;";
-			$statement = $db->prepare($query);
+			$statement = $db->prepare('SELECT id FROM pods WHERE username = :username;');
+			$statement->bindParam(':username', $username, PDO::PARAM_STR);
 			$statement->execute();
 			$result = $statement->fetch();
-			$user_password = $result['password'];
+			$pod = isset($result['id']) ? (int) $result['id'] : null;
+			$guacUserId = $pod !== null ? $pod + 1000 : null;
 
-			$query = "replace into guacamole_user(user_id, entity_id, password_hash, password_date ) values  ( " . ($pod + 1000) . " , '" . ($pod + 1000) . "', UNHEX(SHA2('" . $user_password . "',256) ), '" . date("Y-m-d H:i:s") . "');";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
-
-			$query = "delete from guacamole_user_permission where entity_id = '" . ($pod + 1000) . "' ;";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
-
-			if ($role === 'admin') {
-				$query = "insert into guacamole_user_permission ( entity_id , affected_user_id , permission ) values ( '" . ($pod + 1000) . "' , '" . ($pod + 1000) . "' , 'ADMINISTER' ) ;";
-				$statement = $html5_db->prepare($query);
+			if ($guacUserId !== null) {
+				$statement = $html5_db->prepare('DELETE FROM guacamole_user WHERE user_id = :user_id;');
+				$statement->bindParam(':user_id', $guacUserId, PDO::PARAM_INT);
 				$statement->execute();
 
-				$query = "insert into guacamole_system_permission ( entity_id , permission ) values ( '" . ($pod + 1000) . "' , 'ADMINISTER' ) ;";
-				$statement = $html5_db->prepare($query);
+				$statement = $html5_db->prepare('DELETE FROM guacamole_entity WHERE entity_id = :entity_id;');
+				$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
 				$statement->execute();
+
+				$statement = $html5_db->prepare('REPLACE INTO guacamole_entity(entity_id, name, type) VALUES (:entity_id, :name, :type);');
+				$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
+				$statement->bindParam(':name', $username, PDO::PARAM_STR);
+				$type = 'USER';
+				$statement->bindParam(':type', $type, PDO::PARAM_STR);
+				$statement->execute();
+
+				$statement = $html5_db->prepare('REPLACE INTO guacamole_user(user_id, entity_id, password_hash, password_date ) VALUES  ( :user_id , :entity_id, UNHEX(SHA2(SHA2(:password_value,256),256)), :password_date);');
+				$statement->bindParam(':user_id', $guacUserId, PDO::PARAM_INT);
+				$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
+				$statement->bindParam(':password_value', $plainPassword, PDO::PARAM_STR);
+				$passwordDate = date("Y-m-d H:i:s");
+				$statement->bindParam(':password_date', $passwordDate, PDO::PARAM_STR);
+				$statement->execute();
+
+				$statement = $html5_db->prepare('DELETE FROM guacamole_user_permission WHERE entity_id = :entity_id ;');
+				$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
+				$statement->execute();
+				if ($role === 'admin') {
+					$statement = $html5_db->prepare('INSERT INTO guacamole_user_permission (entity_id , affected_user_id , permission ) VALUES (:entity_id, :affected_user_id , :permission );');
+					$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
+					$statement->bindParam(':affected_user_id', $guacUserId, PDO::PARAM_INT);
+					$permission = 'ADMINISTER';
+					$statement->bindParam(':permission', $permission, PDO::PARAM_STR);
+					$statement->execute();
+
+					$statement = $html5_db->prepare('INSERT INTO guacamole_system_permission ( entity_id , permission ) VALUES ( :entity_id , :permission );');
+					$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
+					$statement->bindParam(':permission', $permission, PDO::PARAM_STR);
+					$statement->execute();
+				}
 			}
 
-			$rc = updateUserToken($db, $username, $pod);
+				$rc = updateUserToken($db, $username, $pod, $plainPassword);
 		} else {
-			$query = "select id from pods where username = '" . $username . "';";
-			$statement = $db->prepare($query);
+			$statement = $db->prepare('SELECT id FROM pods WHERE username = :username;');
+			$statement->bindParam(':username', $username, PDO::PARAM_STR);
 			$statement->execute();
 			$result = $statement->fetch();
-			$pod = $result["id"];
+			$pod = isset($result['id']) ? (int) $result['id'] : null;
+			$guacUserId = $pod !== null ? $pod + 1000 : null;
 
-			$query = "update users set html5 = 0 where username = '" . $username . "' ;";
-			$statement = $db->prepare($query);
+			$statement = $db->prepare('UPDATE users SET html5 = 0 WHERE username = :username ;');
+			$statement->bindParam(':username', $username, PDO::PARAM_STR);
 			$statement->execute();
 
-			$query = "delete from guacamole_user where user_id = '" . ($pod + 1000) . "';";
-			$statement = $html5_db->prepare($query);
-			$statement->execute();
+			if ($guacUserId !== null) {
+				$statement = $html5_db->prepare('DELETE FROM guacamole_user WHERE user_id = :user_id;');
+				$statement->bindParam(':user_id', $guacUserId, PDO::PARAM_INT);
+				$statement->execute();
+			}
 		};
 
 		$output['code'] = 200;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][90013];
-	} else if ($result['urows'] == 0) {
-		// User/Password does not match
-		$output['code'] = 400;
-		$output['status'] = 'fail';
-		$output['message'] = $GLOBALS['messages'][90014];
-	} else {
-		// Invalid result
-		$output['code'] = 500;
-		$output['status'] = 'error';
-		$output['message'] = $GLOBALS['messages'][90015];
+		return $output;
 	}
+
+	// User/Password does not match
+	$output['code'] = 400;
+	$output['status'] = 'fail';
+	$output['message'] = $GLOBALS['messages'][90014];
 	return $output;
 }
 

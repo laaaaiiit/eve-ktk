@@ -64,18 +64,4 @@ $(document).ready(function() {
 			printPageAuthentication();
 		});
 	}
-       var timer;
-
-       $(document).on('click', '#alert_container', function(e){
-           if(timer){
-	       clearTimeout(timer);
-           }
-	   
-	   var container = $(this).next().first();
-           container.slideToggle(300);
-	   setTimeout(function(){
-		container.slideUp(300);
-           }, 2700);
-
-       });
 });

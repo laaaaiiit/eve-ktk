@@ -251,8 +251,8 @@ function apiEditUUser($db, $user, $p) {
 			$statement->bindParam(':email', $uemail, PDO::PARAM_STR);
 		}
 		if (isset($p['password']) && !empty($p['password'])) {
-			$hash = hash('sha256', $p['password']);
-			$statement->bindParam(':password', $hash, PDO::PARAM_STR);
+			$newHash = password_hash($p['password'], PASSWORD_DEFAULT);
+			$statement->bindParam(':password', $newHash, PDO::PARAM_STR);
 		}
 		if (isset($p['role']) && !empty($p['role'])) {
 			$statement->bindParam(':role', $p['role'], PDO::PARAM_STR);
@@ -330,8 +330,8 @@ function apiAddUUser($db, $p) {
 		$statement->bindParam(':username', $p['username'], PDO::PARAM_STR);
 		$statement->bindParam(':email', $p['email'], PDO::PARAM_STR);
 		$statement->bindParam(':name', $p['name'], PDO::PARAM_STR);
-		$hash = hash('sha256', $p['password']) ;
-		$statement->bindParam(':password',  $hash , PDO::PARAM_STR);
+		$newHash = password_hash($p['password'], PASSWORD_DEFAULT);
+		$statement->bindParam(':password', $newHash, PDO::PARAM_STR);
 		$statement->bindParam(':expiration', $p['expiration'], PDO::PARAM_STR);
 		$statement->bindParam(':role', $p['role'], PDO::PARAM_STR);
 		$statement->bindParam(':lang', $p['lang'], PDO::PARAM_STR);

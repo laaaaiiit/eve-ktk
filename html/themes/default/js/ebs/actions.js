@@ -76,10 +76,6 @@ $(window).resize(function () {
     // $('#lab-viewport').css({top: 0,left: 40,position: 'absolute'});
 })
 
-$(document).on('click', '#alert_container_close', function () {
-    $('#alert_container').hide();
-})
-
 $(window).blur(function () {
     hideContextmenu();
 })

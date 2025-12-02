@@ -1170,7 +1170,6 @@ function editNodeModalCtrl($scope, $uibModalInstance, $http, data, $state) {
 		if (!$scope.formNodeValid)
 		{
 			toastr["error"]("Errordsadada", "Error");
-			$("#messages .inner").append("<div class='error'> <i class='fa fa-exclamation-triangle'></i>" +"sdsadad" + "<i class='fa fa-remove del-mess'></i></div>");
 		}
 		else
 		{	
@@ -1660,7 +1659,6 @@ function netListModalCtrl($scope, $uibModalInstance, $http, data, $rootScope, $s
 		{
 			console.log($scope.formNetListValid, "netlist 222");
 			toastr["error"]("Error", "Error");
-			$("#messages .inner").append("<div class='error'> <i class='fa fa-check'></i>" +response.data.message + "<i class='fa fa-remove del-mess'></i></div>");
 		}
 		else
 		{

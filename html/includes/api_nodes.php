@@ -1029,3 +1029,93 @@ function apiWipeLabNodes($lab, $tenant, $username)
 	}
 	return $output;
 }
+
+/**
+ * Function to apply a batch action to multiple nodes.
+ *
+ * @param   Lab     $lab                Lab
+ * @param   array   $ids                Node IDs
+ * @param   string  $action             Action name (start|stop|delete)
+ * @param   int     $tenant             Tenant ID
+ * @param   string  $username           Username for wrappers
+ * @param   array   $user               Full user record (for delete operations)
+ * @return  Array                       Aggregated result (JSend data)
+ */
+function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $progressCallback = null)
+{
+	$action = strtolower($action);
+	$supportedActions = array('start', 'stop', 'delete', 'wipe');
+	if (!in_array($action, $supportedActions, True)) {
+		return array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Unsupported node action.'
+		);
+	}
+
+	$ids = array_values(array_unique(array_map('intval', $ids)));
+	$results = array();
+	$allSucceeded = True;
+	$total = count($ids);
+	$processed = 0;
+
+	foreach ($ids as $nodeId) {
+		switch ($action) {
+			case 'start':
+				$result = apiStartLabNode($lab, $nodeId, $tenant, $username);
+				break;
+			case 'stop':
+				$result = apiStopLabNode($lab, $nodeId, $tenant, $username);
+				break;
+			case 'delete':
+				$result = apiDeleteLabNode($lab, $nodeId, $user);
+				break;
+			case 'wipe':
+				$result = apiWipeLabNode($lab, $nodeId, $tenant, $username);
+				break;
+			default:
+				$result = array(
+					'code' => 400,
+					'status' => 'fail',
+					'message' => 'Unsupported node action.'
+				);
+				break;
+		}
+
+		if ($result['code'] !== 200) {
+			$allSucceeded = False;
+		}
+
+		$results[] = array(
+			'id' => $nodeId,
+			'code' => $result['code'],
+			'status' => $result['status'],
+			'message' => $result['message']
+		);
+		$processed++;
+		if ($progressCallback !== null && $total > 0) {
+			call_user_func($progressCallback, $processed, $total);
+		}
+	}
+
+	$statusText = array(
+		'start' => 'Start command sent to selected nodes.',
+		'stop' => 'Stop command sent to selected nodes.',
+		'delete' => 'Selected nodes deleted.'
+	);
+
+	$output = array(
+		'code' => $allSucceeded ? 200 : 207,
+		'status' => $allSucceeded ? 'success' : 'partial',
+		'message' => $statusText[$action],
+		'data' => array(
+			'results' => $results
+		)
+	);
+
+	if (!$allSucceeded) {
+		$output['message'] .= ' Some operations failed.';
+	}
+
+	return $output;
+}

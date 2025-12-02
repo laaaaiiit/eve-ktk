@@ -94,69 +94,8 @@ body.login {
     border-color: #3c8dbc;
     box-shadow: none;
 }
-#notification_container {
-	position: fixed;
-	right: 1%;
-	top: 35px;
-	width: 15%;
-	z-index:3;
-	font-size: 13px;
-}
 .alert-danger{
 	border-color:#a94442;
-}
-#alert_container {
-	bottom: auto;
-	left: auto;
-	position: fixed;
-	right: 1%;
-	top: 0px;
-	width: 15%;
-	z-index:4;
-	background:#222D32;
-	overflow:hidden;
-	padding:3px;
-	color:#fff;
-	max-height:31px;			
-	overflow:hidden;
-}
-#alert_container .inner{
-	height:0px;	
-	overflow:hidden;
-}
-//#alert_container:hover {
-//	max-height:100%;
-//	overflow:auto;
-//}
-//#alert_container:hover .inner{
-//	max-height:100%;
-//	overflow:auto;
-//}
-#alert_container .alert{
-	padding:3px;
-	border-radius:0;
-	background:transparent;
-	color:#fff;
-	border:none;
-	margin:0 0 3px;
-}
-#alert_container b{
-	display:block;
-	height:28px;
-	line-height:28px;
-	padding:0 0 0 3px;
-}
-#alert_container .alert .close{
-	color:#fff;
-}
-#alert_container .alert.alert-success{
-	border-left:2px solid #d6e9c6;
-}
-#alert_container .alert.alert-danger{
-	border-left:2px solid #a9444d;
-}
-#alert_container .alert.alert-info{
-	border-left:2px solid #31708f;
 }
 .response{
 	max-width:400px;

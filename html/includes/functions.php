@@ -72,6 +72,339 @@ function ensureUsersThemeColumn($db)
 	}
 }
 
+function ensureJobsTable($db)
+{
+	try {
+		$query = "SHOW TABLES LIKE 'jobs';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (empty($result)) {
+			$query = "CREATE TABLE jobs (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				lab_path VARCHAR(1024) NOT NULL,
+				tenant INT NOT NULL,
+				username VARCHAR(128) NOT NULL,
+				user_role VARCHAR(64) NOT NULL,
+				action VARCHAR(64) NOT NULL,
+				payload TEXT NOT NULL,
+				status VARCHAR(16) NOT NULL DEFAULT 'pending',
+				progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+				result LONGTEXT NULL,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				INDEX status_idx (status),
+				INDEX username_idx (username)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+			$statement = $db->prepare($query);
+			$statement->execute();
+		} else {
+			try {
+				$columnQuery = "SHOW COLUMNS FROM jobs LIKE 'progress';";
+				$columnStatement = $db->prepare($columnQuery);
+				$columnStatement->execute();
+				$columnResult = $columnStatement->fetch();
+				if (empty($columnResult)) {
+					$alter = "ALTER TABLE jobs ADD COLUMN progress TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER status;";
+					$alterStatement = $db->prepare($alter);
+					$alterStatement->execute();
+				}
+			} catch (Exception $ce) {
+				error_log(date('M d H:i:s ') . 'ERROR: unable to ensure job progress column');
+				error_log(date('M d H:i:s ') . (string) $ce);
+			}
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to ensure jobs table');
+		error_log(date('M d H:i:s ') . (string) $e);
+	}
+}
+
+function enqueueJob($db, $labPath, $tenant, $username, $role, $action, $payload = array())
+{
+	$query = "INSERT INTO jobs (lab_path, tenant, username, user_role, action, payload, progress) VALUES (:lab_path, :tenant, :username, :user_role, :action, :payload, 0);";
+	$statement = $db->prepare($query);
+	$payloadJson = json_encode($payload);
+	$statement->bindParam(':lab_path', $labPath, PDO::PARAM_STR);
+	$statement->bindParam(':tenant', $tenant, PDO::PARAM_INT);
+	$statement->bindParam(':username', $username, PDO::PARAM_STR);
+	$statement->bindParam(':user_role', $role, PDO::PARAM_STR);
+	$statement->bindParam(':action', $action, PDO::PARAM_STR);
+	$statement->bindParam(':payload', $payloadJson, PDO::PARAM_STR);
+	$statement->execute();
+	return $db->lastInsertId();
+}
+
+function formatJobRow($row)
+{
+	if (empty($row)) {
+		return null;
+	}
+	$row['payload'] = isset($row['payload']) ? json_decode($row['payload'], True) : null;
+	$row['result'] = isset($row['result']) ? json_decode($row['result'], True) : null;
+	return $row;
+}
+
+function getJobById($db, $jobId)
+{
+	$query = "SELECT * FROM jobs WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
+	$result = $statement->fetch(PDO::FETCH_ASSOC);
+	return formatJobRow($result);
+}
+
+function updateJobStatus($db, $jobId, $status, $result = null, $progress = null)
+{
+	$query = "UPDATE jobs SET status = :status, result = :result, progress = :progress WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$resultJson = $result !== null ? json_encode($result) : null;
+	$finalProgress = $progress !== null ? (int) $progress : (($status === 'success' || $status === 'failed') ? 100 : 0);
+	$statement->bindParam(':status', $status, PDO::PARAM_STR);
+	$statement->bindParam(':result', $resultJson, PDO::PARAM_STR);
+	$statement->bindParam(':progress', $finalProgress, PDO::PARAM_INT);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
+}
+
+function updateJobProgress($db, $jobId, $progress)
+{
+	$progress = max(0, min(100, (int) $progress));
+	$query = "UPDATE jobs SET progress = :progress, updated_at = CURRENT_TIMESTAMP WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$statement->bindParam(':progress', $progress, PDO::PARAM_INT);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
+}
+
+function claimPendingJob($db)
+{
+	try {
+		$db->beginTransaction();
+		$query = "SELECT * FROM jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1 FOR UPDATE;";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$job = $statement->fetch(PDO::FETCH_ASSOC);
+		if (empty($job)) {
+			$db->commit();
+			return null;
+		}
+		$update = $db->prepare("UPDATE jobs SET status = 'running', progress = 0, updated_at = CURRENT_TIMESTAMP WHERE id = :id;");
+		$update->bindParam(':id', $job['id'], PDO::PARAM_INT);
+		$update->execute();
+		$db->commit();
+		$job['status'] = 'running';
+		$job['progress'] = 0;
+		return formatJobRow($job);
+	} catch (Exception $e) {
+		if ($db->inTransaction()) {
+			$db->rollBack();
+		}
+		error_log(date('M d H:i:s ') . 'ERROR: unable to claim job');
+		error_log(date('M d H:i:s ') . (string) $e);
+		return null;
+	}
+}
+
+function fetchJobSummary($db, $username, $role, $limit = 5)
+{
+	$limit = max(1, min(50, (int) $limit));
+	$whereClause = '';
+	$params = array();
+	if ($role !== 'admin') {
+		$whereClause = 'WHERE username = :username';
+		$params[':username'] = $username;
+	}
+
+	$countsQuery = "SELECT status, COUNT(*) AS total FROM jobs $whereClause GROUP BY status;";
+	$statement = $db->prepare($countsQuery);
+	foreach ($params as $key => $value) {
+		$statement->bindValue($key, $value, PDO::PARAM_STR);
+	}
+	$statement->execute();
+	$countsResult = $statement->fetchAll(PDO::FETCH_ASSOC);
+	$counts = array(
+		'pending' => 0,
+		'running' => 0,
+		'success' => 0,
+		'failed' => 0
+	);
+	foreach ($countsResult as $row) {
+		$status = strtolower($row['status']);
+		if (isset($counts[$status])) {
+			$counts[$status] = (int) $row['total'];
+		}
+	}
+
+	$recentQuery = "SELECT id, action, status, username, progress, created_at, updated_at FROM jobs $whereClause
+		ORDER BY CASE status
+			WHEN 'running' THEN 0
+			WHEN 'pending' THEN 1
+			WHEN 'failed' THEN 2
+			ELSE 3
+		END, id DESC LIMIT :limit;";
+	$statement = $db->prepare($recentQuery);
+	foreach ($params as $key => $value) {
+		$statement->bindValue($key, $value, PDO::PARAM_STR);
+	}
+	$statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+	$statement->execute();
+	$recent = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+	return array(
+		'counts' => $counts,
+		'recent' => $recent
+	);
+}
+
+function fetchJobsList($db, $user, $filters = array())
+{
+	$page = isset($filters['page']) ? (int)$filters['page'] : 1;
+	$perPage = isset($filters['per_page']) ? (int)$filters['per_page'] : 25;
+	$page = max(1, $page);
+	$perPage = max(1, min(200, $perPage));
+	$offset = ($page - 1) * $perPage;
+
+	$validStatuses = array('pending', 'running', 'success', 'failed');
+	$statusFilter = array();
+	if (!empty($filters['status'])) {
+		$rawStatuses = is_array($filters['status']) ? $filters['status'] : explode(',', $filters['status']);
+		foreach ($rawStatuses as $status) {
+			$s = strtolower(trim($status));
+			if (in_array($s, $validStatuses, true) && !in_array($s, $statusFilter, true)) {
+				$statusFilter[] = $s;
+			}
+		}
+	}
+
+	$baseConditions = array();
+	$baseParams = array();
+
+	if ($user['role'] !== 'admin') {
+		$baseConditions[] = 'username = :current_user';
+		$baseParams[':current_user'] = $user['username'];
+	} elseif (!empty($filters['username'])) {
+		$baseConditions[] = 'username = :filter_username';
+		$baseParams[':filter_username'] = $filters['username'];
+	}
+
+	if (!empty($filters['lab'])) {
+		$baseConditions[] = 'lab_path LIKE :lab_filter';
+		$baseParams[':lab_filter'] = '%' . $filters['lab'] . '%';
+	}
+
+	if (!empty($filters['node'])) {
+		$baseConditions[] = '(payload LIKE :node_filter OR result LIKE :node_filter)';
+		$baseParams[':node_filter'] = '%' . $filters['node'] . '%';
+	}
+
+	if (!empty($filters['q'])) {
+		$searchTerm = trim($filters['q']);
+		$isNumeric = ctype_digit($searchTerm);
+		$searchCondition = '(lab_path LIKE :search OR action LIKE :search OR payload LIKE :search OR result LIKE :search OR username LIKE :search';
+		if ($isNumeric) {
+			$searchCondition .= ' OR id = :search_id';
+			$baseParams[':search_id'] = (int)$searchTerm;
+		}
+		$searchCondition .= ')';
+		$baseConditions[] = $searchCondition;
+		$baseParams[':search'] = '%' . $searchTerm . '%';
+	}
+
+	$params = $baseParams;
+	$conditions = $baseConditions;
+	if (!empty($statusFilter)) {
+		$placeholders = array();
+		foreach ($statusFilter as $index => $status) {
+			$placeholder = ':status_' . $index;
+			$placeholders[] = $placeholder;
+			$params[$placeholder] = $status;
+		}
+		$conditions[] = 'status IN (' . implode(',', $placeholders) . ')';
+	}
+
+	$whereClause = count($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+	$baseWhereClause = count($baseConditions) ? 'WHERE ' . implode(' AND ', $baseConditions) : '';
+
+	$totalCounts = array(
+		'pending' => 0,
+		'running' => 0,
+		'success' => 0,
+		'failed' => 0
+	);
+	$countsQuery = "SELECT status, COUNT(*) AS total FROM jobs $baseWhereClause GROUP BY status;";
+	$countStatement = $db->prepare($countsQuery);
+	foreach ($baseParams as $key => $value) {
+		$type = PDO::PARAM_STR;
+		if (is_int($value)) {
+			$type = PDO::PARAM_INT;
+		}
+		$countStatement->bindValue($key, $value, $type);
+	}
+	$countStatement->execute();
+	$countRows = $countStatement->fetchAll(PDO::FETCH_ASSOC);
+	foreach ($countRows as $row) {
+		$key = strtolower($row['status']);
+		if (isset($totalCounts[$key])) {
+			$totalCounts[$key] = (int)$row['total'];
+		}
+	}
+
+	$totalQuery = "SELECT COUNT(*) FROM jobs $whereClause;";
+	$totalStatement = $db->prepare($totalQuery);
+	foreach ($params as $key => $value) {
+		$type = PDO::PARAM_STR;
+		if (is_int($value)) {
+			$type = PDO::PARAM_INT;
+		}
+		$totalStatement->bindValue($key, $value, $type);
+	}
+	$totalStatement->execute();
+	$totalFiltered = (int)$totalStatement->fetchColumn();
+
+	$listQuery = "SELECT * FROM jobs $whereClause
+		ORDER BY CASE status
+			WHEN 'running' THEN 0
+			WHEN 'pending' THEN 1
+			WHEN 'failed' THEN 2
+			ELSE 3
+		END, id DESC LIMIT :limit OFFSET :offset;";
+	$listStatement = $db->prepare($listQuery);
+	foreach ($params as $key => $value) {
+		$type = PDO::PARAM_STR;
+		if (is_int($value)) {
+			$type = PDO::PARAM_INT;
+		}
+		$listStatement->bindValue($key, $value, $type);
+	}
+	$listStatement->bindValue(':limit', $perPage, PDO::PARAM_INT);
+	$listStatement->bindValue(':offset', $offset, PDO::PARAM_INT);
+	$listStatement->execute();
+	$rows = $listStatement->fetchAll(PDO::FETCH_ASSOC);
+	$items = array();
+	foreach ($rows as $row) {
+		$items[] = formatJobRow($row);
+	}
+
+	$totalPages = max(1, (int)ceil($totalFiltered / $perPage));
+
+	return array(
+		'items' => $items,
+		'counts' => $totalCounts,
+		'pagination' => array(
+			'page' => $page,
+			'per_page' => $perPage,
+			'total' => $totalFiltered,
+			'total_pages' => $totalPages
+		),
+		'applied' => array(
+			'statuses' => $statusFilter,
+			'username' => ($user['role'] === 'admin') ? (isset($filters['username']) ? $filters['username'] : null) : $user['username']
+		)
+	);
+}
+
 /**
  * Function to check if a string is valid as folder_path.
  *
@@ -909,7 +1242,11 @@ function lockFile($file)
  */
 function unlockFile($file)
 {
-	return unlink($file . '.lock');
+	$lockFile = $file . '.lock';
+	if (!file_exists($lockFile)) {
+		return True;
+	}
+	return unlink($lockFile);
 }
 
 /**
@@ -935,7 +1272,8 @@ function updateDatabase($db)
 			$statement->execute();
 
 			// Adding admin user
-			$query = "INSERT INTO users (email, name, username, password) VALUES('root@localhost', 'UNetLab Administrator', 'admin', '" . hash('sha256', 'unl') . "');";
+			$defaultAdminHash = password_hash('unl', PASSWORD_DEFAULT);
+			$query = "INSERT INTO users (email, name, username, password) VALUES('root@localhost', 'UNetLab Administrator', 'admin', '" . $defaultAdminHash . "');";
 			$statement = $db->prepare($query);
 			$statement->execute();
 			$db->commit();
@@ -975,6 +1313,8 @@ function updateDatabase($db)
 		return False;
 	}
 	 */
+
+	ensureJobsTable($db);
 
 	// Pods table
 	try {
@@ -1339,15 +1679,13 @@ function giveUserPermission($db, $port, $userid)
 	}
 }
 
-function updateUserToken($db, $username, $pod)
+function updateUserToken($db, $username, $pod, $plainPassword = null)
 {
-	$query = "select password from users  where username = '" . $username . "' ;";
-	$statement = $db->prepare($query);
-	$statement->execute();
-	$result = $statement->fetch();
-	$user_password = $result['password'];
+	if ($pod === null || $username === '' || $plainPassword === null) {
+		return False;
+	}
 	$url = 'http://127.0.0.1/html5/api/tokens';
-	$data = array('username' => $username, 'password' => $user_password);
+	$data = array('username' => $username, 'password' => $plainPassword);
 
 	$options = array(
 		'http' => array(
@@ -1358,17 +1696,34 @@ function updateUserToken($db, $username, $pod)
 	);
 
 	$context  = stream_context_create($options);
-	$result = (array) json_decode(file_get_contents($url, false, $context));
+	try {
+		$response = file_get_contents($url, false, $context);
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to retrieve html5 token for ' . $username . ' (' . $e->getMessage() . ')');
+		return False;
+	}
+	if ($response === False) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to retrieve html5 token for ' . $username);
+		return False;
+	}
+	$result = json_decode($response, True);
+	if (!isset($result['authToken'])) {
+		error_log(date('M d H:i:s ') . 'ERROR: html5 token response malformed for ' . $username);
+		return False;
+	}
 	$token = $result['authToken'];
-	$query = "delete from html5 where username = '" . $username . "';";
-	$statement = $db->prepare($query);
+	$statement = $db->prepare('DELETE FROM html5 WHERE username = :username;');
+	$statement->bindParam(':username', $username, PDO::PARAM_STR);
 	$statement->execute();
-	$query = "delete from html5 where pod = '" . $pod . "';";
-	$statement = $db->prepare($query);
+	$statement = $db->prepare('DELETE FROM html5 WHERE pod = :pod;');
+	$statement->bindParam(':pod', $pod, PDO::PARAM_INT);
 	$statement->execute();
-	$query = "replace into html5 ( username , pod, token ) values ( '" . $username . "','" . $pod . "','" . $token . "');";
-	$statement = $db->prepare($query);
+	$statement = $db->prepare('REPLACE INTO html5 (username , pod, token ) VALUES (:username, :pod, :token);');
+	$statement->bindParam(':username', $username, PDO::PARAM_STR);
+	$statement->bindParam(':pod', $pod, PDO::PARAM_INT);
+	$statement->bindParam(':token', $token, PDO::PARAM_STR);
 	$statement->execute();
+	return True;
 }
 
 function getHtml5Token($userid)
