@@ -1113,7 +1113,6 @@ $(document).on('click', '.action-moreactions', function (e) {
     body += '<li><a class="action-openconsole-all" href="javascript:void(0)"><i class="glyphicon glyphicon-console"></i> ' + MESSAGES[168] + '</a></li>';
     if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
         body += '<li><a class="action-nodesexport" href="javascript:void(0)"><i class="glyphicon glyphicon-save"></i> ' + MESSAGES[129] + '</a></li>';
-        body += '<li><a class="action-labedit" href="javascript:void(0)"><i class="glyphicon glyphicon-pencil"></i> ' + MESSAGES[87] + '</a></li>';
         body += '<li><a class="action-nodesbootsaved" href="javascript:void(0)"><i class="glyphicon glyphicon-flash"></i> ' + MESSAGES[139] + '</a></li>';
         body += '<li><a class="action-nodesbootscratch" href="javascript:void(0)"><i class="glyphicon glyphicon-remove"></i> ' + MESSAGES[140] + '</a></li>';
         body += '<li><a class="action-nodesbootdelete" href="javascript:void(0)"><i class="glyphicon glyphicon-erase"></i> ' + MESSAGES[141] + '</a></li>';

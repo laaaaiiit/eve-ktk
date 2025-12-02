@@ -18,7 +18,8 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 				pending: 'Pending',
 				running: 'Running',
 				success: 'Completed',
-				failed: 'Failed'
+				failed: 'Failed',
+				cancelled: 'Cancelled'
 			},
 			summaryTitle: 'Live counters',
 			tableId: 'ID',
@@ -30,6 +31,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			tableLab: 'Lab path',
 			tableCreated: 'Created',
 			tableUpdated: 'Updated',
+			tableActions: 'Actions',
 			targetFallback: 'No targets reported',
 			jobResultLabel: 'Result',
 			rangeLabel: 'Showing {{start}}–{{end}} of {{total}} jobs',
@@ -37,7 +39,26 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			emptyState: 'No jobs found for the current filters.',
 			loading: 'Loading queue…',
 			errorTitle: 'Error',
-			refreshing: 'Refreshing…'
+			refreshing: 'Refreshing…',
+			limitTitle: 'Parallel start limit',
+			limitDescription: 'Start nodes in small batches to avoid CPU spikes on the hypervisor.',
+			limitHelper: 'Maximum nodes started at once per lab (1–20).',
+			limitSaveButton: 'Save limit',
+			limitSavedToast: 'Limit updated',
+			limitSaveError: 'Failed to update limit',
+			cancelButton: 'Stop',
+			cancelRequested: 'Cancellation requested…',
+			deleteButton: 'Delete',
+			deleteForceButton: 'Force delete',
+			deleteConfirm: 'Delete this job? This cannot be undone.',
+			deleteForceConfirm: 'Force delete this job? The entry will be removed even if it is still running.',
+			toastCancelRequested: 'Cancellation requested',
+			toastCancelDone: 'Job cancelled',
+			toastCancelError: 'Failed to cancel job',
+			toastDeleteSuccess: 'Job deleted',
+			toastDeleteError: 'Failed to delete job',
+			toastDeleteForceSuccess: 'Job forcibly removed',
+			toastDeleteForceError: 'Failed to force delete job'
 		},
 		ru: {
 			heroEyebrow: 'Автоматизация',
@@ -57,7 +78,8 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 				pending: 'В ожидании',
 				running: 'Выполняется',
 				success: 'Завершено',
-				failed: 'Ошибка'
+				failed: 'Ошибка',
+				cancelled: 'Отменено'
 			},
 			summaryTitle: 'Сводка',
 			tableId: 'ID',
@@ -69,6 +91,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			tableLab: 'Путь к лабе',
 			tableCreated: 'Создана',
 			tableUpdated: 'Обновлена',
+			tableActions: 'Действия',
 			targetFallback: 'Цели не указаны',
 			jobResultLabel: 'Результат',
 			rangeLabel: 'Показаны {{start}}–{{end}} из {{total}} задач',
@@ -76,7 +99,26 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			emptyState: 'Задачи не найдены.',
 			loading: 'Загружаем очередь…',
 			errorTitle: 'Ошибка',
-			refreshing: 'Обновляем…'
+			refreshing: 'Обновляем…',
+			limitTitle: 'Лимит параллельного запуска',
+			limitDescription: 'Запускайте узлы небольшими партиями, чтобы не перегружать гипервизор.',
+			limitHelper: 'Максимум одновременно запускаемых узлов в лаборатории (1–20).',
+			limitSaveButton: 'Сохранить',
+			limitSavedToast: 'Лимит обновлён',
+			limitSaveError: 'Не удалось обновить лимит',
+			cancelButton: 'Остановить',
+			cancelRequested: 'Отмена запрошена…',
+			deleteButton: 'Удалить',
+			deleteForceButton: 'Удалить принудительно',
+			deleteConfirm: 'Удалить эту задачу? Действие необратимо.',
+			deleteForceConfirm: 'Принудительно удалить задачу? Запись будет удалена даже если она ещё выполняется.',
+			toastCancelRequested: 'Отмена запрошена',
+			toastCancelDone: 'Задача остановлена',
+			toastCancelError: 'Не удалось остановить задачу',
+			toastDeleteSuccess: 'Задача удалена',
+			toastDeleteError: 'Не удалось удалить задачу',
+			toastDeleteForceSuccess: 'Задача принудительно удалена',
+			toastDeleteForceError: 'Не удалось принудительно удалить задачу'
 		}
 	};
 
@@ -127,7 +169,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 
 	$('body').removeClass().addClass('hold-transition skin-blue layout-top-nav');
 
-	var statusOrder = ['running', 'pending', 'failed', 'success'];
+	var statusOrder = ['running', 'pending', 'failed', 'cancelled', 'success'];
 	var statusRank = {};
 	$scope.statusFilters = {};
 	statusOrder.forEach(function (key, index) {
@@ -137,6 +179,10 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	$scope.statusDefinitions = statusOrder.map(function (key) {
 		return { key: key };
 	});
+
+	$scope.maxParallelLimit = 3;
+	$scope.maxParallelInput = 3;
+	$scope.savingParallelLimit = false;
 
 	var statusMeta = {
 		running: {
@@ -163,6 +209,12 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			badgeDark: 'border border-rose-500/40 bg-rose-500/10 text-rose-200',
 			badgeLight: 'border border-rose-300 bg-rose-100 text-rose-900'
 		},
+		cancelled: {
+			buttonDark: 'border border-slate-500/30 bg-slate-500/15 text-slate-100',
+			buttonLight: 'border border-slate-200 bg-slate-50 text-slate-800',
+			badgeDark: 'border border-slate-500/40 bg-slate-500/10 text-slate-200',
+			badgeLight: 'border border-slate-300 bg-slate-100 text-slate-900'
+		},
 		default: {
 			buttonDark: 'border border-white/20 bg-white/5 text-white',
 			buttonLight: 'border border-slate-200 bg-slate-50 text-slate-800',
@@ -175,7 +227,8 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		pending: 0,
 		running: 0,
 		success: 0,
-		failed: 0
+		failed: 0,
+		cancelled: 0
 	};
 
 	$scope.pagination = {
@@ -285,6 +338,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		job.result = job.result || {};
 		job.operationLabel = (job.payload.operation || job.action || '').toString().toUpperCase();
 		job.targetPreview = buildTargetPreview(job.payload);
+		job.cancel_requested = !!job.cancel_requested;
 		return job;
 	}
 
@@ -312,6 +366,19 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		var clone = list.slice(0, 3).map(function (item) { return String(item); });
 		var extra = list.length - clone.length;
 		return extra > 0 ? (clone.join(', ') + ' +' + extra) : clone.join(', ');
+	}
+
+	function applySettingsPayload(payload) {
+		if (!payload || !payload.settings) {
+			return;
+		}
+		var limit = parseInt(payload.settings.max_parallel_nodes, 10);
+		if (!isNaN(limit) && limit > 0) {
+			$scope.maxParallelLimit = limit;
+			if (!$scope.savingParallelLimit) {
+				$scope.maxParallelInput = limit;
+			}
+		}
 	}
 
 	$scope.describeTargets = function (job) {
@@ -364,6 +431,135 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		$scope.loadJobs();
 	};
 
+	$scope.canCancelJob = function (job) {
+		if (!job || job._canceling) {
+			return false;
+		}
+		if (job.cancel_requested) {
+			return false;
+		}
+		return job.status === 'running' || job.status === 'pending';
+	};
+
+	$scope.cancelJob = function (job) {
+		if (!$scope.canCancelJob(job)) {
+			return;
+		}
+		job._canceling = true;
+		$http.post('/api/jobs/' + job.id + '/cancel').then(function (response) {
+			job._canceling = false;
+			if (response.data && response.data.data) {
+				var updated = normalizeJob(response.data.data);
+				Object.keys(updated).forEach(function (key) {
+					job[key] = updated[key];
+				});
+			}
+			if (window.toastr) {
+				var message = (job.status === 'cancelled') ? $scope.t.toastCancelDone : $scope.t.toastCancelRequested;
+				toastr.success(message, 'OK');
+			}
+			$scope.loadJobs();
+		}, function (error) {
+			job._canceling = false;
+			var message = (error.data && error.data.message) ? error.data.message : $scope.t.toastCancelError;
+			if (window.toastr) {
+				toastr.error(message, $scope.t.errorTitle);
+			}
+		});
+	};
+
+	$scope.canDeleteJob = function (job) {
+		if (!job || job._deleting) {
+			return false;
+		}
+		return ['success', 'failed', 'cancelled'].indexOf(job.status) !== -1;
+	};
+
+	$scope.deleteJob = function (job) {
+		if (!$scope.canDeleteJob(job)) {
+			return;
+		}
+		if (typeof window.confirm === 'function' && !window.confirm($scope.t.deleteConfirm)) {
+			return;
+		}
+		job._deleting = true;
+		$http.delete('/api/jobs/' + job.id).then(function () {
+			job._deleting = false;
+			if (window.toastr) {
+				toastr.success($scope.t.toastDeleteSuccess, 'OK');
+			}
+			$scope.loadJobs();
+		}, function (error) {
+			job._deleting = false;
+			var message = (error.data && error.data.message) ? error.data.message : $scope.t.toastDeleteError;
+			if (window.toastr) {
+				toastr.error(message, $scope.t.errorTitle);
+			}
+		});
+	};
+
+	$scope.canForceDelete = function (job) {
+		if (!job || job._forceDeleting || job._deleting) {
+			return false;
+		}
+		return ! $scope.canDeleteJob(job);
+	};
+
+	$scope.forceDelete = function (job) {
+		if (!$scope.canForceDelete(job)) {
+			return;
+		}
+		if (typeof window.confirm === 'function' && !window.confirm($scope.t.deleteForceConfirm)) {
+			return;
+		}
+		job._forceDeleting = true;
+		$http.delete('/api/jobs/' + job.id + '?force=1').then(function () {
+			job._forceDeleting = false;
+			if (window.toastr) {
+				toastr.success($scope.t.toastDeleteForceSuccess, 'OK');
+			}
+			$scope.loadJobs();
+		}, function (error) {
+			job._forceDeleting = false;
+			var message = (error.data && error.data.message) ? error.data.message : $scope.t.toastDeleteForceError;
+			if (window.toastr) {
+				toastr.error(message, $scope.t.errorTitle);
+			}
+		});
+	};
+
+	$scope.saveParallelLimit = function () {
+		if (!$scope.isAdmin()) {
+			return;
+		}
+		var value = parseInt($scope.maxParallelInput, 10);
+		if (isNaN(value)) {
+			if (window.toastr) {
+				toastr.error($scope.t.limitSaveError, $scope.t.errorTitle);
+			}
+			return;
+		}
+		value = Math.max(1, Math.min(20, value));
+		$scope.savingParallelLimit = true;
+		$http.post('/api/jobs/settings', { max_parallel_nodes: value }).then(function (response) {
+			$scope.savingParallelLimit = false;
+			var payload = response.data && response.data.data ? response.data.data : null;
+			if (payload && payload.max_parallel_nodes !== undefined) {
+				$scope.maxParallelLimit = payload.max_parallel_nodes;
+				$scope.maxParallelInput = payload.max_parallel_nodes;
+			}
+			if (window.toastr) {
+				toastr.success($scope.t.limitSavedToast, 'OK');
+			}
+		}, function (error) {
+			$scope.savingParallelLimit = false;
+			var message = (error.data && error.data.message) ? error.data.message : $scope.t.limitSaveError;
+			if (window.toastr) {
+				toastr.error(message, $scope.t.errorTitle);
+			}
+		});
+	};
+
 	$scope.changePerPage = function () {
 		$scope.pagination.page = 1;
 		$scope.loadJobs();
@@ -403,6 +599,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			});
 			$scope.jobs = normalized;
 			$scope.counts = payload.counts || angular.copy($scope.counts);
+			applySettingsPayload(payload);
 			if (payload.pagination) {
 				$scope.pagination.total = payload.pagination.total || 0;
 				$scope.pagination.totalPages = payload.pagination.total_pages || 1;

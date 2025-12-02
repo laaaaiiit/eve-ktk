@@ -996,7 +996,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		$output = apiStartLabNodes($lab, $user['tenant'], $user['username']);
+		$runUser = $user['username'];
+		if ($user['role'] === 'admin' && $lab->getAuthor()) {
+			$runUser = $lab->getAuthor();
+		}
+		$labTenant = $lab->getTenant() ?: $user['tenant'];
+		$output = apiStartLabNodes($lab, $labTenant, $runUser);
 		unlockFile($lab_file_full);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/stop$/', $labFileRelative)) {
 		if ($user['tenant'] < 0) {
@@ -1008,7 +1013,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		$output = apiStopLabNodes($lab, $user['tenant'], $user['username']);
+		$runUser = $user['username'];
+		if ($user['role'] === 'admin' && $lab->getAuthor()) {
+			$runUser = $lab->getAuthor();
+		}
+		$labTenant = $lab->getTenant() ?: $user['tenant'];
+		$output = apiStopLabNodes($lab, $labTenant, $runUser);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/wipe$/', $labFileRelative)) {
 		if ($user['tenant'] < 0) {
 			// User does not have an assigned tenant
@@ -1019,7 +1029,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		$output = apiWipeLabNodes($lab, $user['tenant'], $user['username']);
+		$runUser = $user['username'];
+		if ($user['role'] === 'admin' && $lab->getAuthor()) {
+			$runUser = $lab->getAuthor();
+		}
+		$labTenant = $lab->getTenant() ?: $user['tenant'];
+		$output = apiWipeLabNodes($lab, $labTenant, $runUser);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+$/', $labFileRelative)) {
 		$output = apiGetLabNode($lab, $id, $user['html5'], $user);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+\/interfaces$/', $labFileRelative)) {
@@ -1045,7 +1060,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		$output = apiStopLabNode($lab, $id, $user['tenant'], $user['username']);
+		$runUser = $user['username'];
+		if ($user['role'] === 'admin' && $lab->getAuthor()) {
+			$runUser = $lab->getAuthor();
+		}
+		$labTenant = $lab->getTenant() ?: $user['tenant'];
+		$output = apiStopLabNode($lab, $id, $labTenant, $runUser);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+\/wipe$/', $labFileRelative)) {
 		if ($user['tenant'] < 0) {
 			// User does not have an assigned tenant
@@ -1056,7 +1076,12 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		$output = apiWipeLabNode($lab, $id, $user['tenant'], $user['username']);
+		$runUser = $user['username'];
+		if ($user['role'] === 'admin' && $lab->getAuthor()) {
+			$runUser = $lab->getAuthor();
+		}
+		$labTenant = $lab->getTenant() ?: $user['tenant'];
+		$output = apiWipeLabNode($lab, $id, $labTenant, $runUser);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/topology$/', $labFileRelative)) {
 		if ($user['tenant'] < 0) {
 			// User does not have an assigned tenant
@@ -1267,10 +1292,19 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	$isOwner = $lab->getAuthor() == $user['username'];
 	$isAdmin = $user['role'] == 'admin';
 
-	$collaborators = array_map('trim', explode(',', strtolower($lab->getSharedWith())));
-	$isCollaborator = $lab->getCollaborateAllowed() && in_array(strtolower($user['username']), $collaborators);
+	$collaborateActive = $lab->getCollaborateAllowed() && $mode === 'collaborate';
+	$sharedWithRaw = trim(strtolower($lab->getSharedWith() ?: ''));
+	$sharedList = $sharedWithRaw === '' ? array() : array_map('trim', explode(',', $sharedWithRaw));
+	$isCollaborator = false;
+	if ($collaborateActive) {
+		if ($lab->getShared() || empty($sharedList)) {
+			$isCollaborator = true;
+		} else {
+			$isCollaborator = in_array(strtolower($user['username']), $sharedList, true);
+		}
+	}
 
-	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
+	if (!$isOwner && !$isAdmin && !$isCollaborator) {
 		$output['code'] = 403;
 		$output['status'] = 'fail';
 		$output['message'] = 'Permission denied to modify the lab.';
@@ -1648,10 +1682,19 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$isOwner = $lab->getAuthor() == $user['username'];
 	$isAdmin = $user['role'] == 'admin';
-	$collaborators = array_map('trim', explode(',', strtolower($lab->getSharedWith())));
-	$isCollaborator = $lab->getCollaborateAllowed() && in_array(strtolower($user['username']), $collaborators);
+	$collaborateActive = $lab->getCollaborateAllowed() && $mode === 'collaborate';
+	$sharedWithRaw = trim(strtolower($lab->getSharedWith() ?: ''));
+	$sharedList = $sharedWithRaw === '' ? array() : array_map('trim', explode(',', $sharedWithRaw));
+	$isCollaborator = false;
+	if ($collaborateActive) {
+		if ($lab->getShared() || empty($sharedList)) {
+			$isCollaborator = true;
+		} else {
+			$isCollaborator = in_array(strtolower($user['username']), $sharedList, true);
+		}
+	}
 
-	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
+	if (!$isOwner && !$isAdmin && !$isCollaborator) {
 		$output['code'] = 403;
 		$output['status'] = 'fail';
 		$output['message'] = 'Permission denied to add objects to the lab.';
@@ -1704,11 +1747,14 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 					unlockFile($lab_file_full);
 					return;
 				}
+				$labTenant = $lab->getTenant() ?: $user['tenant'];
+				$runner = ($user['role'] === 'admin' && $lab->getAuthor()) ? $lab->getAuthor() : $user['username'];
 				$jobPayload = array(
 					'operation' => $action,
-					'ids' => $ids
+					'ids' => $ids,
+					'runner' => $runner
 				);
-				$jobId = enqueueJob($db, $lab_file_absolute, $user['tenant'], $user['username'], $user['role'], 'nodes_batch', $jobPayload);
+				$jobId = enqueueJob($db, $lab_file_absolute, $labTenant, $user['username'], $user['role'], 'nodes_batch', $jobPayload);
 				$output['code'] = 202;
 				$output['status'] = 'accepted';
 				$output['message'] = 'Batch node action queued.';
@@ -1886,10 +1932,19 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	$isOwner = $lab->getAuthor() == $user['username'];
 	$isAdmin = $user['role'] == 'admin';
 
-	$collaborators = array_map('trim', explode(',', $lab->getSharedWith()));
-	$isCollaborator = $lab->getCollaborateAllowed() && in_array($user['username'], $collaborators);
+	$collaborateActive = $lab->getCollaborateAllowed() && $mode === 'collaborate';
+	$sharedWithRaw = trim(strtolower($lab->getSharedWith() ?: ''));
+	$sharedList = $sharedWithRaw === '' ? array() : array_map('trim', explode(',', $sharedWithRaw));
+	$isCollaborator = false;
+	if ($collaborateActive) {
+		if ($lab->getShared() || empty($sharedList)) {
+			$isCollaborator = true;
+		} else {
+			$isCollaborator = in_array(strtolower($user['username']), $sharedList, true);
+		}
+	}
 
-	if (!$isOwner && !$isAdmin && !($isCollaborator && $mode === 'collaborate')) {
+	if (!$isOwner && !$isAdmin && !$isCollaborator) {
 		$output['code'] = 403;
 		$output['status'] = 'fail';
 		$output['message'] = 'Недостаточно прав для удаления лаборатории';
@@ -2611,6 +2666,198 @@ $app->get('/api/jobs/(:job_id)', function ($job_id) use ($app, $db) {
 	);
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
+});
+
+$app->post('/api/jobs/(:job_id)/cancel', function ($job_id) use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$jobId = intval($job_id);
+	if ($jobId <= 0) {
+		$response = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Invalid job identifier.'
+		);
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	$job = getJobById($db, $jobId);
+	if ($job === null) {
+		$response = array(
+			'code' => 404,
+			'status' => 'fail',
+			'message' => 'Job not found.'
+		);
+		$app->response->setStatus(404);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	if ($user['role'] !== 'admin' && $job['username'] !== $user['username']) {
+		$app->response->setStatus($GLOBALS['forbidden']['code']);
+		$app->response->setBody(json_encode($GLOBALS['forbidden']));
+		return;
+	}
+
+	$status = strtolower($job['status']);
+	if (in_array($status, array('success', 'failed', 'cancelled'), true)) {
+		$response = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Job is already finished.'
+		);
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	if ($status === 'pending') {
+		$resultPayload = array(
+			'message' => 'Job cancelled before execution.'
+		);
+		updateJobStatus($db, $jobId, 'cancelled', $resultPayload, 100);
+	} else {
+		setJobCancelFlag($db, $jobId, true);
+	}
+
+	$updatedJob = getJobById($db, $jobId);
+	$response = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => ($status === 'pending') ? 'Job cancelled.' : 'Cancellation requested.',
+		'data' => $updatedJob
+	);
+	$app->response->setStatus(200);
+	$app->response->setBody(json_encode($response));
+});
+
+$app->delete('/api/jobs/(:job_id)', function ($job_id) use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$jobId = intval($job_id);
+	if ($jobId <= 0) {
+		$response = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Invalid job identifier.'
+		);
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	$job = getJobById($db, $jobId);
+	if ($job === null) {
+		$response = array(
+			'code' => 404,
+			'status' => 'fail',
+			'message' => 'Job not found.'
+		);
+		$app->response->setStatus(404);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	if ($user['role'] !== 'admin' && $job['username'] !== $user['username']) {
+		$app->response->setStatus($GLOBALS['forbidden']['code']);
+		$app->response->setBody(json_encode($GLOBALS['forbidden']));
+		return;
+	}
+
+	$request = $app->request;
+	$force = (bool)$request->params('force');
+	$status = strtolower($job['status']);
+	if (!$force && !in_array($status, array('success', 'failed', 'cancelled'), true)) {
+		$response = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Only completed or cancelled jobs can be deleted.'
+		);
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+
+	deleteJobById($db, $jobId);
+	$response = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => 'Job deleted.'
+	);
+	$app->response->setStatus(200);
+	$app->response->setBody(json_encode($response));
+});
+
+$app->get('/api/jobs/settings', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+	$value = getMaxParallelNodesLimit($db);
+	$response = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => 'Jobs settings',
+		'data' => array(
+			'max_parallel_nodes' => $value
+		)
+	);
+	$app->response->setStatus(200);
+	$app->response->setBody(json_encode($response));
+});
+
+$app->post('/api/jobs/settings', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+	if ($user['role'] !== 'admin') {
+		$app->response->setStatus($GLOBALS['forbidden']['code']);
+		$app->response->setBody(json_encode($GLOBALS['forbidden']));
+		return;
+	}
+	$request = $app->request;
+	$payload = json_decode($request->getBody(), true);
+	if (!is_array($payload)) {
+		$payload = $request->params();
+	}
+	if (!isset($payload['max_parallel_nodes'])) {
+		$response = array(
+			'code' => 400,
+			'status' => 'fail',
+			'message' => 'Invalid payload.'
+		);
+		$app->response->setStatus(400);
+		$app->response->setBody(json_encode($response));
+		return;
+	}
+	$limit = setMaxParallelNodesLimit($db, $payload['max_parallel_nodes']);
+	$response = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => 'Jobs settings updated.',
+		'data' => array(
+			'max_parallel_nodes' => $limit
+		)
+	);
+	$app->response->setStatus(200);
+	$app->response->setBody(json_encode($response));
 });
 
 /***************************************************************************

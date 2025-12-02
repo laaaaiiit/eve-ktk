@@ -131,10 +131,15 @@ function apiLogin($db, $html5_db, $p, $cookie)
 				$statement->bindParam(':type', $type, PDO::PARAM_STR);
 				$statement->execute();
 
-				$statement = $html5_db->prepare('REPLACE INTO guacamole_user(user_id, entity_id, password_hash, password_date ) VALUES  ( :user_id , :entity_id, UNHEX(SHA2(SHA2(:password_value,256),256)), :password_date);');
+				$passwordSalt = function_exists('random_bytes') ? random_bytes(32) : openssl_random_pseudo_bytes(32);
+				$hexSalt = strtoupper(bin2hex($passwordSalt));
+				$passwordHash = hex2bin(hash('sha256', $plainPassword . $hexSalt));
+
+				$statement = $html5_db->prepare('REPLACE INTO guacamole_user(user_id, entity_id, password_salt, password_hash, password_date ) VALUES  ( :user_id , :entity_id, :password_salt, :password_hash, :password_date);');
 				$statement->bindParam(':user_id', $guacUserId, PDO::PARAM_INT);
 				$statement->bindParam(':entity_id', $guacUserId, PDO::PARAM_INT);
-				$statement->bindParam(':password_value', $plainPassword, PDO::PARAM_STR);
+				$statement->bindParam(':password_salt', $passwordSalt, PDO::PARAM_LOB);
+				$statement->bindParam(':password_hash', $passwordHash, PDO::PARAM_LOB);
 				$passwordDate = date("Y-m-d H:i:s");
 				$statement->bindParam(':password_date', $passwordDate, PDO::PARAM_STR);
 				$statement->execute();

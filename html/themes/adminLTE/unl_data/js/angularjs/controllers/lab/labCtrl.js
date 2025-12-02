@@ -28,6 +28,12 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		$('body').removeClass('sidebar-expanded-on-hover').addClass('sidebar-collapse');
 	}
 
+	var queryMode = (($location.search().mode || '') + '').toLowerCase();
+	if (!$scope.labViewMode && queryMode === 'collaborate') {
+		$scope.labViewMode = 'collaborate';
+		$rootScope.labViewMode = 'collaborate';
+	}
+
 	var topologyPoller;
 	var lastModified = 0;
 	function pollTopology() {
@@ -106,8 +112,17 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 	}
 	$scope.networkListRefresh();
 	
+	function buildLabActionUrl(path) {
+		var url = '/api/labs' + $rootScope.lab + path;
+		var isCollaborate = ($scope.labViewMode === 'collaborate') || ($location.search().mode === 'collaborate');
+		if (isCollaborate) {
+			url += (url.indexOf('?') === -1 ? '?' : '&') + 'mode=collaborate';
+		}
+		return url;
+	}
+
 	$scope.nodeListRefresh = function(){
-		$http.get('/api/labs'+$rootScope.lab+'/nodes')
+		$http.get(buildLabActionUrl('/nodes'))
 		.then(
 			function successCallback(response){
 				console.log("nodeListRefresh:",response);
@@ -214,11 +229,7 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		if (!ids.length) {
 			return;
 		}
-		if (ids.length === 1) {
-			queueSingleNodeAction('wipe', ids[0]);
-			return;
-		}
-		runBatchNodeAction('wipe', ids);
+		queueStopThenWipe(ids);
 	}
 
 	$scope.wipeNode = function(id){
@@ -228,7 +239,7 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			id = $("#tempElID").val();
 			id = id.replace("nodeID_", "");
 		}
-		queueSingleNodeAction('wipe', id);
+		queueStopThenWipe([id]);
 	}
 	///////////////////////////////////////////////
 	//// Wipe all nodes /END
@@ -306,6 +317,19 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		return ids;
 	}
 
+	function queueStopThenWipe(ids) {
+		if (!ids || !ids.length) {
+			return $q.when();
+		}
+		return runBatchNodeAction('stop', ids)
+			.catch(function () {
+				return $q.when();
+			})
+			.then(function () {
+				return runBatchNodeAction('wipe', ids);
+			});
+	}
+
 	function removeNodeElement(nodeId, elementPrefix) {
 		var prefix = elementPrefix || 'node';
 		jsPlumb.select({source: prefix + 'ID_' + nodeId}).detach();
@@ -378,6 +402,21 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		return runBatchNodeAction(action, [nodeId]);
 	}
 
+	function describeJobAction(action) {
+		switch (action) {
+			case 'start':
+				return 'Запуск узлов';
+			case 'stop':
+				return 'Остановка узлов';
+			case 'wipe':
+				return 'Очистка узлов';
+			case 'delete':
+				return 'Удаление узлов';
+			default:
+				return 'Групповая операция';
+		}
+	}
+
 	$scope.pollJobStatus = function(jobId) {
 		var deferred = $q.defer();
 		function check() {
@@ -416,10 +455,11 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			action: action,
 			progress: 0,
 			status: 'queued',
-			id: null
+			id: null,
+			detail: describeJobAction(action)
 		};
 		$scope.activeJob = jobContext;
-		return $http.post('/api/labs' + $rootScope.lab + '/nodes/actions', { action: action, ids: ids })
+		return $http.post(buildLabActionUrl('/nodes/actions'), { action: action, ids: ids })
 			.then(function successCallback(response) {
 				if ((response.status === 202 || response.data.status === 'accepted') && response.data.data && response.data.data.job_id) {
 					var jobId = response.data.data.job_id;
@@ -449,11 +489,14 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 				if (resultData.status === 'failed') {
 					var failMessage = (finalResult && finalResult.message) ? finalResult.message : 'Job failed';
 					toastr["error"](failMessage, "Error");
+					jobContext.detail = failMessage;
 				} else if (finalResult && finalResult.status === 'partial') {
 					toastr["warning"](finalResult.message || 'Batch completed with issues', "Partial");
+					jobContext.detail = finalResult.message || jobContext.detail;
 				} else {
 					var successMessage = (finalResult && finalResult.message) ? finalResult.message : 'Batch completed';
 					toastr["success"](successMessage, "Success");
+					jobContext.detail = successMessage;
 				}
 				jobContext.status = 'complete';
 				jobContext.progress = 100;
@@ -467,9 +510,14 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			.catch(function(error){
 				var message = (error && error.data && error.data.message) ? error.data.message : 'Job polling failed';
 				toastr["error"](message, "Error");
-				if ($scope.activeJob === jobContext) {
-					$scope.activeJob = null;
-				}
+				jobContext.detail = message;
+				jobContext.status = 'failed';
+				jobContext.progress = 100;
+				$timeout(function () {
+					if ($scope.activeJob === jobContext) {
+						$scope.activeJob = null;
+					}
+				}, 2000);
 				return $q.reject(error);
 			});
 	};

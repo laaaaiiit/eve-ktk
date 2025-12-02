@@ -47,7 +47,8 @@ function processJob($db, $job)
 			default:
 				throw new Exception('Unsupported job action: ' . $job['action']);
 		}
-		updateJobStatus($db, $job['id'], 'success', $result);
+		$finalStatus = isset($result['final_status']) ? $result['final_status'] : 'success';
+		updateJobStatus($db, $job['id'], $finalStatus, $result);
 	} catch (Exception $e) {
 		$errorPayload = array(
 			'code' => 500,
@@ -88,6 +89,11 @@ function runNodeBatchJob($db, $job, $payload)
 			$percent = (int) floor(($processed / $denominator) * 100);
 			updateJobProgress($db, $job['id'], $percent);
 		};
+		$cancelCallback = function () use ($db, $job) {
+			return jobCancellationRequested($db, $job['id']);
+		};
+		$maxParallel = getMaxParallelNodesLimit($db);
+		$runner = isset($payload['runner']) && $payload['runner'] ? $payload['runner'] : $job['username'];
 		$result = apiBatchNodeAction(
 			$lab,
 			$ids,
@@ -95,10 +101,16 @@ function runNodeBatchJob($db, $job, $payload)
 			$job['tenant'],
 			$job['username'],
 			$userContext,
-			$progressUpdater
+			$progressUpdater,
+			$cancelCallback,
+			array('max_parallel' => $maxParallel, 'runner' => $runner)
 		);
 	} finally {
 		unlockFile($labFileFull);
+	}
+
+	if (!isset($result['final_status'])) {
+		$result['final_status'] = isset($result['status']) ? $result['status'] : 'success';
 	}
 
 	return $result;

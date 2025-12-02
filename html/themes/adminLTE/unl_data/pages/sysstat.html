@@ -95,67 +95,6 @@
       </div>
     </div>
 
-    <div class="theme-surface rounded-3xl shadow-2xl p-8 space-y-6 transition-colors duration-300">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.jobTitle"></h2>
-          <p class="theme-muted text-sm" data-ng-bind="t.jobSubtitle"></p>
-        </div>
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl p-4 border transition-colors duration-300" ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
-          <p class="text-sm uppercase" data-ng-bind="t.jobPending"></p>
-          <strong class="text-3xl font-semibold" data-ng-bind="jobSummary.counts.pending || 0"></strong>
-        </div>
-        <div class="rounded-2xl p-4 border transition-colors duration-300" ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
-          <p class="text-sm uppercase" data-ng-bind="t.jobRunning"></p>
-          <strong class="text-3xl font-semibold" data-ng-bind="jobSummary.counts.running || 0"></strong>
-        </div>
-        <div class="rounded-2xl p-4 border transition-colors duration-300" ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
-          <p class="text-sm uppercase" data-ng-bind="t.jobSuccess"></p>
-          <strong class="text-3xl font-semibold" data-ng-bind="jobSummary.counts.success || 0"></strong>
-        </div>
-        <div class="rounded-2xl p-4 border transition-colors duration-300" ng-class="themeClass('border-white/10 bg-slate-900/40','border-slate-200 bg-white')">
-          <p class="text-sm uppercase" data-ng-bind="t.jobFailed"></p>
-          <strong class="text-3xl font-semibold" data-ng-bind="jobSummary.counts.failed || 0"></strong>
-        </div>
-      </div>
-      <div class="overflow-x-auto rounded-2xl border transition-colors duration-300" ng-class="themeClass('border-white/10 bg-slate-900/30','border-slate-200 bg-white')">
-        <table class="min-w-full divide-y" ng-class="themeClass('divide-white/10 text-slate-200','divide-slate-200 text-slate-900')">
-          <thead ng-class="themeClass('bg-white/5','bg-slate-50')">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.jobTableId"></th>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.jobTableAction"></th>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.jobTableStatus"></th>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.jobTableProgress"></th>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" ng-if="role === 'admin'" data-ng-bind="t.jobTableUser"></th>
-              <th class="px-4 py-3 text-left text-xs font-semibold uppercase" data-ng-bind="t.jobTableUpdated"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y" ng-class="themeClass('divide-white/10','divide-slate-200')">
-            <tr data-ng-repeat="job in jobSummary.recent track by job.id">
-              <td class="px-4 py-3 font-semibold">#{{job.id}}</td>
-              <td class="px-4 py-3 uppercase tracking-wide text-sm" data-ng-bind="job.action"></td>
-              <td class="px-4 py-3">
-                <span class="px-3 py-1 rounded-full text-xs font-semibold" ng-class="jobStatusClass(job.status)" data-ng-bind="jobStatusLabel(job.status)"></span>
-              </td>
-              <td class="px-4 py-3">
-                <div class="w-full bg-slate-200/40 dark:bg-white/10 rounded-full h-2 overflow-hidden">
-                  <div class="h-full bg-blue-500 dark:bg-cyan-400 transition-all duration-300" ng-style="{'width': (job.progress || 0) + '%'}"></div>
-                </div>
-                <span class="text-xs theme-muted mt-1 inline-block">{{job.progress || 0}}%</span>
-              </td>
-              <td class="px-4 py-3 text-sm" ng-if="role === 'admin'">{{job.username}}</td>
-              <td class="px-4 py-3 text-sm" data-ng-bind="job.updated_at | date:'short'"></td>
-            </tr>
-            <tr data-ng-if="!jobSummary.recent.length">
-              <td class="px-4 py-4 text-center text-sm" ng-attr-colspan="{{ (role === 'admin') ? 6 : 5 }}" data-ng-bind="t.jobEmpty"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
     <div class="theme-surface rounded-3xl shadow-2xl p-8 space-y-6 transition-colors duration-300" ng-if="role === 'admin'">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.statusTitle"></h2>

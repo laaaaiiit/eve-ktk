@@ -28,6 +28,7 @@ function checkDatabase()
 		$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		ensureUsersLangColumn($db);
 		ensureUsersThemeColumn($db);
+		ensureSystemSettingsTable($db);
 		return $db;
 	} catch (Exception $e) {
 		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][90003]);
@@ -72,6 +73,86 @@ function ensureUsersThemeColumn($db)
 	}
 }
 
+function ensureSystemSettingsTable($db)
+{
+	try {
+		$query = "SHOW TABLES LIKE 'system_settings';";
+		$statement = $db->prepare($query);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (empty($result)) {
+			$query = "CREATE TABLE system_settings (
+				setting_key VARCHAR(128) PRIMARY KEY,
+				setting_value TEXT NOT NULL,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+			$statement = $db->prepare($query);
+			$statement->execute();
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to ensure system_settings table');
+		error_log(date('M d H:i:s ') . (string) $e);
+	}
+}
+
+function getSystemSetting($db, $key, $default = null)
+{
+	ensureSystemSettingsTable($db);
+	try {
+		$query = "SELECT setting_value FROM system_settings WHERE setting_key = :key LIMIT 1;";
+		$statement = $db->prepare($query);
+		$statement->bindParam(':key', $key, PDO::PARAM_STR);
+		$statement->execute();
+		$result = $statement->fetch(PDO::FETCH_ASSOC);
+		if ($result && isset($result['setting_value'])) {
+			return $result['setting_value'];
+		}
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to read setting ' . $key);
+		error_log(date('M d H:i:s ') . (string) $e);
+	}
+	return $default;
+}
+
+function setSystemSetting($db, $key, $value)
+{
+	ensureSystemSettingsTable($db);
+	try {
+		$query = "REPLACE INTO system_settings (setting_key, setting_value) VALUES (:key, :value);";
+		$statement = $db->prepare($query);
+		$statement->bindParam(':key', $key, PDO::PARAM_STR);
+		$statement->bindParam(':value', $value, PDO::PARAM_STR);
+		$statement->execute();
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to save setting ' . $key);
+		error_log(date('M d H:i:s ') . (string) $e);
+	}
+}
+
+function getMaxParallelNodesLimit($db)
+{
+	$value = getSystemSetting($db, 'max_parallel_nodes', '3');
+	$limit = (int)$value;
+	if ($limit < 1) {
+		$limit = 1;
+	} else if ($limit > 20) {
+		$limit = 20;
+	}
+	return $limit;
+}
+
+function setMaxParallelNodesLimit($db, $value)
+{
+	$limit = (int)$value;
+	if ($limit < 1) {
+		$limit = 1;
+	} else if ($limit > 20) {
+		$limit = 20;
+	}
+	setSystemSetting($db, 'max_parallel_nodes', $limit);
+	return $limit;
+}
+
 function ensureJobsTable($db)
 {
 	try {
@@ -111,6 +192,20 @@ function ensureJobsTable($db)
 				}
 			} catch (Exception $ce) {
 				error_log(date('M d H:i:s ') . 'ERROR: unable to ensure job progress column');
+				error_log(date('M d H:i:s ') . (string) $ce);
+			}
+			try {
+				$columnQuery = "SHOW COLUMNS FROM jobs LIKE 'cancel_requested';";
+				$columnStatement = $db->prepare($columnQuery);
+				$columnStatement->execute();
+				$columnResult = $columnStatement->fetch();
+				if (empty($columnResult)) {
+					$alter = "ALTER TABLE jobs ADD COLUMN cancel_requested TINYINT(1) NOT NULL DEFAULT 0 AFTER progress;";
+					$alterStatement = $db->prepare($alter);
+					$alterStatement->execute();
+				}
+			} catch (Exception $ce) {
+				error_log(date('M d H:i:s ') . 'ERROR: unable to ensure job cancel flag column');
 				error_log(date('M d H:i:s ') . (string) $ce);
 			}
 		}
@@ -157,7 +252,7 @@ function getJobById($db, $jobId)
 
 function updateJobStatus($db, $jobId, $status, $result = null, $progress = null)
 {
-	$query = "UPDATE jobs SET status = :status, result = :result, progress = :progress WHERE id = :id;";
+	$query = "UPDATE jobs SET status = :status, result = :result, progress = :progress, cancel_requested = 0 WHERE id = :id;";
 	$statement = $db->prepare($query);
 	$resultJson = $result !== null ? json_encode($result) : null;
 	$finalProgress = $progress !== null ? (int) $progress : (($status === 'success' || $status === 'failed') ? 100 : 0);
@@ -228,7 +323,8 @@ function fetchJobSummary($db, $username, $role, $limit = 5)
 		'pending' => 0,
 		'running' => 0,
 		'success' => 0,
-		'failed' => 0
+		'failed' => 0,
+		'cancelled' => 0
 	);
 	foreach ($countsResult as $row) {
 		$status = strtolower($row['status']);
@@ -242,7 +338,8 @@ function fetchJobSummary($db, $username, $role, $limit = 5)
 			WHEN 'running' THEN 0
 			WHEN 'pending' THEN 1
 			WHEN 'failed' THEN 2
-			ELSE 3
+			WHEN 'cancelled' THEN 3
+			ELSE 4
 		END, id DESC LIMIT :limit;";
 	$statement = $db->prepare($recentQuery);
 	foreach ($params as $key => $value) {
@@ -266,7 +363,7 @@ function fetchJobsList($db, $user, $filters = array())
 	$perPage = max(1, min(200, $perPage));
 	$offset = ($page - 1) * $perPage;
 
-	$validStatuses = array('pending', 'running', 'success', 'failed');
+	$validStatuses = array('pending', 'running', 'success', 'failed', 'cancelled');
 	$statusFilter = array();
 	if (!empty($filters['status'])) {
 		$rawStatuses = is_array($filters['status']) ? $filters['status'] : explode(',', $filters['status']);
@@ -331,7 +428,8 @@ function fetchJobsList($db, $user, $filters = array())
 		'pending' => 0,
 		'running' => 0,
 		'success' => 0,
-		'failed' => 0
+		'failed' => 0,
+		'cancelled' => 0
 	);
 	$countsQuery = "SELECT status, COUNT(*) AS total FROM jobs $baseWhereClause GROUP BY status;";
 	$countStatement = $db->prepare($countsQuery);
@@ -368,7 +466,8 @@ function fetchJobsList($db, $user, $filters = array())
 			WHEN 'running' THEN 0
 			WHEN 'pending' THEN 1
 			WHEN 'failed' THEN 2
-			ELSE 3
+			WHEN 'cancelled' THEN 3
+			ELSE 4
 		END, id DESC LIMIT :limit OFFSET :offset;";
 	$listStatement = $db->prepare($listQuery);
 	foreach ($params as $key => $value) {
@@ -401,8 +500,39 @@ function fetchJobsList($db, $user, $filters = array())
 		'applied' => array(
 			'statuses' => $statusFilter,
 			'username' => ($user['role'] === 'admin') ? (isset($filters['username']) ? $filters['username'] : null) : $user['username']
+		),
+		'settings' => array(
+			'max_parallel_nodes' => getMaxParallelNodesLimit($db)
 		)
 	);
+}
+
+function jobCancellationRequested($db, $jobId)
+{
+	$query = "SELECT cancel_requested FROM jobs WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
+	$result = $statement->fetch(PDO::FETCH_ASSOC);
+	return !empty($result) && (int)$result['cancel_requested'] === 1;
+}
+
+function setJobCancelFlag($db, $jobId, $flag)
+{
+	$query = "UPDATE jobs SET cancel_requested = :flag WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$flagValue = $flag ? 1 : 0;
+	$statement->bindParam(':flag', $flagValue, PDO::PARAM_INT);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
+}
+
+function deleteJobById($db, $jobId)
+{
+	$query = "DELETE FROM jobs WHERE id = :id;";
+	$statement = $db->prepare($query);
+	$statement->bindParam(':id', $jobId, PDO::PARAM_INT);
+	$statement->execute();
 }
 
 /**

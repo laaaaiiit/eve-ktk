@@ -1210,6 +1210,7 @@ class Node
 
 					// Теперь можно выдать права на существующее или новое соединение
 					giveUserPermission($html5_db, $this->port, $user['tenant']);
+					addHtml5Perm($this->port, $user['tenant']);
 				}
 
 				$html5_db = null;

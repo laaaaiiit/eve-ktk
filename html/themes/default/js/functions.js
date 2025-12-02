@@ -43,8 +43,18 @@ function addMessage(severity, message, notFromLabviewport) {
     };
     var target = toastMap[normalized] || toastMap.info;
     var title = target.title;
+    var description;
+    try {
+        if (typeof message === 'string' && message.indexOf(':') !== -1) {
+            var split = message.split(':');
+            if (split.length > 1) {
+                title = split.shift().trim() || title;
+                description = split.join(':').trim();
+            }
+        }
+    } catch (e) {}
     if (window.toastr && typeof toastr[target.fn] === 'function') {
-        toastr[target.fn](message, title);
+        toastr[target.fn](description || message, title);
     }
 }
 
@@ -1652,6 +1662,14 @@ function setNodesPosition(nodes) {
     form_data = nodes;
     var url = '/api/labs' + lab_filename + '/nodes';
     var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
+    var urlParams = new URLSearchParams(window.location.search);
 	if (urlParams.get('mode') === 'collaborate') {
         url += '?mode=collaborate';
     }
@@ -1818,11 +1836,16 @@ function pollJob(jobId) {
 function enqueueNodeAction(action, ids) {
     var deferred = $.Deferred();
     var lab_filename = $('#lab-viewport').attr('data-path');
+    var url = '/api/labs' + lab_filename + '/nodes/actions';
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
     $.ajax({
         cache: false,
         timeout: TIMEOUT,
         type: 'POST',
-        url: encodeURI('/api/labs' + lab_filename + '/nodes/actions'),
+        url: encodeURI(url),
         dataType: 'json',
         contentType: 'application/json',
         processData: false,
@@ -1830,7 +1853,7 @@ function enqueueNodeAction(action, ids) {
     }).done(function (data) {
         if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
             if (typeof updateJobOverlay === 'function') {
-                updateJobOverlay({ id: data.data.job_id, action: action, progress: 0, status: 'running' });
+                updateJobOverlay({ id: data.data.job_id, action: 'nodes_batch', operation: action, progress: 0, status: 'running' });
             }
             pollJob(data.data.job_id).done(function (job) {
                 deferred.resolve(job.result || job);
@@ -1874,15 +1897,15 @@ function ensureJobOverlayElement() {
         '<div id="job-overlay-panel" style="position:fixed;right:20px;bottom:20px;z-index:1050;width:260px;background:#0f172a;box-shadow:0 10px 25px rgba(0,0,0,0.45);border-radius:16px;border:1px solid rgba(255,255,255,0.1);color:#f8fafc;padding:16px;font-family:\'Inter\',sans-serif;">' +
             '<div class="job-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
                 '<div>' +
-                    '<div class="job-action" style="font-size:12px;text-transform:uppercase;letter-spacing:0.2em;color:#94a3b8;">Batch action</div>' +
-                    '<div class="job-title" style="font-size:16px;font-weight:600;">Pending...</div>' +
+                    '<div class="job-action" style="font-size:12px;font-weight:600;color:#94a3b8;">' + getJobHeaderLabel() + '</div>' +
+                    '<div class="job-title" style="font-size:16px;font-weight:600;">—</div>' +
                 '</div>' +
                 '<div class="job-percent" style="font-size:18px;font-weight:700;">0%</div>' +
             '</div>' +
             '<div class="job-progress-wrap" style="width:100%;height:8px;border-radius:999px;background:rgba(148,163,184,0.4);overflow:hidden;">' +
                 '<div class="job-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#2563eb);transition:width 0.3s ease;"></div>' +
             '</div>' +
-            '<div class="job-meta" style="margin-top:12px;font-size:12px;color:#94a3b8;">Job #<span class="job-id">--</span> • <span class="job-status">queued</span></div>' +
+            '<div class="job-meta" style="margin-top:12px;font-size:12px;color:#94a3b8;">Job #<span class="job-id">--</span> • <span class="job-status">' + getLocalizedJobStatus('queued') + '</span></div>' +
         '</div>'
     );
     $('body').append(panel);
@@ -1894,10 +1917,12 @@ function updateJobOverlay(job) {
         return;
     }
     var panel = ensureJobOverlayElement();
-    panel.find('.job-action').text((job.action || '').toUpperCase());
-    panel.find('.job-title').text(job.status === 'running' ? 'Processing...' : job.status);
+    var actionKey = (job.operation || (job.payload && job.payload.operation) || job.action || '').toString().toLowerCase();
+    var statusNormalized = (job.status || '').toLowerCase();
+    panel.find('.job-action').text(getJobHeaderLabel());
+    panel.find('.job-title').text(describeJobAction(actionKey));
     panel.find('.job-id').text(job.id);
-    panel.find('.job-status').text(job.status || 'queued');
+    panel.find('.job-status').text(getLocalizedJobStatus(statusNormalized));
     var percent = job.progress !== undefined ? parseInt(job.progress, 10) : 0;
     percent = Math.max(0, Math.min(100, percent));
     panel.find('.job-progress-bar').css('width', percent + '%');
@@ -1906,6 +1931,59 @@ function updateJobOverlay(job) {
 
 function hideJobOverlay() {
     $('#job-overlay-panel').remove();
+}
+
+function describeJobAction(actionKey) {
+    var lang = (window.LANG || 'en').toLowerCase();
+    var tables = {
+        ru: {
+            start: 'Запуск узлов',
+            stop: 'Остановка узлов',
+            wipe: 'Очистка узлов',
+            delete: 'Удаление узлов',
+            nodes_batch: 'Операция с узлами',
+            default: 'Групповая операция'
+        },
+        en: {
+            start: 'Start nodes',
+            stop: 'Stop nodes',
+            wipe: 'Wipe nodes',
+            delete: 'Delete nodes',
+            nodes_batch: 'Nodes operation',
+            default: 'Batch action'
+        }
+    };
+    var dict = tables[lang] || tables.en;
+    return dict[actionKey] || dict.default;
+}
+
+function getLocalizedJobStatus(statusKey) {
+    var lang = (window.LANG || 'en').toLowerCase();
+    var tables = {
+        ru: {
+            running: 'Выполняется…',
+            queued: 'В очереди…',
+            success: 'Выполнено',
+            failed: 'Ошибка',
+            partial: 'Выполнено частично',
+            cancelled: 'Отменено'
+        },
+        en: {
+            running: 'Processing…',
+            queued: 'Queued…',
+            success: 'Completed',
+            failed: 'Failed',
+            partial: 'Completed with issues',
+            cancelled: 'Cancelled'
+        }
+    };
+    var dict = tables[lang] || tables.en;
+    return dict[statusKey] || dict.queued;
+}
+
+function getJobHeaderLabel() {
+    var lang = (window.LANG || 'en').toLowerCase();
+    return lang === 'ru' ? 'Задача' : 'Task';
 }
 
 // Start node(s)

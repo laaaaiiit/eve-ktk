@@ -1153,8 +1153,7 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				topoUrl += '?mode=collaborate';
 			}
 			return $http.get(topoUrl);
-		}).then(function (response) {
-			// Всё готово — можно переходить
+		}).then(function () {
 			var redirect = "/legacy" + finalLabName + "/topology";
 			if ($scope.labViewMode === 'collaborate') {
 				redirect += "?mode=collaborate";
@@ -1201,8 +1200,41 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			return false;
 		}
 		$scope.labViewMode = '';
-		$scope.labopen(workPath);
+		$scope.legacylabopen(workPath);
 		return true;
+	}
+
+	function redirectToWorkLab(initialPath) {
+		if (openWorkLab(initialPath)) {
+			return;
+		}
+		scheduleWorkLabRetry(0);
+	}
+
+	function scheduleWorkLabRetry(attempt) {
+		attempt = attempt || 0;
+		if (attempt >= 5) {
+			return;
+		}
+		var infoPromise = $scope.getLabInfo ? $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab) : null;
+		if (infoPromise && typeof infoPromise.then === 'function') {
+			infoPromise.then(function (infoResponse) {
+				var refreshedPath = '';
+				if (infoResponse && infoResponse.data && infoResponse.data.data) {
+					refreshedPath = infoResponse.data.data.work_path || '';
+				}
+				if (!refreshedPath && $scope.labInfo && $scope.labInfo.workPath) {
+					refreshedPath = $scope.labInfo.workPath;
+				}
+				if (!openWorkLab(refreshedPath)) {
+					$timeout(function () { scheduleWorkLabRetry(attempt + 1); }, 1500);
+				}
+			}, function () {
+				$timeout(function () { scheduleWorkLabRetry(attempt + 1); }, 1500);
+			});
+		} else {
+			$timeout(function () { scheduleWorkLabRetry(attempt + 1); }, 1500);
+		}
 	}
 
 	$scope.startLabWork = function (action) {
@@ -1222,31 +1254,9 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 				}
 			}
 			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
-			var openedImmediately = openWorkLab(responseWorkPath);
-			var infoPromise = $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab);
-			if (infoPromise && typeof infoPromise.then === 'function') {
-				infoPromise.then(function (infoResponse) {
-					if (openedImmediately) {
-						return;
-					}
-					var refreshedPath = responseWorkPath;
-					if (infoResponse && infoResponse.data && infoResponse.data.data && infoResponse.data.data.work_path) {
-						refreshedPath = infoResponse.data.data.work_path;
-					} else if ($scope.labInfo && $scope.labInfo.workPath) {
-						refreshedPath = $scope.labInfo.workPath;
-					}
-					openWorkLab(refreshedPath);
-				}, function () {
-					if (!openedImmediately) {
-						openWorkLab(responseWorkPath);
-					}
-				});
-				return infoPromise;
-			}
-			if (!openedImmediately) {
-				openWorkLab(responseWorkPath);
-			}
-			return null;
+			redirectToWorkLab(responseWorkPath);
+			var infoPromise = $scope.getLabInfo ? $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab) : null;
+			return infoPromise || null;
 		}, function (response) {
 			var message = (response.data && response.data.message) ? response.data.message : 'Error creating work copy';
 			toastr["error"](message, "Error");

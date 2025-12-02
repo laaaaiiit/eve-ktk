@@ -94,7 +94,11 @@ function apiDeleteLabNode($lab, $id, $user)
 		if ($node->getId() == $id) {
 			$name = $node->getName() . '_' . $node->getId() . '_' . $lab->getAuthor();
 			error_log($name);
-			apiStopLabNode($lab, $id, $lab->getTenant(), $user['username']);
+			$runner = $lab->getAuthor();
+			if (empty($runner)) {
+				$runner = $user['username'];
+			}
+			apiStopLabNode($lab, $id, $lab->getTenant(), $runner);
 			html5DeleteSession($html5_db, $name);
 		}
 	}
@@ -1041,7 +1045,7 @@ function apiWipeLabNodes($lab, $tenant, $username)
  * @param   array   $user               Full user record (for delete operations)
  * @return  Array                       Aggregated result (JSend data)
  */
-function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $progressCallback = null)
+function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $progressCallback = null, $cancelCallback = null, $options = array())
 {
 	$action = strtolower($action);
 	$supportedActions = array('start', 'stop', 'delete', 'wipe');
@@ -1059,19 +1063,38 @@ function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $pro
 	$total = count($ids);
 	$processed = 0;
 
+	$cancelled = False;
+	$maxParallel = null;
+	if (isset($options['max_parallel'])) {
+		$maxParallel = max(1, (int)$options['max_parallel']);
+	}
+	$currentBatch = 0;
+	$runAs = $username;
+	if (isset($options['runner']) && !empty($options['runner'])) {
+		$runAs = $options['runner'];
+	} else if (isset($user['role']) && $user['role'] === 'admin') {
+		$author = $lab->getAuthor();
+		if (!empty($author)) {
+			$runAs = $author;
+		}
+	}
 	foreach ($ids as $nodeId) {
+		if ($cancelCallback !== null && call_user_func($cancelCallback) === True) {
+			$cancelled = True;
+			break;
+		}
 		switch ($action) {
 			case 'start':
-				$result = apiStartLabNode($lab, $nodeId, $tenant, $username);
+				$result = apiStartLabNode($lab, $nodeId, $tenant, $runAs);
 				break;
 			case 'stop':
-				$result = apiStopLabNode($lab, $nodeId, $tenant, $username);
+				$result = apiStopLabNode($lab, $nodeId, $tenant, $runAs);
 				break;
 			case 'delete':
 				$result = apiDeleteLabNode($lab, $nodeId, $user);
 				break;
 			case 'wipe':
-				$result = apiWipeLabNode($lab, $nodeId, $tenant, $username);
+				$result = apiWipeLabNode($lab, $nodeId, $tenant, $runAs);
 				break;
 			default:
 				$result = array(
@@ -1096,24 +1119,40 @@ function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $pro
 		if ($progressCallback !== null && $total > 0) {
 			call_user_func($progressCallback, $processed, $total);
 		}
+
+		if ($action === 'start' && $maxParallel !== null) {
+			$currentBatch++;
+			if ($currentBatch >= $maxParallel && $processed < $total) {
+				sleep(2);
+				$currentBatch = 0;
+			}
+		}
 	}
 
 	$statusText = array(
 		'start' => 'Start command sent to selected nodes.',
 		'stop' => 'Stop command sent to selected nodes.',
-		'delete' => 'Selected nodes deleted.'
+		'delete' => 'Selected nodes deleted.',
+		'wipe' => 'Wipe command sent to selected nodes.',
+		'cancelled' => 'Job cancelled by user.'
 	);
 
 	$output = array(
 		'code' => $allSucceeded ? 200 : 207,
 		'status' => $allSucceeded ? 'success' : 'partial',
-		'message' => $statusText[$action],
+		'message' => isset($statusText[$action]) ? $statusText[$action] : 'Batch action executed.',
+		'final_status' => $allSucceeded ? 'success' : 'partial',
 		'data' => array(
 			'results' => $results
 		)
 	);
 
-	if (!$allSucceeded) {
+	if ($cancelled) {
+		$output['code'] = 200;
+		$output['status'] = 'cancelled';
+		$output['final_status'] = 'cancelled';
+		$output['message'] = $statusText['cancelled'];
+	} else if (!$allSucceeded) {
 		$output['message'] .= ' Some operations failed.';
 	}
 
