@@ -12,6 +12,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             viewLabs: 'View labs',
             hideLabs: 'Hide labs',
             stopUserButton: 'Stop user nodes',
+            startLabButton: 'Start lab nodes',
             stopLabButton: 'Stop lab nodes',
             labSectionTitle: 'Labs breakdown',
             labTotalLabel: 'Running nodes',
@@ -42,6 +43,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             stopLabConfirmBody: 'Stop every node in this lab? Active sessions will be interrupted.',
             stopLabConfirmConfirm: 'Stop',
             stopLabConfirmCancel: 'Cancel',
+            startLabConfirmTitle: 'Start lab nodes',
+            startLabConfirmBody: 'Start every node in this lab? Nodes with snapshots will boot from their configured images.',
+            startLabConfirmConfirm: 'Start',
+            startLabConfirmCancel: 'Cancel',
             stopLabNoNodes: 'This lab does not contain nodes to stop.',
             stopLabFailed: 'Failed to stop lab nodes.',
             wipeLabButton: 'Wipe lab',
@@ -50,6 +55,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             wipeLabConfirmConfirm: 'Wipe lab',
             wipeLabConfirmCancel: 'Cancel',
             wipeLabFailed: 'Failed to wipe lab nodes.',
+            startLabFailed: 'Failed to start lab nodes.',
             loadingTitle: 'Loading data',
             loadingSubtitle: 'Collecting nodes and labs from every user.',
             modalCancelLabel: 'Cancel',
@@ -61,6 +67,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             nodeWipeBody: 'Wipe node "{{name}}"?',
             nodeWipeWarning: 'Wipe operation removes the current configuration.',
             nodeWipeConfirm: 'Wipe node',
+            nodeStartFailed: 'Failed to start node.',
+            nodeStopFailed: 'Failed to stop node.',
+            nodeWipeFailed: 'Failed to wipe node.',
             nodeDeleteTitle: 'Delete node',
             nodeDeleteBody: 'Are you sure you want to delete this node?',
             nodeDeleteConfirm: 'Delete node',
@@ -77,7 +86,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             tableConsole: 'Console',
             tablePort: 'Port',
             tableStatus: 'Status',
-            tableActions: 'Actions'
+            tableActions: 'Actions',
+            jobQueuedTitle: 'Queued',
+            jobQueuedMessage: 'Batch queued (Job #{{id}})'
         },
         ru: {
             heroEyebrow: 'Операции',
@@ -91,6 +102,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             viewLabs: 'Показать лаборатории',
             hideLabs: 'Скрыть лаборатории',
             stopUserButton: 'Остановить ноды пользователя',
+            startLabButton: 'Запустить ноды лаборатории',
             stopLabButton: 'Остановить ноды лаборатории',
             labSectionTitle: 'Разбивка по лабораториям',
             labTotalLabel: 'Запущенные ноды',
@@ -121,6 +133,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             stopLabConfirmBody: 'Остановить все ноды в выбранной лаборатории? Активные сессии будут завершены.',
             stopLabConfirmConfirm: 'Остановить',
             stopLabConfirmCancel: 'Отмена',
+            startLabConfirmTitle: 'Запустить ноды лаборатории',
+            startLabConfirmBody: 'Запустить все ноды в лаборатории? Машины загрузятся из назначенных образов.',
+            startLabConfirmConfirm: 'Запустить',
+            startLabConfirmCancel: 'Отмена',
             stopLabNoNodes: 'В лаборатории нет нод для остановки.',
             stopLabFailed: 'Не удалось остановить ноды лаборатории.',
             wipeLabButton: 'Очистить лабораторию',
@@ -129,6 +145,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             wipeLabConfirmConfirm: 'Очистить',
             wipeLabConfirmCancel: 'Отмена',
             wipeLabFailed: 'Не удалось очистить лабораторию.',
+            startLabFailed: 'Не удалось запустить ноды лаборатории.',
             loadingTitle: 'Загрузка данных',
             loadingSubtitle: 'Собираем список пользователей, лабораторий и нод.',
             modalCancelLabel: 'Отмена',
@@ -140,6 +157,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             nodeWipeBody: 'Вы уверены, что хотите очистить ноду «{{name}}»?',
             nodeWipeWarning: 'Очистка приведёт к потере текущей конфигурации.',
             nodeWipeConfirm: 'Очистить',
+            nodeStartFailed: 'Не удалось запустить ноду.',
+            nodeStopFailed: 'Не удалось остановить ноду.',
+            nodeWipeFailed: 'Не удалось очистить ноду.',
             nodeDeleteTitle: 'Подтверждение удаления',
             nodeDeleteBody: 'Удалить выбранную ноду?',
             nodeDeleteConfirm: 'Удалить',
@@ -156,7 +176,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             tableConsole: 'Консоль',
             tablePort: 'Порт',
             tableStatus: 'Статус',
-            tableActions: 'Действия'
+            tableActions: 'Действия',
+            jobQueuedTitle: 'В очереди',
+            jobQueuedMessage: 'Задача поставлена в очередь (Job #{{id}})'
         }
     };
 
@@ -380,20 +402,72 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return '/' + sanitized;
     }
 
-    function stopLabNodesRequest(labPath) {
-        if (!labPath) {
-            return $q.reject('lab path missing');
+    function collectLabNodeIds(lab) {
+        if (!lab || !lab.nodes || !lab.nodes.length) {
+            return [];
         }
-        var normalizedPath = normalizeLabPath(labPath);
-        return $http.get('/api/labs' + normalizedPath + '/nodes/stop');
+        var seen = {};
+        var ids = [];
+        lab.nodes.forEach(function (node) {
+            var rawId = (node && node.id !== undefined) ? node.id : null;
+            var parsed = parseInt(rawId, 10);
+            if (!isNaN(parsed) && !seen[parsed]) {
+                seen[parsed] = true;
+                ids.push(parsed);
+            }
+        });
+        return ids;
     }
 
-    function wipeLabNodesRequest(labPath) {
+    function queueBatchNodeAction(labPath, action, ids) {
         if (!labPath) {
             return $q.reject('lab path missing');
         }
+        if (!ids || !ids.length) {
+            return $q.reject('no node ids');
+        }
         var normalizedPath = normalizeLabPath(labPath);
-        return $http.get('/api/labs' + normalizedPath + '/nodes/wipe');
+        return $http.post('/api/labs' + normalizedPath + '/nodes/actions', {
+            action: action,
+            ids: ids
+        });
+    }
+
+    function queueLabNodes(lab, action) {
+        if (!lab || !lab.path) {
+            return $q.reject('lab info missing');
+        }
+        var ids = collectLabNodeIds(lab);
+        if (!ids.length) {
+            return $q.reject('no node ids');
+        }
+        return queueBatchNodeAction(lab.path, action, ids);
+    }
+
+    function queueSingleNode(node, action) {
+        if (!node || node.id === undefined || !node.lab) {
+            return $q.reject('node info missing');
+        }
+        var id = parseInt(node.id, 10);
+        if (isNaN(id)) {
+            return $q.reject('invalid node id');
+        }
+        return queueBatchNodeAction(node.lab, action, [id]);
+    }
+
+    function notifyJobQueued(response) {
+        if (!response || !response.data || !window.toastr) {
+            return;
+        }
+        var jobId = response.data.data && response.data.data.job_id;
+        if (!jobId) {
+            return;
+        }
+        var t = $scope.t || translations[resolveLanguage()];
+        var template = t.jobQueuedMessage || 'Batch queued (Job #{{id}})';
+        var message = template.replace('{{id}}', jobId);
+        var title = t.jobQueuedTitle || 'Queued';
+        toastr.info(message, title);
     }
 
     $scope.expandedUsers = {};
@@ -496,6 +570,43 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             });
         };
 
+        $scope.startLabNodes = function (user, lab) {
+            var t = $scope.t || translations[resolveLanguage()];
+            if (!lab || !lab.path || !lab.nodes || !lab.nodes.length) {
+                alert(t.stopLabNoNodes);
+                return;
+            }
+
+            openTailwindModal({
+                icon: 'fa fa-play',
+                iconClasses: $scope.themeClass('bg-emerald-500/20 text-emerald-200', 'bg-emerald-500 text-white'),
+                title: t.startLabConfirmTitle,
+                body: t.startLabConfirmBody,
+                surfaceClasses: $scope.themeClass('from-emerald-950/70 via-emerald-900/40 to-slate-900 border-white/10 text-slate-100', 'bg-white border-slate-200 text-slate-900'),
+                items: [
+                    { label: t.modalUserLabel, value: user.username },
+                    { label: t.modalLabLabel, value: lab.displayName }
+                ],
+                confirmLabel: t.startLabConfirmConfirm,
+                cancelLabel: t.startLabConfirmCancel,
+                confirmClasses: 'bg-emerald-500 hover:bg-emerald-400 text-slate-900'
+            }).then(function () {
+                $.blockUI();
+                queueLabNodes(lab, 'start')
+                    .then(function (response) {
+                        notifyJobQueued(response);
+                        $scope.getAllLabNodes();
+                    })
+                    .catch(function (error) {
+                        console.error('Ошибка запуска лаборатории:', error);
+                        alert(t.startLabFailed);
+                    })
+                    .finally(function () {
+                        $.unblockUI();
+                    });
+            });
+        };
+
         $scope.stopLabNodes = function (user, lab) {
             var t = $scope.t || translations[resolveLanguage()];
             if (!lab || !lab.path) {
@@ -522,8 +633,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 confirmClasses: 'bg-amber-500 hover:bg-amber-400 text-slate-900'
             }).then(function () {
                 $.blockUI();
-                stopLabNodesRequest(lab.path)
-                    .then(function () {
+                queueLabNodes(lab, 'stop')
+                    .then(function (response) {
+                        notifyJobQueued(response);
                         $scope.getAllLabNodes();
                     })
                     .catch(function (error) {
@@ -558,8 +670,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 confirmClasses: 'bg-cyan-500 hover:bg-cyan-400 text-slate-900'
             }).then(function () {
                 $.blockUI();
-                wipeLabNodesRequest(lab.path)
-                    .then(function () {
+                queueLabNodes(lab, 'wipe')
+                    .then(function (response) {
+                        notifyJobQueued(response);
                         $scope.getAllLabNodes();
                     })
                     .catch(function (error) {
@@ -603,7 +716,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
                 $.blockUI();
                 var promises = labsWithNodes.map(function (lab) {
-                    return stopLabNodesRequest(lab.path);
+                    return queueLabNodes(lab, 'stop').then(function (response) {
+                        notifyJobQueued(response);
+                        return response;
+                    });
                 });
 
                 $q.all(promises)
@@ -668,17 +784,20 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         };
 
         $scope.startNode = function (node) {
+            var t = $scope.t || translations[resolveLanguage()];
             $.blockUI();
-            const labPath = '/' + node.lab.replace(/^\/+/, '');
-            const url = `/api/labs${labPath}/nodes/${node.id}/start`;
-
-            $http.get(url)
-                .then(() => $scope.getAllLabNodes())
-                .catch(err => {
-                    console.error("Ошибка запуска:", err);
-                    alert("Не удалось запустить ноду.");
+            queueSingleNode(node, 'start')
+                .then(function (response) {
+                    notifyJobQueued(response);
+                    $scope.getAllLabNodes();
                 })
-                .finally(() => $.unblockUI());
+                .catch(function (err) {
+                    console.error("Ошибка запуска:", err);
+                    alert(t.nodeStartFailed);
+                })
+                .finally(function () {
+                    $.unblockUI();
+                });
         };
 
         $scope.stopNode = function (node) {
@@ -696,16 +815,18 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 confirmClasses: 'bg-amber-500 hover:bg-amber-400 text-slate-900'
             }).then(function () {
                 $.blockUI();
-                const labPath = '/' + node.lab.replace(/^\/+/, '');
-                const url = `/api/labs${labPath}/nodes/${node.id}/stop`;
-
-                $http.get(url)
-                    .then(() => $scope.getAllLabNodes())
-                    .catch(err => {
-                        console.error("Ошибка остановки ноды:", err);
-                        alert("Не удалось остановить ноду.");
+                queueSingleNode(node, 'stop')
+                    .then(function (response) {
+                        notifyJobQueued(response);
+                        $scope.getAllLabNodes();
                     })
-                    .finally(() => $.unblockUI());
+                    .catch(function (err) {
+                        console.error("Ошибка остановки ноды:", err);
+                        alert(t.nodeStopFailed);
+                    })
+                    .finally(function () {
+                        $.unblockUI();
+                    });
             });
         };        
 
@@ -724,16 +845,18 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 confirmClasses: 'bg-cyan-500 hover:bg-cyan-400 text-slate-900'
             }).then(function () {
                 $.blockUI();
-                const labPath = '/' + node.lab.replace(/^\/+/, '');
-                const url = `/api/labs${labPath}/nodes/${node.id}/wipe`;
-
-                $http.get(url)
-                    .then(() => $scope.getAllLabNodes())
-                    .catch(err => {
-                        console.error("Ошибка очистки ноды:", err);
-                        alert("Не удалось очистить ноду.");
+                queueSingleNode(node, 'wipe')
+                    .then(function (response) {
+                        notifyJobQueued(response);
+                        $scope.getAllLabNodes();
                     })
-                    .finally(() => $.unblockUI());
+                    .catch(function (err) {
+                        console.error("Ошибка очистки ноды:", err);
+                        alert(t.nodeWipeFailed);
+                    })
+                    .finally(function () {
+                        $.unblockUI();
+                    });
             });
         };
 

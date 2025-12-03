@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('jobsQueueController', function jobsQueueController($scope, $http, $rootScope, $cookies, $timeout, themeService) {
+angular.module("unlMainApp").controller('jobsQueueController', function jobsQueueController($scope, $http, $rootScope, $cookies, $timeout, $interval, themeService) {
 	var translations = {
 		en: {
 			heroEyebrow: 'Automation',
@@ -252,11 +252,33 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	var nodeDebounce = null;
 	var userDebounce = null;
 	var activeRequest = 0;
+	var autoRefreshPromise = null;
+	var AUTO_REFRESH_INTERVAL = 3000;
 
 	function selectedStatuses() {
 		return statusOrder.filter(function (key) {
 			return $scope.statusFilters[key];
 		});
+	}
+
+	function scheduleAutoRefresh() {
+		if (autoRefreshPromise) {
+			return;
+		}
+		autoRefreshPromise = $interval(function () {
+			if ($scope.loading) {
+				return;
+			}
+			$scope.loadJobs(true);
+		}, AUTO_REFRESH_INTERVAL);
+	}
+
+	function stopAutoRefresh() {
+		if (!autoRefreshPromise) {
+			return;
+		}
+		$interval.cancel(autoRefreshPromise);
+		autoRefreshPromise = null;
 	}
 
 	$scope.isAdmin = function () {
@@ -303,7 +325,8 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	function buildQueryParams() {
 		var params = {
 			page: $scope.pagination.page,
-			per_page: $scope.pagination.perPage
+			per_page: $scope.pagination.perPage,
+			_ts: Date.now()
 		};
 		var statuses = selectedStatuses();
 		if (statuses.length > 0 && statuses.length < statusOrder.length) {
@@ -576,10 +599,12 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		$scope.loadJobs();
 	};
 
-	$scope.loadJobs = function () {
+	$scope.loadJobs = function (silent) {
 		var params = buildQueryParams();
 		var query = serializeQuery(params);
-		$scope.loading = true;
+		if (!silent) {
+			$scope.loading = true;
+		}
 		$scope.errorMessage = null;
 		var currentRequest = ++activeRequest;
 		$http.get('/api/jobs' + (query ? ('?' + query) : '')).then(function (response) {
@@ -620,7 +645,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 				toastr.error(message, $scope.t.errorTitle);
 			}
 		}).finally(function () {
-			if (currentRequest === activeRequest) {
+			if (currentRequest === activeRequest && !silent) {
 				$scope.loading = false;
 			}
 		});
@@ -651,4 +676,9 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	});
 
 	$scope.loadJobs();
+	scheduleAutoRefresh();
+
+	$scope.$on('$destroy', function () {
+		stopAutoRefresh();
+	});
 });

@@ -114,6 +114,13 @@
                   <div class="flex flex-col gap-2 ml-auto min-w-[200px]">
                     <button type="button"
                             class="px-4 py-2 rounded-2xl transition text-sm font-medium cursor-pointer border"
+                            ng-class="themeClass('bg-emerald-500/30 hover:bg-emerald-500/50 text-slate-100 border-emerald-400/40','bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300')"
+                            ng-click="startLabNodes(user, lab)"
+                            ng-disabled="!lab.nodes.length">
+                      <span data-ng-bind="t.startLabButton"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-2xl transition text-sm font-medium cursor-pointer border"
                             ng-class="themeClass('bg-amber-500/30 hover:bg-amber-500/50 text-slate-100 border-amber-400/40','bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300')"
                             ng-click="stopLabNodes(user, lab)"
                             ng-disabled="!lab.nodes.length">
@@ -144,7 +151,6 @@
                       <tr>
                         <th class="px-4 py-3" data-ng-bind="t.tableName"></th>
                         <th class="px-4 py-3" data-ng-bind="t.tableType"></th>
-                        <th class="px-4 py-3" data-ng-bind="t.tableTemplate"></th>
                         <th class="px-4 py-3" data-ng-bind="t.tableImage"></th>
                         <th class="px-4 py-3" data-ng-bind="t.tableCpuCount"></th>
                         <th class="px-4 py-3" data-ng-bind="t.tableNvram"></th>
@@ -161,7 +167,6 @@
                       <tr data-ng-repeat="node in lab.nodes track by node.id" class="theme-hoverable transition">
                         <td class="px-4 py-3 font-semibold theme-heading">{{node.name}}</td>
                         <td class="px-4 py-3 theme-muted">{{node.type}}</td>
-                        <td class="px-4 py-3 theme-muted">{{node.template}}</td>
                         <td class="px-4 py-3 theme-muted">{{node.image}}</td>
                         <td class="px-4 py-3 theme-muted">{{node.cpucount}}</td>
                         <td class="px-4 py-3 theme-muted">{{node.nvram}} MB</td>

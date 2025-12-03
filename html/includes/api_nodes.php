@@ -854,6 +854,7 @@ function apiGetLabNodeTemplate($p)
  */
 function apiStartLabNode($lab, $id, $tenant, $username)
 {
+	ensureNodeConsolePortFree($lab, $id);
 	$cmd = 'sudo /opt/unetlab/wrappers/unl_wrapper';
 	$cmd .= ' -a start';
 	$cmd .= ' -T ' . $tenant;
@@ -885,6 +886,10 @@ function apiStartLabNode($lab, $id, $tenant, $username)
  */
 function apiStartLabNodes($lab, $tenant, $username)
 {
+	$nodeIds = array_keys($lab->getNodes());
+	if (!empty($nodeIds)) {
+		ensureNodeConsolePortFree($lab, $nodeIds);
+	}
 	$cmd = 'sudo /opt/unetlab/wrappers/unl_wrapper';
 	$cmd .= ' -a start';
 	$cmd .= ' -T ' . $tenant;
@@ -1157,4 +1162,36 @@ function apiBatchNodeAction($lab, $ids, $action, $tenant, $username, $user, $pro
 	}
 
 	return $output;
+}
+
+/**
+ * Ensure console ports are free before launching nodes.
+ *
+ * @param   Lab     $lab                Lab instance
+ * @param   array   $nodeIds            Node IDs to check
+ * @return  void
+ */
+function ensureNodeConsolePortFree($lab, $nodeIds)
+{
+	if (!is_array($nodeIds)) {
+		$nodeIds = array($nodeIds);
+	}
+	$nodes = $lab->getNodes();
+	foreach ($nodeIds as $nodeId) {
+		if (!isset($nodes[$nodeId])) {
+			continue;
+		}
+		$port = (int) $nodes[$nodeId]->getPort();
+		if ($port <= 0) {
+			continue;
+		}
+		$checkCmd = 'sudo fuser -n tcp ' . $port . ' 2>/dev/null';
+		$output = array();
+		exec($checkCmd, $output, $rc);
+		if ($rc === 0) {
+			$killCmd = 'sudo fuser -k -n tcp ' . $port . ' > /dev/null 2>&1';
+			exec($killCmd);
+			usleep(250000);
+		}
+	}
 }
