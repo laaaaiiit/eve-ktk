@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $cookies, themeService) {
+angular.module("unlMainApp").controller('mainController', function mainController($scope, $http, $location, $window, $uibModal, $log, $rootScope, FileUploader, focus, $timeout, $q, $cookies, themeService) {
 	$rootScope.openLaba = false;
 	$scope.testAUTH("/main"); //TEST AUTH
 	// Current lab view mode (e.g. collaborate). Default is empty/standard.
@@ -155,6 +155,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			warningTitle: 'Warning',
 			sharedFolderDeleteBlocked: 'Cannot delete Shared folder.',
 			sharedLabDeleteBlocked: 'Cannot delete labs inside Shared.',
+			labDeleteStopInfo: 'Stopping nodes before deleting lab…',
+			labDeleteStopError: 'Failed to stop lab nodes.',
 			startWorkButton: 'Personal work',
 			continueWorkButton: 'Continue',
 			restartWorkButton: 'Start over',
@@ -294,6 +296,8 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			warningTitle: 'Предупреждение',
 			sharedFolderDeleteBlocked: 'Нельзя удалить папку Shared.',
 			sharedLabDeleteBlocked: 'Нельзя удалять лаборатории в папке Shared.',
+			labDeleteStopInfo: 'Останавливаем узлы перед удалением лаборатории…',
+			labDeleteStopError: 'Не удалось остановить узлы лаборатории.',
 			startWorkButton: 'Личная работа',
 			continueWorkButton: 'Продолжить',
 			restartWorkButton: 'Начать сначала',
@@ -683,11 +687,116 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 		return lower === '/shared' || lower.endsWith('/shared');
 	}
 
-	function isProtectedSharedLab(path) {
-		if (!path) { return false; }
-		var lower = path.toLowerCase();
-		return lower === '/shared' || lower.indexOf('/shared/') === 0;
+function isProtectedSharedLab(path) {
+	if (!path) { return false; }
+	var lower = path.toLowerCase();
+	return lower === '/shared' || lower.indexOf('/shared/') === 0;
+}
+
+function normalizeLabPath(path) {
+	var sanitized = (path || '').replace(/^\/+/, '');
+	return '/' + sanitized;
+}
+
+function fetchRunningNodeIdsForLab(labPath) {
+	if (!labPath) {
+		return $q.when([]);
 	}
+	var normalized = normalizeLabPath(labPath);
+	return $http.get('/api/labs' + normalized + '/nodes').then(function (response) {
+		var payload = response.data && response.data.data ? response.data.data : {};
+		var running = [];
+		var pushIfRunning = function (node, key) {
+			if (!node) {
+				return;
+			}
+			var status = parseInt(node.status, 10);
+			if (isNaN(status) || status <= 0) {
+				return;
+			}
+			var rawId = (node.id !== undefined) ? node.id : key;
+			var parsed = parseInt(rawId, 10);
+			if (!isNaN(parsed)) {
+				running.push(parsed);
+			}
+		};
+		if (angular.isArray(payload)) {
+			payload.forEach(function (node, idx) {
+				pushIfRunning(node, idx);
+			});
+		} else {
+			angular.forEach(payload, function (node, key) {
+				pushIfRunning(node, key);
+			});
+		}
+		return running;
+	}, function () {
+		return [];
+	});
+}
+
+function pollJobUntilDone(jobId) {
+	if (!jobId) {
+		return $q.reject('Job ID missing');
+	}
+	var deferred = $q.defer();
+	function check() {
+		$http.get('/api/jobs/' + jobId).then(function (response) {
+			var job = response.data && response.data.data;
+			if (!job) {
+				deferred.reject('Malformed job response');
+				return;
+			}
+			if (job.status === 'success' || job.status === 'partial') {
+				deferred.resolve(job);
+			} else if (job.status === 'failed') {
+				var message = job.result && job.result.message ? job.result.message : 'Job failed';
+				deferred.reject(message);
+			} else {
+				$timeout(check, 1500);
+			}
+		}, function (error) {
+			var message = (error && error.data && error.data.message) ? error.data.message : 'Job polling failed';
+			deferred.reject(message);
+		});
+	}
+	check();
+	return deferred.promise;
+}
+
+function queueStopNodesForLab(labPath, ids) {
+	if (!labPath || !ids || !ids.length) {
+		return $q.when();
+	}
+	var normalized = normalizeLabPath(labPath);
+	return $http.post('/api/labs' + normalized + '/nodes/actions', { action: 'stop', ids: ids }).then(function (response) {
+		var data = response.data || {};
+		if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
+			return pollJobUntilDone(data.data.job_id);
+		}
+		if (data.status === 'success' || data.status === 'partial') {
+			return data;
+		}
+		var message = data.message || (currentTranslations().labDeleteStopError || 'Failed to stop lab nodes.');
+		return $q.reject(message);
+	}, function (error) {
+		var message = (error && error.data && error.data.message) ? error.data.message : (currentTranslations().labDeleteStopError || 'Failed to stop lab nodes.');
+		return $q.reject(message);
+	});
+}
+
+function stopNodesBeforeLabDelete(labPath) {
+	var t = currentTranslations();
+	return fetchRunningNodeIdsForLab(labPath).then(function (ids) {
+		if (!ids.length) {
+			return;
+		}
+		if (window.toastr && t.labDeleteStopInfo) {
+			toastr["info"](t.labDeleteStopInfo, t.warningTitle || 'Info');
+		}
+		return queueStopNodesForLab(labPath, ids);
+	});
+}
 
 	function deleteFolderRequest(elementName) {
 		if (!elementName) {
@@ -717,20 +826,29 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			);
 	}
 
-	function deleteLabRequest(elementName, hide) {
-		if (!elementName) {
-			return;
-		}
-		var t = currentTranslations();
-		if (isProtectedSharedLab(elementName)) {
-			toastr["warning"](t.sharedLabDeleteBlocked || 'Cannot delete labs inside Shared', t.warningTitle || 'Warning');
-			return;
-		}
-		console.log('delete file');
-		console.log(elementName);
-		$http({
-			method: 'DELETE',
-			url: '/api/labs' + elementName
+function deleteLabRequest(elementName, hide) {
+	if (!elementName) {
+		return;
+	}
+	var t = currentTranslations();
+	if (isProtectedSharedLab(elementName)) {
+		toastr["warning"](t.sharedLabDeleteBlocked || 'Cannot delete labs inside Shared', t.warningTitle || 'Warning');
+		return;
+	}
+	stopNodesBeforeLabDelete(elementName).then(function () {
+		performLabDelete(elementName, hide);
+	}).catch(function (errorMessage) {
+		var message = errorMessage || t.labDeleteStopError || 'Failed to stop lab nodes.';
+		toastr["error"](message, 'Error');
+	});
+}
+
+function performLabDelete(elementName, hide) {
+	console.log('delete file');
+	console.log(elementName);
+	$http({
+		method: 'DELETE',
+		url: '/api/labs' + elementName
 		})
 			.then(
 				function successCallback() {

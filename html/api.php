@@ -955,6 +955,21 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
+	$isOwner = $lab->getAuthor() == $user['username'];
+	$isAdmin = $user['role'] == 'admin';
+	$collaborateActive = $lab->getCollaborateAllowed() && $mode === 'collaborate';
+	$sharedWithRaw = trim(strtolower($lab->getSharedWith() ?: ''));
+	$sharedList = $sharedWithRaw === '' ? array() : array_map('trim', explode(',', $sharedWithRaw));
+	$isCollaborator = false;
+	if ($collaborateActive) {
+		if ($lab->getShared() || empty($sharedList)) {
+			$isCollaborator = true;
+		} else {
+			$isCollaborator = in_array(strtolower($user['username']), $sharedList, true);
+		}
+	}
+	$collaborateSessionActive = $collaborateActive && $isCollaborator;
+
 	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/html$/', $labFileRelative)) {
 		$Parsedown = new Parsedown();
 		$output['code'] = 200;
@@ -1140,6 +1155,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$workPaths = buildWorkLabPaths($user, $labFileRelative, $lab_file_full);
 		$output['data']['work_path'] = $workPaths['relative_work'];
 		$output['data']['work_exists'] = is_file($workPaths['absolute_work']);
+		$output['data']['collaborateSessionActive'] = $collaborateSessionActive;
 	}
 
 	$app->response->setStatus($output['code']);
@@ -1197,7 +1213,12 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$app->response->setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], array('admin', 'editor'))) {
+
+	$modeParam = strtolower((string) $app->request()->params('mode'));
+	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
+	$collaborateModeRequested = ($mode === 'collaborate');
+
+	if (!in_array($user['role'], array('admin', 'editor')) && !$collaborateModeRequested) {
 		$app->response->setStatus($GLOBALS['forbidden']['code']);
 		$app->response->setBody(json_encode($GLOBALS['forbidden']));
 		return;
@@ -1210,8 +1231,6 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	$labFileRelative = normalizeUserLabRelativePath('/' . implode('/', $path));
-	$modeParam = strtolower((string) $app->request()->params('mode'));
-	$mode = ($modeParam === 'collaborate') ? 'collaborate' : '';
 
 	$patterns[0] = '/(.+).unl.*$/';			// Drop after lab file (ending with .unl)
 	$replacements[0] = '$1.unl';
@@ -1459,6 +1478,95 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$p['id'] = $id;
 		$output = apiEditLabTextObject($lab, $p);
 		$refreshSharedCopies = true;
+	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/operations$/', $s)) {
+		$operation = '';
+		if (isset($p['operation'])) {
+			$operation = strtolower(trim((string)$p['operation']));
+		}
+		if ($operation === '') {
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			$output['message'] = 'Operation type missing.';
+		} else {
+			$labTenant = $lab->getTenant() ?: $user['tenant'];
+			$payload = array(
+				'operation' => $operation,
+				'requested_by' => $user['username']
+			);
+			$validationError = '';
+			switch ($operation) {
+				case 'add_nodes':
+					if (!isset($p['node']) || !is_array($p['node'])) {
+						$validationError = 'Node definition missing.';
+						break;
+					}
+					$payload['node'] = $p['node'];
+					$payload['postfix'] = !empty($p['postfix']);
+					break;
+				case 'connect_node_network':
+					$nodeId = isset($p['node_id']) ? intval($p['node_id']) : 0;
+					$interfaceId = isset($p['interface_id']) ? intval($p['interface_id']) : null;
+					$networkId = isset($p['network_id']) ? intval($p['network_id']) : 0;
+					if ($nodeId <= 0 || $networkId <= 0 || $interfaceId === null) {
+						$validationError = 'Invalid node, interface or network identifiers.';
+						break;
+					}
+					$payload['node_id'] = $nodeId;
+					$payload['interface_id'] = $interfaceId;
+					$payload['network_id'] = $networkId;
+					break;
+				case 'connect_nodes_bridge':
+					$srcNodeId = isset($p['src_node_id']) ? intval($p['src_node_id']) : 0;
+					$dstNodeId = isset($p['dst_node_id']) ? intval($p['dst_node_id']) : 0;
+					$srcIfId = isset($p['src_interface_id']) ? intval($p['src_interface_id']) : null;
+					$dstIfId = isset($p['dst_interface_id']) ? intval($p['dst_interface_id']) : null;
+					$networkData = isset($p['network']) && is_array($p['network']) ? $p['network'] : array();
+					if ($srcNodeId <= 0 || $dstNodeId <= 0 || $srcIfId === null || $dstIfId === null) {
+						$validationError = 'Invalid node or interface identifiers.';
+						break;
+					}
+					if (empty($networkData['name'])) {
+						$networkData['name'] = 'Net_' . $srcNodeId . '_' . $dstNodeId;
+					}
+					$payload['src_node_id'] = $srcNodeId;
+					$payload['dst_node_id'] = $dstNodeId;
+					$payload['src_interface_id'] = $srcIfId;
+					$payload['dst_interface_id'] = $dstIfId;
+					$payload['network'] = $networkData;
+					break;
+				case 'connect_nodes_serial':
+					$srcNodeId = isset($p['src_node_id']) ? intval($p['src_node_id']) : 0;
+					$dstNodeId = isset($p['dst_node_id']) ? intval($p['dst_node_id']) : 0;
+					$srcIfId = isset($p['src_interface_id']) ? intval($p['src_interface_id']) : null;
+					$dstIfId = isset($p['dst_interface_id']) ? intval($p['dst_interface_id']) : null;
+					if ($srcNodeId <= 0 || $dstNodeId <= 0 || $srcIfId === null || $dstIfId === null) {
+						$validationError = 'Invalid node or interface identifiers.';
+						break;
+					}
+					$payload['src_node_id'] = $srcNodeId;
+					$payload['dst_node_id'] = $dstNodeId;
+					$payload['src_interface_id'] = $srcIfId;
+					$payload['dst_interface_id'] = $dstIfId;
+					break;
+				default:
+					$validationError = 'Unsupported lab operation.';
+					break;
+			}
+
+			if ($validationError !== '') {
+				$output['code'] = 400;
+				$output['status'] = 'fail';
+				$output['message'] = $validationError;
+			} else {
+				$jobId = enqueueJob($db, $lab_file_absolute, $labTenant, $user['username'], $user['role'], 'lab_operation', $payload);
+				$output['code'] = 202;
+				$output['status'] = 'accepted';
+				$output['message'] = 'Lab operation queued.';
+				$output['data'] = array(
+					'job_id' => (int) $jobId
+				);
+			}
+		}
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects$/', $s)) {
 		$output = apiEditLabTextObjects($lab, $p);
 		$refreshSharedCopies = true;

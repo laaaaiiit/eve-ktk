@@ -100,9 +100,14 @@ function ModalCtrl($scope, $uibModal, $log, $rootScope,$http,$window) {
       }
     });
 	switch(action) {
-    case 'addConn':
+	case 'addConn':
 		modalInstance.result.then(function (result) {
 			console.log(result)
+			if (result && result.jobQueued) {
+				$scope.ready = true;
+				jsPlumb.repaintEverything();
+				return;
+			}
 			if (result.result){
 				if (result.connType == 'NoNe'){
 					// console.log(result, '11111111111')
@@ -208,7 +213,10 @@ function ModalCtrl($scope, $uibModal, $log, $rootScope,$http,$window) {
 		break;
 	case 'addNode':
 		modalInstance.result.then(function (result) {
-			if (result.result){
+			if (result && result.jobQueued) {
+				return;
+			}
+			if (result && result.result){
                 console.log('modalInstance[addNode]',result.data)
 				$http.get('/api/labs'+$rootScope.lab+'/nodes').then(function successCallback(response){
 					console.log(response)
@@ -249,7 +257,8 @@ function ModalCtrl($scope, $uibModal, $log, $rootScope,$http,$window) {
 				} else {
 					
 				}
-			}, function () {
+			}
+		}, function () {
 			//function if user just close modal
 			//$log.info('Modal dismissed at: ' + new Date());
 			});
@@ -439,7 +448,7 @@ function ModalInstanceCtrl($scope, $uibModalInstance) {
 	};
 
 };
-function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data, $q) {
+function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data) {
     $scope.allNet=data.allNet;
 
     console.log($scope.networks)
@@ -689,9 +698,30 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data, $q
 		);
 	}
 
- 	$scope.closeModal = function () {
+	$scope.closeModal = function () {
     	$uibModalInstance.dismiss('cancel');
   	};
+
+	function queueConnectionJob(payload, detail) {
+		return $http.post('/api/labs'+$rootScope.lab+'/operations', payload).then(function successCallback(response){
+			var jobId = response.data && response.data.data ? response.data.data.job_id : null;
+			if (jobId) {
+				toastr["info"]('Batch queued (Job #' + jobId + ')', 'Queued');
+				$rootScope.$emit('labJobQueued', {
+					jobId: jobId,
+					detail: detail,
+					action: payload.operation,
+					refresh: 'topology',
+					successMessage: detail
+				});
+			}
+			$scope.result.jobQueued = true;
+			$uibModalInstance.close($scope.result);
+		}, function errorCallback(response){
+			var message = (response.data && response.data.message) ? response.data.message : 'Server Error';
+			toastr["error"](message, "Error");
+		});
+	}
   
   	$scope.addConn = function () {
 		// console.log($scope.dst.type+' '+$scope.dst.eveID+' '+$scope.dst.selectedIF)
@@ -709,28 +739,14 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data, $q
 				return;
 			}
 			console.log(targetNodeID+' '+' '+targetNetID+' '+targetIfID);
-			var newConnData={};
-			newConnData[''+targetIfID+'']=String(targetNetID);
-			$http({
-				method: 'PUT',
-				url:'/api/labs'+$rootScope.lab+'/nodes/'+targetNodeID+'/interfaces',
-				data: newConnData}).then(
-				function successCallback(response){
-					console.log(response)
-					$scope.result.result=true;
-					$scope.result.connType='NoNe';
-					$scope.result.node={};
-					$scope.result.net={};
-					$scope.result.node.id=targetNodeID;
-					$scope.result.node.ifname=targetIfName;
-					$scope.result.net.id=targetNetID;
-					$uibModalInstance.close($scope.result);
-				}, function errorCallback(response){
-					console.log('Server Error');
-					console.log(response);
-				}
-			);
-			jsPlumb.repaintEverything();
+			var detailNet = ($rootScope.lang === 'ru') ? 'Подключение к сети' : 'Attach interface to network';
+			queueConnectionJob({
+				operation: 'connect_node_network',
+				node_id: parseInt(targetNodeID, 10),
+				interface_id: parseInt(targetIfID, 10),
+				network_id: parseInt(targetNetID, 10)
+			}, detailNet);
+			return;
 		}
 
 		if ( ($scope.dst.type == 'node' && $scope.src.type == 'node')){
@@ -778,34 +794,17 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data, $q
 					'count': 1,
 					'postfix': 0
 				}
-				
-				$http.post('/api/labs'+$rootScope.lab+'/networks', $scope.result.net)
-				.then(
-					function successCallback(response){
-						console.log(response)
-						$scope.result.net.id=response.data.data.id;
-						newConnSrcData[''+srcIfID+'']=String($scope.result.net.id);
-						newConnDstData[''+dstIfID+'']=String($scope.result.net.id);
-						var srcRequest = $http.put('/api/labs'+$rootScope.lab+'/nodes/'+srcNodeID+'/interfaces', newConnSrcData);
-						var dstRequest = $http.put('/api/labs'+$rootScope.lab+'/nodes/'+dstNodeID+'/interfaces', newConnDstData);
-						$q.all(srcRequest,dstRequest)
-						.then(function(results){
-							console.log(results);
-							$scope.result.nodesData = {
-								src : { 'id' : srcNodeID, 'ifname' : srcIfName},
-								dst : { 'id' : dstNodeID, 'ifname' : dstIfName},
-								type : 'ethernet'
-							}
-							$scope.result.result=true;
-							$scope.result.connType='NoNo';
-							$uibModalInstance.close($scope.result);	
-						})
-					}, function errorCallback(response){
-						console.log('Server Error');
-						console.log(response);
-						//$uibModalInstance.close($scope.result);
-					}
-				);
+				var networkPayload = angular.copy($scope.result.net);
+				var detailEthernet = ($rootScope.lang === 'ru') ? 'Создание Ethernet-соединения' : 'Ethernet link queued';
+				queueConnectionJob({
+					operation: 'connect_nodes_bridge',
+					src_node_id: parseInt(srcNodeID, 10),
+					dst_node_id: parseInt(dstNodeID, 10),
+					src_interface_id: parseInt(srcIfID, 10),
+					dst_interface_id: parseInt(dstIfID, 10),
+					network: networkPayload
+				}, detailEthernet);
+				return;
 			} else 
 			{
 				if ($scope.dstInfoList[$scope.dst.selectedIF].remote_id === undefined)
@@ -824,24 +823,16 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data, $q
 				var dstIfID = $scope.dst.selectedIF;
 				var srcIfName = $scope.srcInfoList[$scope.src.selectedIF].name;
 				var dstIfName = $scope.dstInfoList[$scope.dst.selectedIF].name;
-				var newConnSrcData={};
-				newConnSrcData[''+srcIfID+'']=dstNodeID+':'+dstIfID;
 				console.log('Serial connection')
-				console.log(newConnSrcData)
-				$http.put('/api/labs'+$rootScope.lab+'/nodes/'+srcNodeID+'/interfaces', newConnSrcData)
-				.then(
-					function successCallback(response){
-						console.log(response)
-						$scope.result.nodesData = {
-							src : { 'id' : srcNodeID, 'ifname' : srcIfName},
-							dst : { 'id' : dstNodeID, 'ifname' : dstIfName},
-							type : 'serial'
-						}
-						$scope.result.result=true;
-						$scope.result.connType='NoNo';
-						$uibModalInstance.close($scope.result);	
-					}
-				)
+				var detailSerial = ($rootScope.lang === 'ru') ? 'Создание Serial-соединения' : 'Serial link queued';
+				queueConnectionJob({
+					operation: 'connect_nodes_serial',
+					src_node_id: parseInt(srcNodeID, 10),
+					dst_node_id: parseInt(dstNodeID, 10),
+					src_interface_id: parseInt(srcIfID, 10),
+					dst_interface_id: parseInt(dstIfID, 10)
+				}, detailSerial);
+				return;
 			}
 		}
 
@@ -872,6 +863,26 @@ function AddNodeModalCtrl($scope, $uibModalInstance, $http, $rootScope, data) {
   		$scope.selectIcon = x;
   		$scope.show = false;
   	}
+	function queueAddNodeJob(payload, detail) {
+		return $http.post('/api/labs'+$rootScope.lab+'/operations', payload).then(function successCallback(response){
+			var jobId = response.data && response.data.data ? response.data.data.job_id : null;
+			if (jobId) {
+				toastr["info"]('Batch queued (Job #' + jobId + ')', 'Queued');
+				$rootScope.$emit('labJobQueued', {
+					jobId: jobId,
+					detail: detail,
+					action: payload.operation,
+					refresh: 'topology',
+					successMessage: detail
+				});
+			}
+			$scope.result.jobQueued = true;
+			$uibModalInstance.close($scope.result);
+		}, function errorCallback(response){
+			var message = (response.data && response.data.message) ? response.data.message : 'Server Error';
+			toastr["error"](message, "Error");
+		});
+	}
   	//console.log("aaa")
 
 	$http.get('/api/list/templates/').then(
@@ -953,21 +964,12 @@ function AddNodeModalCtrl($scope, $uibModalInstance, $http, $rootScope, data) {
 		}
 		else
 		{
-			$http({
-				method: 'POST',
-				url:'/api/labs'+$rootScope.lab+'/nodes',
-				data: $scope.result.data}).then(
-				function successCallback(response){
-					console.log(response)
-					$scope.result.data.id=response.data.data.id;
-					$scope.result.result=true;
-					$uibModalInstance.close($scope.result);
-				}, function errorCallback(response){
-					console.log('Server Error');
-					console.log(response);
-					//$uibModalInstance.close($scope.result);
-				}
-			);
+			var detailText = ($rootScope.lang === 'ru') ? 'Добавление нод' : 'Adding nodes';
+			queueAddNodeJob({
+				operation: 'add_nodes',
+				node: angular.copy($scope.result.data),
+				postfix: !!$scope.result.data.postfix
+			}, detailText);
 		}
 	}
 	$scope.closeModal = function () {
@@ -1528,21 +1530,42 @@ function nodeListModalCtrl($scope, $uibModalInstance, $http, data, $rootScope, $
 	$scope.deleteNode = function(id,name){
 		if(!confirm('Do you realy want to delete '+name+'?'))return;
 		console.log('Delete node with id '+id)
+		var nodeId = parseInt(id, 10);
+		if (isNaN(nodeId)) {
+			toastr["error"]('Invalid node identifier', "Error");
+			return;
+		}
 		$scope.anychanges=true;
-		if ($scope.nodeList[id].count > 0) {$scope.anychanges=true;}
-		$http({
-			method: 'DELETE',
-			url:'/api/labs'+$scope.path+'/nodes/'+id}).then(
-			function successCallback(response){
-				//console.log(response)
-				console.log('Delete node done')
-				$scope.anychanges=false;
+		$http.post('/api/labs'+$scope.path+'/nodes/actions', {
+			action: 'delete',
+			ids: [nodeId]
+		}).then(function successCallback(response){
+			$scope.anychanges=false;
+			var jobId = response.data && response.data.data ? response.data.data.job_id : null;
+			var detail = ($rootScope.lang === 'ru') ? ('Удаление ноды ' + name) : ('Deleting node ' + name);
+			if (jobId) {
+				if (window.toastr) {
+					toastr.info('Batch queued (Job #' + jobId + ')', 'Queued');
+				}
+				$rootScope.$emit('labJobQueued', {
+					jobId: jobId,
+					detail: detail,
+					action: 'nodes_batch',
+					refresh: 'topology',
+					successMessage: detail
+				});
+			} else {
 				$scope.refreshNodeList();
-			}, function errorCallback(response){
-				console.log('Server Error');
-				console.log(response);
 			}
-		);
+		}, function errorCallback(response){
+			$scope.anychanges=false;
+			var message = (response.data && response.data.message) ? response.data.message : 'Server Error';
+			console.log('Server Error');
+			console.log(response);
+			if (window.toastr) {
+				toastr.error(message, "Error");
+			}
+		});
 	}
 	
 	

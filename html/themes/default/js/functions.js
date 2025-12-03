@@ -12,8 +12,79 @@
  * @version 20160719
  */
 
-
 var contextMenuOpen = false;
+var COLLABORATE_MODE_ACTIVE = false;
+var COLLABORATE_SESSION_ACTIVE = false;
+var COLLABORATE_PREFILTER_REGISTERED = false;
+
+(function initializeCollaborateContext() {
+	try {
+		var params = new URLSearchParams(window.location.search);
+		COLLABORATE_MODE_ACTIVE = (params.get('mode') === 'collaborate');
+	} catch (err) {
+		COLLABORATE_MODE_ACTIVE = false;
+	}
+})();
+
+function registerCollaborateAjaxPrefilter() {
+	if (COLLABORATE_PREFILTER_REGISTERED || typeof jQuery === 'undefined' || typeof jQuery.ajaxPrefilter !== 'function') {
+		return;
+	}
+	jQuery.ajaxPrefilter(function (options) {
+		if (!COLLABORATE_MODE_ACTIVE || !options || !options.url) {
+			return;
+		}
+		if (options.url.indexOf('/api/labs') === -1 || options.url.indexOf('mode=collaborate') !== -1) {
+			return;
+		}
+		var baseUrl = options.url;
+		var hash = '';
+		var hashIndex = baseUrl.indexOf('#');
+		if (hashIndex !== -1) {
+			hash = baseUrl.substring(hashIndex);
+			baseUrl = baseUrl.substring(0, hashIndex);
+		}
+		var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+		options.url = baseUrl + separator + 'mode=collaborate' + hash;
+	});
+	COLLABORATE_PREFILTER_REGISTERED = true;
+}
+
+if (COLLABORATE_MODE_ACTIVE) {
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', registerCollaborateAjaxPrefilter);
+	} else {
+		registerCollaborateAjaxPrefilter();
+	}
+}
+
+function hasCollaborateEditPrivileges() {
+	return COLLABORATE_MODE_ACTIVE && COLLABORATE_SESSION_ACTIVE;
+}
+
+function hasLabWritePermissions() {
+	return (ROLE === 'admin' || ROLE === 'editor' || hasCollaborateEditPrivileges());
+}
+
+function hasUnlockedLabWritePermissions() {
+	return hasLabWritePermissions() && LOCK == 0;
+}
+
+function syncCollaborateSessionFlag(labInfo) {
+	if (!COLLABORATE_MODE_ACTIVE) {
+		COLLABORATE_SESSION_ACTIVE = false;
+		return;
+	}
+	var active = false;
+	if (labInfo) {
+		if (Object.prototype.hasOwnProperty.call(labInfo, 'collaborateSessionActive')) {
+			active = !!labInfo['collaborateSessionActive'];
+		} else if (Object.prototype.hasOwnProperty.call(labInfo, 'collaborateAllowed')) {
+			active = !!labInfo['collaborateAllowed'];
+		}
+	}
+	COLLABORATE_SESSION_ACTIVE = active;
+}
 
 // Basename: given /a/b/c return c
 function basename(path) {
@@ -377,6 +448,63 @@ function deleteNode(id) {
             deferred.reject(message);
         }
     });
+    return deferred.promise();
+}
+
+function queueNodeAction(action, ids) {
+    return enqueueNodeAction(action, ids);
+}
+
+function pollJobStatus(jobId, progressCallback) {
+    var deferred = $.Deferred();
+    if (!jobId) {
+        deferred.reject('Job ID missing');
+        return deferred.promise();
+    }
+    var attempts = 0;
+    function check() {
+        $.ajax({
+            cache: false,
+            timeout: TIMEOUT,
+            type: 'GET',
+            url: encodeURI('/api/jobs/' + jobId),
+            dataType: 'json',
+            success: function (data) {
+                if (!data || !data.data) {
+                    attempts++;
+                    if (attempts > 10) {
+                        deferred.reject('Malformed job response');
+                    } else {
+                        setTimeout(check, 2000);
+                    }
+                    return;
+                }
+                var job = data.data;
+                if (typeof progressCallback === 'function') {
+                    try {
+                        progressCallback(job);
+                    } catch (err) {
+                        console.error('progressCallback error', err);
+                    }
+                }
+                if (job.status === 'success' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'partial') {
+                    deferred.resolve(job);
+                } else {
+                    setTimeout(check, 2000);
+                }
+            },
+            error: function (xhr) {
+                attempts++;
+                var message = getJsonMessage(xhr['responseText']);
+                if (attempts > 5) {
+                    deferred.reject(message || 'Unable to fetch job status');
+                } else {
+                    setTimeout(check, 3000);
+                }
+            }
+        });
+    }
+    check();
     return deferred.promise();
 }
 
@@ -1661,18 +1789,10 @@ function setNodesPosition(nodes) {
     var form_data = [];
     form_data = nodes;
     var url = '/api/labs' + lab_filename + '/nodes';
-    var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'collaborate') {
-        url += '?mode=collaborate';
-    }
-    var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'collaborate') {
-        url += '?mode=collaborate';
-    }
-    var urlParams = new URLSearchParams(window.location.search);
+	var urlParams = new URLSearchParams(window.location.search);
 	if (urlParams.get('mode') === 'collaborate') {
-        url += '?mode=collaborate';
-    }
+		url += (url.indexOf('?') === -1 ? '?' : '&') + 'mode=collaborate';
+	}
     var type = 'PUT';
     $.ajax({
         cache: false,
@@ -1755,45 +1875,59 @@ function setNodeData(id) {
 
 //set note interface
 function setNodeInterface(node_id, network_id, interface_id) {
-
     var deferred = $.Deferred();
-    var lab_filename = $('#lab-viewport').attr('data-path');
-    var form_data = {};
-    form_data[interface_id] = network_id;
-
-    var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/interfaces';
-	var urlParams = new URLSearchParams(window.location.search);
-	if (urlParams.get('mode') === 'collaborate') {
-        url += '?mode=collaborate';
+    var normalizedInterface = interface_id ? interface_id.toString() : '';
+    if (!normalizedInterface) {
+        deferred.reject('Interface id missing');
+        return deferred.promise();
     }
-    var type = 'PUT';
-    $.ajax({
-        cache: false,
-        timeout: TIMEOUT,
-        type: type,
-        url: encodeURI(url),
-        dataType: 'json',
-        data: JSON.stringify(form_data),
-        success: function (data) {
+    if (network_id === undefined || network_id === null || network_id === '') {
+        var lab_filename = $('#lab-viewport').attr('data-path');
+        var form_data = {};
+        form_data[normalizedInterface] = '';
+        var url = '/api/labs' + lab_filename + '/nodes/' + node_id + '/interfaces';
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'collaborate') {
+            url += '?mode=collaborate';
+        }
+        $.ajax({
+            cache: false,
+            timeout: TIMEOUT,
+            type: 'PUT',
+            url: encodeURI(url),
+            dataType: 'json',
+            data: JSON.stringify(form_data)
+        }).done(function (data) {
             if (data['status'] == 'success') {
-                logger(1, 'DEBUG: node interface updated.');
+                logger(1, 'DEBUG: node interface detached.');
                 deferred.resolve(data);
             } else {
-                // Application error
-                logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
+                logger(1, 'DEBUG: application error (' + data['status'] + ') on PUT ' + url + ' (' + data['message'] + ').');
                 deferred.reject(data['message']);
             }
-        },
-        error: function (data) {
-            // Server error
+        }).fail(function (data) {
             var message = getJsonMessage(data['responseText']);
-            logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
+            logger(1, 'DEBUG: server error (' + data['status'] + ') on PUT ' + url + '.');
             logger(1, 'DEBUG: ' + message);
             deferred.reject(message);
-        }
-    });
+        });
+    } else if (typeof network_id === 'string' && network_id.indexOf(':') !== -1) {
+        var parts = network_id.split(':');
+        var targetNode = parseInt(parts.shift(), 10);
+        var targetInterface = parts.join(':');
+        connectNodesSerial(node_id, normalizedInterface, targetNode, targetInterface).done(function (job) {
+            deferred.resolve(job);
+        }).fail(function (err) {
+            deferred.reject(err);
+        });
+    } else {
+        connectNodeToNetwork(node_id, network_id, normalizedInterface).done(function (job) {
+            deferred.resolve(job);
+        }).fail(function (err) {
+            deferred.reject(err);
+        });
+    }
     return deferred.promise();
-
 }
 
 function pollJob(jobId) {
@@ -1881,6 +2015,131 @@ function enqueueNodeAction(action, ids) {
     return deferred.promise();
 }
 
+function enqueueLabOperation(operation, payload) {
+    var deferred = $.Deferred();
+    if (!operation) {
+        deferred.reject('Operation missing');
+        return deferred.promise();
+    }
+    var lab_filename = $('#lab-viewport').attr('data-path') || '';
+    var url = '/api/labs' + lab_filename + '/operations';
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'collaborate') {
+        url += '?mode=collaborate';
+    }
+    var body = $.extend({}, payload || {});
+    body.operation = operation;
+    $.ajax({
+        cache: false,
+        timeout: TIMEOUT,
+        type: 'PUT',
+        url: encodeURI(url),
+        dataType: 'json',
+        contentType: 'application/json',
+        processData: false,
+        data: JSON.stringify(body)
+    }).done(function (data) {
+        if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
+            if (typeof updateJobOverlay === 'function') {
+                updateJobOverlay({ id: data.data.job_id, action: 'lab_operation', operation: operation, progress: 0, status: 'running' });
+            }
+            pollJob(data.data.job_id).done(function (job) {
+                deferred.resolve(job.result || job);
+            }).fail(function (err) {
+                if (typeof updateJobOverlay === 'function') {
+                    hideJobOverlay();
+                }
+                deferred.reject(err);
+            });
+        } else if (data.status === 'success' || data.status === 'partial') {
+            if (typeof updateJobOverlay === 'function') {
+                hideJobOverlay();
+            }
+            deferred.resolve(data);
+        } else {
+            var message = data.message || 'Operation failed';
+            if (typeof updateJobOverlay === 'function') {
+                hideJobOverlay();
+            }
+            deferred.reject(message);
+        }
+    }).fail(function (xhr) {
+        var message = getJsonMessage(xhr['responseText']);
+        if (typeof updateJobOverlay === 'function') {
+            hideJobOverlay();
+        }
+        deferred.reject(message);
+    });
+    return deferred.promise();
+}
+
+function connectNodeToNetwork(nodeId, networkId, interfaceId) {
+    var deferred = $.Deferred();
+    var normalizedNode = parseInt(nodeId, 10);
+    var normalizedNetwork = parseInt(networkId, 10);
+    if (isNaN(normalizedNode) || isNaN(normalizedNetwork) || !interfaceId) {
+        deferred.reject('Invalid node or network identifier');
+        return deferred.promise();
+    }
+    var payload = {
+        node_id: normalizedNode,
+        network_id: normalizedNetwork,
+        interface_id: interfaceId.toString()
+    };
+    enqueueLabOperation('connect_node_network', payload).done(function (job) {
+        deferred.resolve(job);
+    }).fail(function (err) {
+        deferred.reject(err);
+    });
+    return deferred.promise();
+}
+
+function connectNodesBridge(srcNodeId, srcInterfaceId, dstNodeId, dstInterfaceId, networkMeta) {
+    var deferred = $.Deferred();
+    var payload = {
+        src_node_id: parseInt(srcNodeId, 10),
+        dst_node_id: parseInt(dstNodeId, 10),
+        src_interface_id: srcInterfaceId ? srcInterfaceId.toString() : '',
+        dst_interface_id: dstInterfaceId ? dstInterfaceId.toString() : ''
+    };
+    if (isNaN(payload.src_node_id) || isNaN(payload.dst_node_id) || !payload.src_interface_id || !payload.dst_interface_id) {
+        deferred.reject('Invalid bridge connection parameters');
+        return deferred.promise();
+    }
+    var meta = $.extend({
+        type: 'bridge',
+        count: 1,
+        postfix: 0
+    }, networkMeta || {});
+    payload.network = meta;
+    enqueueLabOperation('connect_nodes_bridge', payload).done(function (job) {
+        deferred.resolve(job);
+    }).fail(function (err) {
+        deferred.reject(err);
+    });
+    return deferred.promise();
+}
+
+function connectNodesSerial(srcNodeId, srcInterfaceId, dstNodeId, dstInterfaceId) {
+    var deferred = $.Deferred();
+    var payload = {
+        src_node_id: parseInt(srcNodeId, 10),
+        dst_node_id: parseInt(dstNodeId, 10),
+        src_interface_id: srcInterfaceId ? srcInterfaceId.toString() : '',
+        dst_interface_id: dstInterfaceId ? dstInterfaceId.toString() : ''
+    };
+    if (isNaN(payload.src_node_id) || isNaN(payload.dst_node_id) || !payload.src_interface_id || !payload.dst_interface_id) {
+        deferred.reject('Invalid serial connection parameters');
+        return deferred.promise();
+    }
+    enqueueLabOperation('connect_nodes_serial', payload).done(function (job) {
+        deferred.resolve(job);
+    }).fail(function (err) {
+        deferred.reject(err);
+    });
+    return deferred.promise();
+}
+
 function extractJobResults(payload) {
     if (payload && payload.data && payload.data.results) {
         return payload.data.results;
@@ -1941,6 +2200,10 @@ function describeJobAction(actionKey) {
             stop: 'Остановка узлов',
             wipe: 'Очистка узлов',
             delete: 'Удаление узлов',
+            add_nodes: 'Добавление нод',
+            connect_node_network: 'Подключение к сети',
+            connect_nodes_bridge: 'Соединение узлов (L2)',
+            connect_nodes_serial: 'Соединение узлов (Serial)',
             nodes_batch: 'Операция с узлами',
             default: 'Групповая операция'
         },
@@ -1949,6 +2212,10 @@ function describeJobAction(actionKey) {
             stop: 'Stop nodes',
             wipe: 'Wipe nodes',
             delete: 'Delete nodes',
+            add_nodes: 'Add nodes',
+            connect_node_network: 'Attach to network',
+            connect_nodes_bridge: 'Bridge nodes',
+            connect_nodes_serial: 'Serial link nodes',
             nodes_batch: 'Nodes operation',
             default: 'Batch action'
         }
@@ -2625,8 +2892,8 @@ function printFormNode(action, values, fromNodeList) {
 
 // Node config
 function OldprintFormNodeConfigs(values, cb) {
-    var title = values['name'] + ': ' + MESSAGES[123];
-    if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+	var title = values['name'] + ': ' + MESSAGES[123];
+	if (hasUnlockedLabWritePermissions()) {
         var html = '<form id="form-node-config" class="form-horizontal"><input name="config[id]" value="' + values['id'] + '" type="hidden"/>' +
             '<div class="form-group">' +
             '<div class="col-md-12">' +
@@ -2654,8 +2921,8 @@ function OldprintFormNodeConfigs(values, cb) {
     cb && cb();
 }
 function printFormNodeConfigs(values, cb) {
-    var title = values['name'] + ': ' + MESSAGES[123];
-    if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+	var title = values['name'] + ': ' + MESSAGES[123];
+	if (hasUnlockedLabWritePermissions()) {
         var ace_themes = [
             'cobalt', 'github', 'crimson_editor', 'iplastic', 'draw', 'clouds_midnight',
             'monokai', 'ambiance', 'chaos', 'chrome', 'clouds', 'eclipse', 'dreamweaver',
@@ -3264,7 +3531,7 @@ function updateFreeSelect(e, ui) {
         $('#lab-viewport').addClass('freeSelectMode')
     }
     window.freeSelectedNodes = []
-    if (LOCK == 0 && (ROLE == 'admin' || ROLE == 'editor')) {
+	if (hasUnlockedLabWritePermissions()) {
         $.when(lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), false)).done(function () {
             $.when(lab_topology.clearDragSelection()).done(function () {
                 lab_topology.setDraggable($('.node_frame.ui-selected, node_frame.ui-selecting, .network_frame.ui-selected,.network_ui-selecting, .customShape.ui-selected, .customShape.ui-selecting'), true)
@@ -3346,7 +3613,8 @@ function printLabTopology() {
         getTopology(),
         getTextObjects(),
         getLabInfo(lab_filename)
-    ).done(function (networks, nodes, topology, textObjects, labinfo) {
+	).done(function (networks, nodes, topology, textObjects, labinfo) {
+		syncCollaborateSessionFlag(labinfo);
 
         var networkImgs = [];
         var nodesImgs = [];
@@ -3520,7 +3788,7 @@ function printLabTopology() {
                 });
                 // Read privileges and set specific actions/elements
 
-                if ((ROLE == 'admin' || ROLE == 'editor') && labinfo['lock'] == 0) {
+                if (hasLabWritePermissions() && labinfo['lock'] == 0) {
                     dragDeferred = $.Deferred()
                     $.when(labTextObjectsResolver).done(function () {
                         logger(1, 'DEBUG: ' + textObjectsCount + ' Shape(s) left');
@@ -3677,15 +3945,15 @@ function printLabTopology() {
 					$('.customShape').resizable('disable');
                     $('.action-lock-lab').html('<i style="color:red" class="glyphicon glyphicon-remove-circle"></i>' + MESSAGES[167])
                     $('.action-lock-lab').removeClass('action-lock-lab').addClass('action-unlock-lab')
-                } else {
-					window.LOCK = 0;
-					$('.action-unlock-lab').html('<i class="glyphicon glyphicon-ok-circle"></i>' + MESSAGES[166])
-					$('.action-unlock-lab').removeClass('action-unlock-lab').addClass('action-lock-lab')
-					if (ROLE == 'admin' || ROLE == 'editor') {
-						lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true);
-						$('.customShape').resizable('enable');
-					}
-				}
+		} else {
+			window.LOCK = 0;
+			$('.action-unlock-lab').html('<i class="glyphicon glyphicon-ok-circle"></i>' + MESSAGES[166])
+			$('.action-unlock-lab').removeClass('action-unlock-lab').addClass('action-lock-lab')
+			if (hasLabWritePermissions()) {
+				lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true);
+				$('.customShape').resizable('enable');
+			}
+		}
                 defer.resolve(LOCK);
                 $labViewport.data('refreshing', false);
                 labNodesResolver.resolve();
@@ -3797,10 +4065,10 @@ function printListNetworks(networks) {
             body += '<tr class="network' + value['id'] + '"><td>' + value['id'] + '</td><td>' + value['name'] + '</td><td>' + value['type'] + '</td><td>' + value['count'] + '</td><td><a class="action-networkedit" data-path="' + value['id'] + '" data-name="' + value['name'] + '" href="javascript:void(0)" title="' + MESSAGES[71] + '"><i class="glyphicon glyphicon-edit"></i></a><a class="action-networkdelete" data-path="' + value['id'] + '" data-name="' + value['name'] + '" href="javascript:void(0)" title="' + MESSAGES[65] + '"><i class="glyphicon glyphicon-trash"></i></a></td></tr>';
         }
     });
-    body = $(body);
-    if (ROLE == "user" || LOCK == 1) {
-        body.find(".action-networkedit,.action-networkdelete").remove();
-    }
+	body = $(body);
+	if (!hasUnlockedLabWritePermissions()) {
+		body.find(".action-networkedit,.action-networkdelete").remove();
+	}
     body = '<div class="table-responsive"><table class="table">' + body.html() + '</tbody></table></div>';
     addModalWide(MESSAGES[96], body, '');
 }
@@ -3819,12 +4087,12 @@ function checkTemplateValue(template_options, field) {
 function createNodeListRow(template, id) {
     var html_data = "";
     var defer = $.Deferred();
-    var userRight = "readonly";
-    var disabledAttr = 'disabled="true"';
-    if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-        userRight = "";
-        disabledAttr = ""
-    }
+	var userRight = "readonly";
+	var disabledAttr = 'disabled="true"';
+	if (hasUnlockedLabWritePermissions()) {
+		userRight = "";
+		disabledAttr = ""
+	}
 
     $.when(getTemplates(template), getNodes(id)).done(function (template_values, node_values) {
         console.log("node_values", node_values)
@@ -3957,7 +4225,7 @@ function createNodeListRow(template, id) {
             '<a class="action-nodestart" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[66] + '"><i class="glyphicon glyphicon-play"></i></a>' +
             '<a class="action-nodestop" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[67] + '"><i class="glyphicon glyphicon-stop"></i></a>' +
             '<a class="action-nodewipe" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[68] + '"><i class="glyphicon glyphicon-erase"></i></a>'
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+		if (hasUnlockedLabWritePermissions()) {
             html_data += '<a class="action-nodeexport" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[69] + '"><i class="glyphicon glyphicon-save"></i></a> ' +
                 '<a class="action-nodeinterfaces" data-status="' + node_values['status'] + '" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[72] + '"><i class="glyphicon glyphicon-transfer"></i></a>' +
                 '<a class="action-nodeedit control' + disabledClass + '" data-path="' + id + '" data-name="' + checkTemplateValue(template_values['options'], 'name') + '" href="javascript:void(0)" title="' + MESSAGES[71] + '"><i class="glyphicon glyphicon-edit"></i></a>' +
@@ -4055,7 +4323,7 @@ function printListTextobjects(textobjects) {
             '<td>' + value['type'] + '</td>' +
             '<td>' + text + '</td>' +
             '<td>';
-        if (ROLE != "user" && LOCK == 0) {
+		if (hasUnlockedLabWritePermissions()) {
             body += '<a class="action-textobjectdelete ' + textClass + '" data-path="' + value['id'] + '" data-name="' + value['name'] + '" href="javascript:void(0)" title="' + MESSAGES[65] + '">' +
                 '<i class="glyphicon glyphicon-trash" style="margin-left:20px;"></i>' +
                 '</a>'
@@ -4237,9 +4505,9 @@ function printPageLabOpen(lab) {
 						}
     // Print topology
     $.when(printLabTopology(), getPictures()).done(function (rc, pic) {
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-            $('#lab-sidebar ul').append('<li class="action-labobjectadd-li"><a class="action-labobjectadd" href="javascript:void(0)" title="' + MESSAGES[56] + '"><i class="glyphicon glyphicon-plus"></i></a></li>');
-        }
+	if (hasUnlockedLabWritePermissions()) {
+		$('#lab-sidebar ul').append('<li class="action-labobjectadd-li"><a class="action-labobjectadd" href="javascript:void(0)" title="' + MESSAGES[56] + '"><i class="glyphicon glyphicon-plus"></i></a></li>');
+	}
         $('#lab-sidebar ul').append('<li class="action-nodesget-li"><a class="action-nodesget" href="javascript:void(0)" title="' + MESSAGES[62] + '"><i class="glyphicon glyphicon-hdd"></i></a></li>');
         $('#lab-sidebar ul').append('<li><a class="action-networksget" href="javascript:void(0)" title="' + MESSAGES[61] + '"><i class="glyphicon glyphicon-transfer"></i></a></li>');
         $('#lab-sidebar ul').append('<li><a class="action-configsget"  href="javascript:void(0)" title="' + MESSAGES[58] + '"><i class="glyphicon glyphicon-align-left"></i></a></li>');

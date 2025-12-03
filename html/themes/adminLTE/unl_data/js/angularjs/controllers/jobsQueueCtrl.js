@@ -121,6 +121,11 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			toastDeleteForceError: 'Не удалось принудительно удалить задачу'
 		}
 	};
+	var operationLabelDictionary = {
+		connect_nodes_bridge: { en: 'Connect', ru: 'Connect' },
+		connect_nodes_serial: { en: 'Connect', ru: 'Connect' },
+		connect_node_network: { en: 'Connect', ru: 'Connect' }
+	};
 
 	function resolveLanguage() {
 		var cookieLang = ($cookies && $cookies.get('eve_login_lang')) || null;
@@ -138,6 +143,18 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	}
 
 	refreshTranslations();
+
+	function formatOperationLabel(raw) {
+		if (!raw) {
+			return '';
+		}
+		var key = raw.toString().toLowerCase();
+		var dict = operationLabelDictionary[key];
+		if (dict) {
+			return dict[$scope.lang] || dict.en || 'Connect';
+		}
+		return raw.toString().toUpperCase();
+	}
 
 	$scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
 		if (newVal && newVal !== oldVal) {
@@ -359,7 +376,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	function normalizeJob(job) {
 		job.payload = job.payload || {};
 		job.result = job.result || {};
-		job.operationLabel = (job.payload.operation || job.action || '').toString().toUpperCase();
+		job.operationLabel = formatOperationLabel(job.payload.operation || job.action || '');
 		job.targetPreview = buildTargetPreview(job.payload);
 		job.cancel_requested = !!job.cancel_requested;
 		return job;
@@ -369,6 +386,13 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		if (!payload || typeof payload !== 'object') {
 			return '';
 		}
+		var operationKey = (payload.operation || '').toString().toLowerCase();
+		if (operationKey === 'add_nodes') {
+			var creationDescription = describeNodeCreationTargets(operationKey, payload);
+			if (creationDescription) {
+				return creationDescription;
+			}
+		}
 		var ids = Array.isArray(payload.ids) ? payload.ids : null;
 		if (ids && ids.length) {
 			return summarizeList(ids);
@@ -376,13 +400,88 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		if (Array.isArray(payload.nodes) && payload.nodes.length) {
 			return summarizeList(payload.nodes);
 		}
-		if (payload.node) {
+		if (payload.node && operationKey !== 'add_nodes') {
 			return Array.isArray(payload.node) ? summarizeList(payload.node) : String(payload.node);
 		}
 		if (payload.lab_path) {
 			return payload.lab_path;
 		}
+		var connectDescription = describeConnectTargets(operationKey, payload);
+		if (connectDescription) {
+			return connectDescription;
+		}
 		return '';
+	}
+
+	function describeConnectTargets(operationKey, payload) {
+		switch (operationKey) {
+			case 'connect_nodes_bridge':
+			case 'connect_nodes_serial':
+				return describeNodeToNode(payload);
+			case 'connect_node_network':
+				return describeNodeToNetwork(payload);
+			default:
+				return '';
+		}
+	}
+
+	function describeNodeToNode(payload) {
+		var source = formatNodeEndpoint(payload.src_node_id, payload.src_interface_id);
+		var target = formatNodeEndpoint(payload.dst_node_id, payload.dst_interface_id);
+		if (source && target) {
+			return source + ' ↔ ' + target;
+		}
+		return source || target || '';
+	}
+
+	function describeNodeToNetwork(payload) {
+		var endpoint = formatNodeEndpoint(payload.node_id, payload.interface_id);
+		var networkLabel = '';
+		if (payload.network && payload.network.name) {
+			networkLabel = payload.network.name;
+		} else if (payload.network_id) {
+			networkLabel = 'Network #' + payload.network_id;
+		}
+		if (!endpoint && !networkLabel) {
+			return '';
+		}
+		if (endpoint && networkLabel) {
+			return endpoint + ' → ' + networkLabel;
+		}
+		return endpoint || networkLabel;
+	}
+
+	function formatNodeEndpoint(nodeId, interfaceId) {
+		if (!nodeId) {
+			return '';
+		}
+		var label = 'Node #' + nodeId;
+		if (interfaceId) {
+			label += ' (' + interfaceId + ')';
+		}
+		return label;
+	}
+
+	function describeNodeCreationTargets(operationKey, payload) {
+		if (operationKey !== 'add_nodes') {
+			return '';
+		}
+		var nodePayload = payload.node;
+		if (!nodePayload) {
+			return '';
+		}
+		var list = Array.isArray(nodePayload) ? nodePayload : [nodePayload];
+		var total = list.reduce(function (acc, entry) {
+			var count = parseInt(entry && (entry.count !== undefined ? entry.count : entry.numberNodes), 10);
+			if (isNaN(count) || count < 1) {
+				count = 1;
+			}
+			return acc + count;
+		}, 0);
+		if (total <= 0) {
+			total = list.length || 1;
+		}
+		return total + ' node' + (total === 1 ? '' : 's');
 	}
 
 	function summarizeList(list) {

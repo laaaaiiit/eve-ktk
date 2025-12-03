@@ -341,6 +341,12 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 	}
 
 	$scope.activeJob = null;
+	var labJobListener = $scope.$on('labJobQueued', function (event, payload) {
+		if (!payload || !payload.jobId) {
+			return;
+		}
+		handleExternalLabJob(payload);
+	});
 
 	function applySingleNodeResult(nodeId, action, entry) {
 		var node = $scope.node[nodeId];
@@ -415,6 +421,58 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			default:
 				return 'Групповая операция';
 		}
+	}
+
+	function handleExternalLabJob(payload) {
+		var jobContext = {
+			id: payload.jobId,
+			action: payload.action || 'lab_operation',
+			detail: payload.detail || 'Processing lab operation',
+			status: 'queued',
+			progress: 0
+		};
+		$scope.activeJob = jobContext;
+		$scope.pollJobStatus(payload.jobId).then(function (job) {
+			var resultMessage = (job && job.result && job.result.message) ? job.result.message : null;
+			var successMessage = payload.successMessage || resultMessage || jobContext.detail;
+			if (job && (job.status === 'success' || job.status === 'partial')) {
+				jobContext.status = job.status;
+				jobContext.progress = 100;
+				jobContext.detail = successMessage;
+				if (payload.refresh === 'topology') {
+					$scope.topologyRefresh();
+				} else if (payload.refresh === 'nodes') {
+					$scope.nodeListRefresh();
+					$scope.networkListRefresh();
+				}
+				if (payload.onSuccess && typeof payload.onSuccess === 'function') {
+					payload.onSuccess(job);
+				}
+				if (job.status === 'partial') {
+					toastr["warning"](successMessage, "Partial");
+				} else {
+					toastr["success"](successMessage, "Success");
+				}
+			} else {
+				var errorMessage = (job && job.result && job.result.message) ? job.result.message : (payload.errorMessage || 'Job failed');
+				jobContext.status = 'failed';
+				jobContext.progress = 100;
+				jobContext.detail = errorMessage;
+				toastr["error"](errorMessage, "Error");
+			}
+		}).catch(function (error) {
+			var errMsg = (error && error.data && error.data.message) ? error.data.message : 'Job polling failed';
+			jobContext.status = 'failed';
+			jobContext.progress = 100;
+			jobContext.detail = errMsg;
+			toastr["error"](errMsg, "Error");
+		}).finally(function () {
+			$timeout(function () {
+				if ($scope.activeJob === jobContext) {
+					$scope.activeJob = null;
+				}
+			}, 2000);
+		});
 	}
 
 	$scope.pollJobStatus = function(jobId) {
@@ -1059,25 +1117,38 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 		if (confirm('Are you sure?')){
 			console.log("deteling id + type: "+ id+' '+type)
 			var selectedNodes = collectSelectedNodeIds();
-			var handledBatch = false;
-			if (type == 'node' && selectedNodes.length > 0) {
-				handledBatch = true;
-				$scope.applyBatchNodeAction('delete', selectedNodes, function(data){
-					if (!data || !data.data || !data.data.results) {
-						return;
-					}
-					data.data.results.forEach(function(entry){
-						if (entry.code === 200) {
-							removeNodeElement(entry.id, element ? element : type);
-						} else {
-							toastr["error"](entry.message, "Error");
-						}
-					});
-				}).catch(function(){
-					toastr["error"]('Unable to delete selected nodes', "Error");
-				});
+			if (type !== 'node' && selectedNodes.length) {
+				type = 'node';
 			}
-			if (!handledBatch) {
+			if (type === 'node') {
+				var idsToDelete = selectedNodes.length ? selectedNodes.slice() : [];
+				if (!idsToDelete.length && id) {
+					idsToDelete = [id];
+				}
+				idsToDelete = idsToDelete.map(function(nodeId){
+					return parseInt(nodeId, 10);
+				}).filter(function(nodeId){
+					return !isNaN(nodeId);
+				});
+				if (idsToDelete.length) {
+					$scope.applyBatchNodeAction('delete', idsToDelete, function(data){
+						if (!data || !data.data || !data.data.results) {
+							return;
+						}
+						data.data.results.forEach(function(entry){
+							if (entry.code === 200) {
+								removeNodeElement(entry.id, element ? element : type);
+							} else {
+								toastr["error"](entry.message, "Error");
+							}
+						});
+					}).catch(function(){
+						toastr["error"]('Unable to delete selected nodes', "Error");
+					});
+					return;
+				}
+			}
+			if (type !== 'node') {
 				var h_flague = false;
 				$(".free-selected").each(function(ii){
 					console.log("each select")
@@ -1379,6 +1450,13 @@ function labController($scope, $http, $location, $uibModal, $rootScope, $q, $log
 			}
 		);
 	}
+	$scope.$on('$destroy', function () {
+		if (labJobListener) {
+			labJobListener();
+			labJobListener = null;
+		}
+	});
+
 	///////////////////////////////
 	//More controllers //START
 	ModalCtrl($scope, $uibModal, $log, $rootScope, $http,$window)

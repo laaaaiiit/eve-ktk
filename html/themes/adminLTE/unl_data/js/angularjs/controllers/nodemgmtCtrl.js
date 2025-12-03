@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $interval, themeService) {
+angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $interval, $timeout, themeService) {
     var translations = {
         en: {
             heroEyebrow: 'Operations',
@@ -321,51 +321,72 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return last.replace(/\.unl$/i, '') || last;
     }
 
-    function buildUserSummaries(nodes) {
-        var usersMap = {};
-        angular.forEach(nodes, function (node) {
-            var username = node.user || '—';
-            if (!usersMap[username]) {
-                usersMap[username] = {
-                    username: username,
-                    counts: createEmptyCounters(),
-                    totalRunning: 0,
-                    totalNodes: 0,
-                    labs: {}
-                };
-            }
-            var userEntry = usersMap[username];
-            userEntry.totalNodes += 1;
+    function ensureUserEntry(usersMap, username) {
+        if (!usersMap[username]) {
+            usersMap[username] = {
+                username: username,
+                counts: createEmptyCounters(),
+                totalRunning: 0,
+                totalNodes: 0,
+                labs: {}
+            };
+        }
+        return usersMap[username];
+    }
 
-            var labKey = node.lab || '';
-            if (!userEntry.labs[labKey]) {
-                userEntry.labs[labKey] = {
-                    path: labKey,
-                    displayName: formatLabName(labKey),
-                    counts: createEmptyCounters(),
-                    totalRunning: 0,
-                    nodes: []
-                };
-            }
-            var labEntry = userEntry.labs[labKey];
-            labEntry.nodes.push(node);
+    function ensureLabEntry(userEntry, labKey) {
+        if (!userEntry.labs[labKey]) {
+            userEntry.labs[labKey] = {
+                path: labKey,
+                displayName: formatLabName(labKey),
+                counts: createEmptyCounters(),
+                totalRunning: 0,
+                nodes: []
+            };
+        }
+        return userEntry.labs[labKey];
+    }
 
-            if (isNodeRunning(node)) {
-                var categoryKey = normalizeType(node.type);
-                userEntry.counts[categoryKey] += 1;
-                userEntry.totalRunning += 1;
-                labEntry.counts[categoryKey] += 1;
-                labEntry.totalRunning += 1;
-            }
-        });
+    function appendNodeToMap(usersMap, node) {
+        if (!node) {
+            return;
+        }
+        var username = node.user || '—';
+        var userEntry = ensureUserEntry(usersMap, username);
+        userEntry.totalNodes += 1;
 
-        var summaries = Object.keys(usersMap).sort(function (a, b) {
+        var labKey = node.lab || '';
+        var labEntry = ensureLabEntry(userEntry, labKey);
+        labEntry.nodes.push(node);
+
+        if (isNodeRunning(node)) {
+            var categoryKey = normalizeType(node.type);
+            userEntry.counts[categoryKey] += 1;
+            userEntry.totalRunning += 1;
+            labEntry.counts[categoryKey] += 1;
+            labEntry.totalRunning += 1;
+        }
+    }
+
+    function appendNodesRange(usersMap, nodes, startIndex, endIndex) {
+        if (!nodes || !nodes.length) {
+            return;
+        }
+        var start = Math.max(0, startIndex || 0);
+        var end = Math.min(nodes.length, endIndex == null ? nodes.length : endIndex);
+        for (var idx = start; idx < end; idx++) {
+            appendNodeToMap(usersMap, nodes[idx]);
+        }
+    }
+
+    function convertUsersMapToSummaries(usersMap) {
+        return Object.keys(usersMap).sort(function (a, b) {
             return a.localeCompare(b);
         }).map(function (username) {
             var userEntry = usersMap[username];
             var labsArray = Object.keys(userEntry.labs).sort(function (a, b) {
-                var nameA = userEntry.labs[a].displayName.toLowerCase();
-                var nameB = userEntry.labs[b].displayName.toLowerCase();
+                var nameA = (userEntry.labs[a].displayName || '').toLowerCase();
+                var nameB = (userEntry.labs[b].displayName || '').toLowerCase();
                 return nameA.localeCompare(nameB);
             }).map(function (key) {
                 var lab = userEntry.labs[key];
@@ -384,8 +405,67 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 labCount: labsArray.length
             };
         });
+    }
 
-        $scope.userSummaries = summaries;
+    function buildUserSummaries(nodes) {
+        var usersMap = {};
+        appendNodesRange(usersMap, nodes, 0, nodes ? nodes.length : 0);
+        $scope.userSummaries = convertUsersMapToSummaries(usersMap);
+    }
+
+    var incrementalState = null;
+    var incrementalTimer = null;
+
+    function cancelIncrementalProcessing() {
+        if (incrementalTimer) {
+            $timeout.cancel(incrementalTimer);
+            incrementalTimer = null;
+        }
+        incrementalState = null;
+    }
+
+    function scheduleChunkProcessing() {
+        if (!incrementalState) {
+            return;
+        }
+        var nodes = incrementalState.nodes;
+        var start = incrementalState.index;
+        var end = Math.min(start + incrementalState.chunkSize, nodes.length);
+
+        appendNodesRange(incrementalState.usersMap, nodes, start, end);
+        incrementalState.index = end;
+        $scope.userSummaries = convertUsersMapToSummaries(incrementalState.usersMap);
+        $scope.loadingState.processed = end;
+
+        if (end >= nodes.length) {
+            $scope.loadingState.active = false;
+            cancelIncrementalProcessing();
+            return;
+        }
+
+        incrementalTimer = $timeout(scheduleChunkProcessing, 0);
+    }
+
+    function startIncrementalSummaries(nodes) {
+        cancelIncrementalProcessing();
+        var list = angular.isArray(nodes) ? nodes : [];
+        $scope.loadingState = {
+            active: true,
+            processed: 0,
+            total: list.length
+        };
+        if (!list.length) {
+            $scope.userSummaries = [];
+            $scope.loadingState.active = false;
+            return;
+        }
+        incrementalState = {
+            nodes: list,
+            index: 0,
+            usersMap: {},
+            chunkSize: Math.max(100, Math.floor(list.length / 20))
+        };
+        scheduleChunkProcessing();
     }
 
     $scope.categoryLayout = CATEGORY_CONFIG;
@@ -491,6 +571,12 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return !!$scope.expandedLabs[key];
     };
 
+    $scope.loadingState = {
+        active: false,
+        processed: 0,
+        total: 0
+    };
+
     $scope.testAUTH("/nodemgmt"); // Проверка авторизации
 
     const waitForRole = $scope.$watch(function () {
@@ -554,19 +640,27 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
         // Получение всех нод
         $scope.getAllLabNodes = function () {
+            cancelIncrementalProcessing();
+            $scope.loadingState = {
+                active: true,
+                processed: 0,
+                total: 0
+            };
             $http.get('/api/nodes').then(function (response) {
                 if (response.data.status === "success") {
-                    $scope.nodedata = response.data.data;
-                    buildUserSummaries($scope.nodedata);
+                    $scope.nodedata = response.data.data || [];
+                    startIncrementalSummaries($scope.nodedata);
                 } else {
                     console.error("Ошибка при получении нод:", response.data.message);
                     $scope.nodedata = [];
                     $scope.userSummaries = [];
+                    $scope.loadingState.active = false;
                 }
             }).catch(function (error) {
                 console.error("Ошибка запроса:", error);
                 $scope.nodedata = [];
                 $scope.userSummaries = [];
+                $scope.loadingState.active = false;
             });
         };
 
@@ -768,18 +862,18 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 confirmClasses: 'bg-rose-600 hover:bg-rose-500'
             }).then(function () {
                 $.blockUI();
-                const normalizedPath = '/' + labPath.replace(/^\/+/, '');
-                $http.delete('/api/labs' + normalizedPath + '/nodes/' + nodeData.id).then(
-                    function successCallback(response) {
+                queueSingleNode(nodeData, 'delete')
+                    .then(function (response) {
+                        notifyJobQueued(response);
                         $scope.getAllLabNodes();
-                        $.unblockUI();
-                    },
-                    function errorCallback(response) {
-                        console.error("Ошибка при удалении ноды:", response);
+                    })
+                    .catch(function (error) {
+                        console.error("Ошибка при удалении ноды:", error);
                         alert("Не удалось удалить ноду.");
+                    })
+                    .finally(function () {
                         $.unblockUI();
-                    }
-                );
+                    });
             });
         };
 
@@ -893,13 +987,14 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             if ($location.path() === '/nodemgmt') {
                 $scope.getAllLabNodes();
             }
-        }, 10000);
+        }, 3000);
 
         $scope.$on('$destroy', function () {
             if (refreshPromise) {
                 $interval.cancel(refreshPromise);
                 refreshPromise = null;
             }
+            cancelIncrementalProcessing();
         });
     }
 });

@@ -55,9 +55,9 @@ $(document).on('keydown', 'body', function (e) {
         $('.ui-selecting').removeClass('ui-selecting')
         $("#lab-viewport").removeClass('freeSelectMode')
         lab_topology.clearDragSelection();
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-            lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
-        }
+		if (hasUnlockedLabWritePermissions()) {
+			lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
+		}
     }
     if (isEditCustomShape && KEY_CODES.escape == e.which) {
         $(".edit-custom-shape-form button.cancelForm").click(); // it will handle all the stuff
@@ -196,13 +196,10 @@ function ObjectPosUpdate(event, ui) {
         id = node.id
         $('#' + id).addClass('dragstopped')
         if (id.search('node') != -1) {
-            logger(1, 'DEBUG: setting' + id + ' position.');
             tmp_nodes.push({ id: id.replace('node', ''), left: eLeft, top: eTop })
         } else if (id.search('network') != -1) {
-            logger(1, 'DEBUG: setting ' + id + ' position.');
             tmp_networks.push({ id: id.replace('network', ''), left: eLeft, top: eTop })
         } else if (id.search('custom') != -1) {
-            logger(1, 'DEBUG: setting ' + id + ' position.');
             objectData = node.outerHTML;
             objectData = fromByteArray(new TextEncoderLite('utf-8').encode(objectData));
             tmp_shapes.push({ id: id.replace(/customShape/, '').replace(/customText/, ''), data: objectData })
@@ -327,16 +324,16 @@ $(document).on('contextmenu', '#lab-viewport', function (e) {
         return;
     }
 
-    if (window.connContext == 1) {
-        window.connContext = 0
-        if (ROLE == "user" || LOCK == 1) return;
-        body = '';
-        body += '<li><a class="action-conndelete" href="javascript:void(0)"><i class="glyphicon glyphicon-trash"></i> Delete</a></li>';
-        printContextMenu('Connection', body, e.pageX, e.pageY, false, "menu");
-        return;
-    }
+	if (window.connContext == 1) {
+		window.connContext = 0
+		if (!hasLabWritePermissions() || LOCK == 1) return;
+		body = '';
+		body += '<li><a class="action-conndelete" href="javascript:void(0)"><i class="glyphicon glyphicon-trash"></i> Delete</a></li>';
+		printContextMenu('Connection', body, e.pageX, e.pageY, false, "menu");
+		return;
+	}
 
-    if (ROLE != "user" && LOCK == 0) {
+	if (hasUnlockedLabWritePermissions()) {
         var body = '';
         body += '<li><a class="action-nodeplace" href="javascript:void(0)"><i class="glyphicon glyphicon-hdd"></i> ' + MESSAGES[81] + '</a></li>';
         body += '<li><a class="action-networkplace" href="javascript:void(0)"><i class="glyphicon glyphicon-transfer"></i> ' + MESSAGES[82] + '</a></li>';
@@ -400,10 +397,10 @@ $(document).on('contextmenu', '.context-menu', function (e) {
                 '</a>' +
                 '</li>' +
                 '</li>';
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-            body += '<li>' +
-                '<a class="action-nodeexport" data-path="' + node_id + '" data-name="' + title + '" href="javascript:void(0)">' +
-                '<i class="glyphicon glyphicon-save"></i> ' + MESSAGES[69] +
+		if (hasUnlockedLabWritePermissions()) {
+			body += '<li>' +
+				'<a class="action-nodeexport" data-path="' + node_id + '" data-name="' + title + '" href="javascript:void(0)">' +
+				'<i class="glyphicon glyphicon-save"></i> ' + MESSAGES[69] +
                 '</a>' +
                 '</li>';
         }
@@ -418,8 +415,8 @@ $(document).on('contextmenu', '.context-menu', function (e) {
             '<ul></ul>' +
             '</div>' +
             '</li>';
-        // Read privileges and set specific actions/elements
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+		// Read privileges and set specific actions/elements
+		if (hasUnlockedLabWritePermissions()) {
 
             body += '<li role="separator" class="divider">';/* +
                         '<li>' +
@@ -502,7 +499,7 @@ $(document).on('contextmenu', '.context-menu', function (e) {
                 '<li>' +
                 '<a class="action-openconsole-group context-collapsible menu-manage" href="javascript:void(0)"><i class="glyphicon glyphicon-console"></i> ' + MESSAGES[169] + '</a>' +
                 '</li>';
-            if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+		if (hasUnlockedLabWritePermissions()) {
                 body += '' +
                     '<li role="separator" class="divider"></li>' +
                     '<li>' +
@@ -547,8 +544,8 @@ $(document).on('contextmenu', '.context-menu', function (e) {
 
         }
 
-    } else if ($(this).hasClass('network_frame')) {
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+	} else if ($(this).hasClass('network_frame')) {
+		if (hasUnlockedLabWritePermissions()) {
 
 
             logger(1, 'DEBUG: opening network context menu');
@@ -575,8 +572,8 @@ $(document).on('contextmenu', '.context-menu', function (e) {
                 '</a>' +
                 '</li>';
         }
-    } else if ($(this).hasClass('customShape')) {
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+	} else if ($(this).hasClass('customShape')) {
+		if (hasUnlockedLabWritePermissions()) {
             logger(1, 'DEBUG: opening text object context menu');
             var textObject_id = $(this).attr('data-path')
             var elId = $(this).attr('id');
@@ -670,7 +667,7 @@ $(document).on('change input', 'input[name="node[count]"]', function (e) {
 // plug show/hide event
 
 $(document).on('mouseover', '.node_frame, .network_frame', function (e) {
-    if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0 && !$('#lab-viewport').hasClass('freeSelectMode')) {
+	if (hasUnlockedLabWritePermissions() && !$('#lab-viewport').hasClass('freeSelectMode')) {
         $(this).find('.tag').removeClass("hidden");
     }
 });
@@ -917,6 +914,34 @@ $(document).on('hide.bs.modal', function (e) {
 });
 
 
+function immediateResolvedPromise() {
+    var deferred = $.Deferred();
+    deferred.resolve();
+    return deferred.promise();
+}
+
+function collectRunningNodes(ids) {
+    var running = [];
+    if (!ids || !ids.length) {
+        return running;
+    }
+    ids.forEach(function (id) {
+        var $typeContainer = $('input[data-path=' + id + '][name="node[type]"]').parent();
+        if ($typeContainer.length && $typeContainer.hasClass('node-running')) {
+            running.push(id);
+            return;
+        }
+        var statusAttr = $('a.action-nodeinterfaces[data-path=' + id + ']').attr('data-status');
+        if (statusAttr !== undefined) {
+            var normalized = parseInt(statusAttr, 10);
+            if (!isNaN(normalized) && normalized > 0) {
+                running.push(id);
+            }
+        }
+    });
+    return running;
+}
+
 // Delete lab node
 
 $(document).on('click', '.action-nodedelete, .action-nodedelete-group', function (e) {
@@ -947,42 +972,38 @@ $(document).on('click', '.action-nodedelete, .action-nodedelete-group', function
         var node_id = $(this).attr('data-path');
         var isFreeSelectMode = $("#lab-viewport").hasClass("freeSelectMode");
 
+        var idsToDelete = [];
         if (isFreeSelectMode) {
-            window.freeSelectedNodes = window.freeSelectedNodes.sort(function (a, b) {
-                return a.path < b.path ? -1 : 1
+            idsToDelete = (window.freeSelectedNodes || []).filter(function (node) {
+                return node.type === 'node';
+            }).map(function (node) {
+                return parseInt(node.path, 10);
             });
-            recursionNodeDelete(window.freeSelectedNodes);
+        } else {
+            idsToDelete = [parseInt(node_id, 10)];
         }
-        else {
-            $.when(deleteNode(node_id)).done(function (values) {
-                $('.node' + node_id).remove();
-                if ($('input[data-path=' + node_id + '][name="node[type]"]')) {
-                    $('input[data-path=' + node_id + '][name="node[type]"]').parent().remove()
-                }
+        idsToDelete = idsToDelete.filter(function (id) { return !isNaN(id); });
+        if (!idsToDelete.length) {
+            addModalError('No nodes selected for deletion');
+            return;
+        }
+        var runningIds = collectRunningNodes(idsToDelete);
+        var stopPromise = runningIds.length ? queueNodeAction('stop', runningIds) : immediateResolvedPromise();
+        if (runningIds.length) {
+            addMessage('info', 'Stopping selected nodes before deletion…');
+        }
+        stopPromise.done(function () {
+            $.when(queueNodeAction('delete', idsToDelete)).done(function () {
+                printLabTopology();
             }).fail(function (message) {
                 addModalError(message);
             });
-        }
+        }).fail(function (message) {
+            addModalError(message);
+        });
     })
 });
 
-
-function recursionNodeDelete(restOfList) {
-    var node = restOfList.pop();
-
-    if (!node) {
-        return 1;
-    }
-
-    console.log("Deleting... ", node.path);
-    $.when(deleteNode(node.path)).then(function (values) {
-        $('.node' + node.path).remove();
-        recursionNodeDelete(restOfList);
-    }).fail(function (message) {
-        addModalError(message);
-        recursionNodeDelete(restOfList);
-    });
-}
 
 // Edit/print node interfaces
 $(document).on('click', '.action-nodeinterfaces', function (e) {
@@ -1111,7 +1132,7 @@ $(document).on('click', '.action-moreactions', function (e) {
     body += '<li><a class="action-nodesstop" href="javascript:void(0)"><i class="glyphicon glyphicon-stop"></i> ' + MESSAGES[127] + '</a></li>';
     body += '<li><a class="action-nodeswipe" href="javascript:void(0)"><i class="glyphicon glyphicon-erase"></i> ' + MESSAGES[128] + '</a></li>';
     body += '<li><a class="action-openconsole-all" href="javascript:void(0)"><i class="glyphicon glyphicon-console"></i> ' + MESSAGES[168] + '</a></li>';
-    if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+	if (hasUnlockedLabWritePermissions()) {
         body += '<li><a class="action-nodesexport" href="javascript:void(0)"><i class="glyphicon glyphicon-save"></i> ' + MESSAGES[129] + '</a></li>';
         body += '<li><a class="action-nodesbootsaved" href="javascript:void(0)"><i class="glyphicon glyphicon-flash"></i> ' + MESSAGES[139] + '</a></li>';
         body += '<li><a class="action-nodesbootscratch" href="javascript:void(0)"><i class="glyphicon glyphicon-remove"></i> ' + MESSAGES[140] + '</a></li>';
@@ -1515,25 +1536,25 @@ $(document).on('click', '#follower', function (e) {
 // Get pictures list
 $(document).on('click', '.action-picturesget', function (e) {
     logger(1, 'DEBUG: action = picturesget');
-    $.when(getPictures()).done(function (pictures) {
-        if (!$.isEmptyObject(pictures)) {
-            var body = '<div class="col-md-1 col-md-offset-10" id="picslider"></div><div class="col-md-1 col-md-offset-11"></div><div class="row"><div class="picture-list col-md-3 col-lg-2"><ul class="map">';
-            $.each(pictures, function (key, picture) {
-                var title = picture['name'] || "pic name";
-                body += '<li>';
-                if (ROLE != "user" && LOCK != 1) {
-                    body += '<a class="delete-picture" style="margin-right: 5px;" href="javascript:void(0)" data-path="' + key + '"><i class="glyphicon glyphicon-trash" title="Delete"></i> ';
-                    body += '<a class="action-pictureedit" href="javascript:void(0)" data-path="' + key + '"><i class="glyphicon glyphicon-edit" title="Edit"></i> ';
-                }
-                body += '<a class="action-pictureget" data-path="' + key + '" href="javascript:void(0)" title="' + title + '">&nbsp;&nbsp;' + picture['name'].split(' ')[0] + '</a>';
-                body += '</a></li>';
-            });
-            body += '</ul></div><div id="config-data" class="col-md-9 col-lg-10"></div></div>';
-            addModalWide(MESSAGES[59], body, '', "modal-ultra-wide");
-            $('#picslider').slider({ value: 100, min: 10, max: 200, step: 10, slide: zoompic })
-        } else {
-            addMessage('info', MESSAGES[134]);
-        }
+	$.when(getPictures()).done(function (pictures) {
+		if (!$.isEmptyObject(pictures)) {
+			var body = '<div class="col-md-1 col-md-offset-10" id="picslider"></div><div class="col-md-1 col-md-offset-11"></div><div class="row"><div class="picture-list col-md-3 col-lg-2"><ul class="map">';
+			$.each(pictures, function (key, picture) {
+				var title = picture['name'] || "pic name";
+				body += '<li>';
+				if (hasUnlockedLabWritePermissions()) {
+					body += '<a class="delete-picture" style="margin-right: 5px;" href="javascript:void(0)" data-path="' + key + '"><i class="glyphicon glyphicon-trash" title="Delete"></i> ';
+					body += '<a class="action-pictureedit" href="javascript:void(0)" data-path="' + key + '"><i class="glyphicon glyphicon-edit" title="Edit"></i> ';
+				}
+				body += '<a class="action-pictureget" data-path="' + key + '" href="javascript:void(0)" title="' + title + '">&nbsp;&nbsp;' + picture['name'].split(' ')[0] + '</a>';
+				body += '</a></li>';
+			});
+			body += '</ul></div><div id="config-data" class="col-md-9 col-lg-10"></div></div>';
+			addModalWide(MESSAGES[59], body, '', "modal-ultra-wide");
+			$('#picslider').slider({ value: 100, min: 10, max: 200, step: 10, slide: zoompic })
+		} else {
+			addMessage('info', MESSAGES[134]);
+		}
     }).fail(function (message) {
         addModalError(message);
     });
@@ -2449,10 +2470,26 @@ $(document).on('submit', '#form-lab-add, #form-lab-edit', function (e) {
 // Submit network form
 $(document).on('submit', '#form-network-add, #form-network-edit', function (e) {
     e.preventDefault();  // Prevent default behaviour
+    var $form = $(this);
+    var isNetworkAdd = $form.attr('id') == 'form-network-add';
+    var $submitButton = isNetworkAdd ? $form.find('button[type="submit"]').first() : $();
+    function lockSubmitButton() {
+        if (isNetworkAdd && $submitButton.length) {
+            $submitButton.prop('disabled', true);
+        }
+    }
+    function unlockSubmitButton() {
+        if (isNetworkAdd && $submitButton.length) {
+            $submitButton.prop('disabled', false);
+        }
+    }
+    if (isNetworkAdd) {
+        lockSubmitButton();
+    }
     var lab_filename = $('#lab-viewport').attr('data-path');
     var form_data = form2Array('network');
     var promises = [];
-    if ($(this).attr('id') == 'form-network-add') {
+    if (isNetworkAdd) {
         logger(1, 'DEBUG: posting form-network-add form.');
         var url = '/api/labs' + lab_filename + '/networks';
         var type = 'POST';
@@ -2466,7 +2503,7 @@ $(document).on('submit', '#form-network-add, #form-network-edit', function (e) {
         url += '?mode=collaborate';
     }
 
-    if ($(this).attr('id') == 'form-network-add') {
+    if (isNetworkAdd) {
         // If adding need to manage multiple add
         if (form_data['count'] > 1) {
             form_data['postfix'] = 1;
@@ -2504,6 +2541,7 @@ $(document).on('submit', '#form-network-add, #form-network-edit', function (e) {
                     // Application error
                     logger(1, 'DEBUG: application error (' + data['status'] + ') on ' + type + ' ' + url + ' (' + data['message'] + ').');
                     addModal('ERROR', '<p>' + data['message'] + '</p>', '<button type="button" class="btn btn-aqua" data-dismiss="modal">Close</button>');
+                    unlockSubmitButton();
                 }
             },
             error: function (data) {
@@ -2512,6 +2550,7 @@ $(document).on('submit', '#form-network-add, #form-network-edit', function (e) {
                 logger(1, 'DEBUG: server error (' + data['status'] + ') on ' + type + ' ' + url + '.');
                 logger(1, 'DEBUG: ' + message);
                 addModal('ERROR', '<p>' + message + '</p>', '<button type="button" class="btn btn-aqua" data-dismiss="modal">Close</button>');
+                unlockSubmitButton();
             }
         });
         promises.push(request);
@@ -2568,17 +2607,51 @@ $(document).on('submit', '#form-node-connect', function (e) {
 $(document).on('submit', '#form-node-add, #form-node-edit', function (e) {
     e.preventDefault();  // Prevent default behaviour
     var self = $(this);
+    var isNodeAdd = self.attr('id') == 'form-node-add';
+    var $submitButton = isNodeAdd ? self.find('button[type="submit"]').first() : $();
+    function lockNodeSubmit() {
+        if (isNodeAdd && $submitButton.length) {
+            $submitButton.prop('disabled', true);
+        }
+    }
+    function unlockNodeSubmit() {
+        if (isNodeAdd && $submitButton.length) {
+            $submitButton.prop('disabled', false);
+        }
+    }
+    if (isNodeAdd) {
+        lockNodeSubmit();
+    }
     var lab_filename = $('#lab-viewport').attr('data-path');
     var form_data = form2Array('node');
     var promises = [];
     if (form_data['template'] == "") {
+        unlockNodeSubmit();
         return false;
     }
 
-    if ($(this).attr('id') == 'form-node-add') {
-        logger(1, 'DEBUG: posting form-node-add form.');
-        var url = '/api/labs' + lab_filename + '/nodes';
-        var type = 'POST';
+    if (isNodeAdd) {
+        // If adding need to manage multiple add
+        if (form_data['count'] > 1) {
+            form_data['postfix'] = 1;
+            form_data['numberNodes'] = form_data['count']
+        } else {
+            form_data['postfix'] = 0;
+        }
+        var payload = {
+            node: form_data,
+            postfix: !!form_data['postfix']
+        };
+        enqueueLabOperation('add_nodes', payload).done(function () {
+            printLabTopology();
+        }).fail(function (message) {
+            addModal('ERROR', '<p>' + message + '</p>', '<button type="button" class="btn btn-aqua" data-dismiss="modal">Close</button>');
+            unlockNodeSubmit();
+        });
+        $('body').children('.modal').attr('skipRedraw', true);
+        $('body').children('.modal.second-win').modal('hide');
+        $('body').children('.modal.fade.in').focus();
+        return false;
     } else {
         logger(1, 'DEBUG: posting form-node-edit form.');
         var url = '/api/labs' + lab_filename + '/nodes/' + form_data['id'];
@@ -2589,20 +2662,9 @@ $(document).on('submit', '#form-node-add, #form-node-edit', function (e) {
         url += '?mode=collaborate';
     }
 
-
-    if ($(this).attr('id') == 'form-node-add') {
-        // If adding need to manage multiple add
-        if (form_data['count'] > 1) {
-            form_data['postfix'] = 1;
-            form_data['numberNodes'] = form_data['count']
-        } else {
-            form_data['postfix'] = 0;
-        }
-    } else {
-        // If editing need to post once
-        form_data['count'] = 1;
-        form_data['postfix'] = 0;
-    }
+    // If editing need to post once
+    form_data['count'] = 1;
+    form_data['postfix'] = 0;
     var request = $.ajax({
         cache: false,
         timeout: TIMEOUT,
@@ -4078,15 +4140,15 @@ $(document).on('click', '#lab-viewport', function (e) {
     {
         try { if (e.target.className.search('action-') != -1) context = 1 } catch (ex) { }
     }
-    if (!e.metaKey && !e.ctrlKey && $(this).hasClass('freeSelectMode') && window.dragstop != 1 && context == 0) {
-        $('.free-selected').removeClass('free-selected')
-        $('.ui-selected').removeClass('ui-selected')
-        $('.ui-selecting').removeClass('ui-selecting')
-        $('#lab-viewport').removeClass('freeSelectMode')
-        lab_topology.clearDragSelection()
-        if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-            lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
-        }
+	if (!e.metaKey && !e.ctrlKey && $(this).hasClass('freeSelectMode') && window.dragstop != 1 && context == 0) {
+		$('.free-selected').removeClass('free-selected')
+		$('.ui-selected').removeClass('ui-selected')
+		$('.ui-selecting').removeClass('ui-selecting')
+		$('#lab-viewport').removeClass('freeSelectMode')
+		lab_topology.clearDragSelection()
+		if (hasUnlockedLabWritePermissions()) {
+			lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
+		}
     }
     if ($('.ui-selected').length < 1) $('#lab-viewport').removeClass('freeSelectMode')
 
@@ -4105,15 +4167,15 @@ $(document).on('click', '.customShape', function (e) {
         updateFreeSelect(e, node)
         e.preventDefault();
     } else {
-        if (!node.hasClass('ui-selecting') && !node.hasClass('ui-selected') && isFreeSelectMode) {
-            $('.free-selected').removeClass('free-selected')
-            $('.ui-selected').removeClass('ui-selected')
-            $('.ui-selecting').removeClass('ui-selecting')
-            $('#lab-viewport').removeClass('freeSelectMode')
-            lab_topology.clearDragSelection()
-            if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
-                lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
-            }
+		if (!node.hasClass('ui-selecting') && !node.hasClass('ui-selected') && isFreeSelectMode) {
+			$('.free-selected').removeClass('free-selected')
+			$('.ui-selected').removeClass('ui-selected')
+			$('.ui-selecting').removeClass('ui-selecting')
+			$('#lab-viewport').removeClass('freeSelectMode')
+			lab_topology.clearDragSelection()
+			if (hasUnlockedLabWritePermissions()) {
+				lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true)
+			}
             e.preventDefault();
             e.stopPropagation();
         }
@@ -4175,7 +4237,7 @@ $(document).on('click', '.node.node_frame a', function (e) {
 
                 var network = '<li><a class="action-nodestart menu-manage" data-path="' + node_id +
                     '" data-name="' + node.name + '" href="#"><i class="glyphicon glyphicon-play"></i> Start</a></li>';
-                if ((ROLE == 'admin' || ROLE == 'editor') && LOCK == 0) {
+			if (hasUnlockedLabWritePermissions()) {
                     network += '<li><a style="display: block;" class="action-nodeedit " data-path="' + node_id +
                         '" data-name="' + node.name + '" href="#"><i class="glyphicon glyphicon-edit"></i> Edit</a></li>';
                 }
@@ -4201,13 +4263,52 @@ $(document).on('submit', '#addConn', function (e) {
     // Get src dst type information and check compatibility
     if (srcType != dstType) {
         addModalError("Serial and Ethernet cannot be interconnected !!!!")
+        unlockSubmit();
         return
     }
     if (form_data['srcNodeType'] == 'network' && form_data['dstNodeType'] == 'network') {
         addModalError("networks cannot be interconnected !!!!")
+        unlockSubmit();
         return
     }
     // nonet - nono - netnet
+    var $form = $(this);
+    var $submitButton = $form.find('.addConn-form-save');
+    var submitLocked = false;
+
+    function lockSubmit() {
+        if ($submitButton.length && !submitLocked) {
+            submitLocked = true;
+            $submitButton.prop('disabled', true);
+        }
+    }
+
+    function unlockSubmit() {
+        if ($submitButton.length) {
+            submitLocked = false;
+            $submitButton.prop('disabled', false);
+        }
+    }
+
+    lockSubmit();
+
+    function closeAndRefresh() {
+        $(e.target).parents('.modal').attr('skipRedraw', true);
+        $(e.target).parents('.modal').modal('hide');
+        var refreshButton = $('.action-labtopologyrefresh').first();
+        if (refreshButton.length) {
+            refreshButton.click();
+        } else {
+            printLabTopology();
+        }
+    }
+
+    function handleJobFailure(message) {
+        var errorText = (message && message.message) ? message.message : message;
+        addModalError(errorText || 'Operation failed');
+        unlockSubmit();
+    }
+
     if (form_data['srcNodeType'] == 'node' && form_data['dstNodeType'] == 'node') {
         if (srcType == 'serial') {
             /// create link S2S between nodes
@@ -4216,29 +4317,25 @@ $(document).on('submit', '#addConn', function (e) {
             var iface1 = form_data['srcConn'].replace(',serial', '')
             var node2 = form_data['dstNodeId']
             var iface2 = form_data['dstConn'].replace(',serial', '')
-            $.when(setNodeInterface(node1, node2 + ':' + iface2, iface1)).done(function () {
-                $(e.target).parents('.modal').attr('skipRedraw', true);
-                $(e.target).parents('.modal').modal('hide');
-            });
+            $.when(connectNodesSerial(node1, iface1, node2, iface2)).done(function () {
+                closeAndRefresh();
+            }).fail(handleJobFailure);
         } else {
             var bridgename = $('#node' + form_data['srcNodeId']).attr('data-name') + 'iface_' + form_data['srcConn'].replace(',ethernet', '')
-            var offset = $('#node' + form_data['srcNodeId']).offset()
+            var offset = $('#node' + form_data['srcNodeId']).offset() || { left: 0, top: 0 }
             var node1 = form_data['srcNodeId']
             var iface1 = form_data['srcConn'].replace(',ethernet', '')
             var node2 = form_data['dstNodeId']
             var iface2 = form_data['dstConn'].replace(',ethernet', '')
-            $.when(setNetwork(bridgename, offset.left + 20, offset.top + 40)).then(function (response) {
-                var networkId = response.data.id;
-                logger(1, 'Link DEBUG: new network created ' + networkId);
-                $.when(setNodeInterface(node1, networkId, iface1)).done(function () {
-                    $.when(setNodeInterface(node2, networkId, iface2)).done(function () {
-                        $.when(setNetworkiVisibility(networkId, 0)).done(function () {
-                            $(e.target).parents('.modal').attr('skipRedraw', true);
-                            $(e.target).parents('.modal').modal('hide');
-                        });
-                    });
-                });
-            });
+            var bridgeMeta = {
+                name: 'Net-' + bridgename,
+                left: Math.round(offset.left + 20),
+                top: Math.round(offset.top + 40),
+                visibility: 0
+            };
+            $.when(connectNodesBridge(node1, iface1, node2, iface2, bridgeMeta)).done(function () {
+                closeAndRefresh();
+            }).fail(handleJobFailure);
 
         }
 
@@ -4253,9 +4350,8 @@ $(document).on('submit', '#addConn', function (e) {
             var bridge = form_data['srcNodeId']
         }
         $.when(setNodeInterface(node, bridge, iface)).done(function () {
-            $(e.target).parents('.modal').attr('skipRedraw', true);
-            $(e.target).parents('.modal').modal('hide');
-        });
+            closeAndRefresh();
+        }).fail(handleJobFailure);
     }
 
 });
