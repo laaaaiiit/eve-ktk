@@ -729,6 +729,7 @@ $app->get('/api/nodes', function () use ($app, $db) {
 	}
 
 	$allNodes = array();
+	$labPaths = array();
 
 	function resolveLabOwnerFromPath($labPath)
 	{
@@ -742,7 +743,7 @@ $app->get('/api/nodes', function () use ($app, $db) {
 	}
 
 	// Рекурсивная функция для сканирования всех .unl файлов
-	function scanLabs($dir, &$allNodes, $user)
+	function scanLabs($dir, &$allNodes, $user, &$labPaths)
 	{
 		$files = scandir($dir);
 		foreach ($files as $file) {
@@ -750,7 +751,7 @@ $app->get('/api/nodes', function () use ($app, $db) {
 
 			$path = $dir . '/' . $file;
 			if (is_dir($path)) {
-				scanLabs($path, $allNodes, $user);
+				scanLabs($path, $allNodes, $user, $labPaths);
 			} elseif (preg_match('/\.unl$/', $file)) {
 				try {
 					$labOwner = resolveLabOwnerFromPath($path);
@@ -764,6 +765,9 @@ $app->get('/api/nodes', function () use ($app, $db) {
 						// Пропускаем опубликованные лаборатории, которые лежат в чужих папках.
 						continue;
 					}
+					$relativeLabPath = str_replace(BASE_LAB, '', $path);
+					$relativeLabPath = '/' . ltrim($relativeLabPath, '/');
+					$labPaths[] = $relativeLabPath;
 					$nodes = $lab->getNodes();
 
 					foreach ($nodes as $nodeId => $node) {
@@ -796,12 +800,16 @@ $app->get('/api/nodes', function () use ($app, $db) {
 	}
 
 	// Запускаем сканирование с корня лабораторий
-	scanLabs(BASE_LAB, $allNodes, $user);
+	scanLabs(BASE_LAB, $allNodes, $user, $labPaths);
 
 	$output['code'] = 200;
 	$output['status'] = 'success';
 	$output['message'] = $GLOBALS['messages'][60020];
 	$output['data'] = $allNodes;
+	$output['meta'] = array(
+		'lab_count' => count($labPaths),
+		'node_count' => count($allNodes)
+	);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));

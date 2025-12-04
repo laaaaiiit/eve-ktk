@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $interval, $timeout, themeService) {
+angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtController($scope, $http, $rootScope, $uibModal, $log, $location, $cookies, $q, $timeout, themeService) {
     var translations = {
         en: {
             heroEyebrow: 'Operations',
@@ -70,6 +70,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             nodeDeleteTitle: 'Delete node',
             nodeDeleteBody: 'Are you sure you want to delete this node?',
             nodeDeleteConfirm: 'Delete node',
+            refreshButton: 'Refresh data',
+            refreshLabButton: 'Refresh lab',
+            refreshingLabel: 'Refreshing…',
             categoryOther: 'Other',
             tableName: 'Name',
             tableType: 'Type',
@@ -157,6 +160,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             nodeDeleteTitle: 'Подтверждение удаления',
             nodeDeleteBody: 'Удалить выбранную ноду?',
             nodeDeleteConfirm: 'Удалить',
+            refreshButton: 'Обновить данные',
+            refreshLabButton: 'Обновить лабораторию',
+            refreshingLabel: 'Обновляем…',
             categoryOther: 'Прочие',
             tableName: 'Имя',
             tableType: 'Тип',
@@ -317,6 +323,10 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return last.replace(/\.unl$/i, '') || last;
     }
 
+    var nodeIndex = {};
+    var labRefreshState = {};
+    $scope.labRefreshState = labRefreshState;
+
     function ensureUserEntry(usersMap, username) {
         if (!usersMap[username]) {
             usersMap[username] = {
@@ -343,6 +353,19 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return userEntry.labs[labKey];
     }
 
+    function trackLabProgress(labPath) {
+        if (!incrementalState) {
+            return;
+        }
+        var normalized = normalizeLabPath(labPath || '');
+        if (!normalized || incrementalState.labsSeen[normalized]) {
+            return;
+        }
+        incrementalState.labsSeen[normalized] = true;
+        incrementalState.labsProcessed += 1;
+        $scope.loadingState.labProcessed = incrementalState.labsProcessed;
+    }
+
     function appendNodeToMap(usersMap, node) {
         if (!node) {
             return;
@@ -353,6 +376,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
         var labKey = node.lab || '';
         var labEntry = ensureLabEntry(userEntry, labKey);
+        trackLabProgress(labKey);
         labEntry.nodes.push(node);
 
         if (isNodeRunning(node)) {
@@ -435,6 +459,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
         if (end >= nodes.length) {
             $scope.loadingState.active = false;
+            if (incrementalState) {
+                $scope.loadingState.labProcessed = incrementalState.totalLabs || $scope.loadingState.labProcessed;
+            }
             cancelIncrementalProcessing();
             return;
         }
@@ -442,16 +469,48 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         incrementalTimer = $timeout(scheduleChunkProcessing, 0);
     }
 
-    function startIncrementalSummaries(nodes) {
+    function startIncrementalSummaries(nodes, meta) {
         cancelIncrementalProcessing();
-        var list = angular.isArray(nodes) ? nodes : [];
+        var list;
+        if (angular.isArray(nodes)) {
+            list = nodes.slice();
+        } else if (nodes && typeof nodes === 'object') {
+            list = [];
+            angular.forEach(nodes, function (value) {
+                list.push(value);
+            });
+        } else {
+            list = [];
+        }
+        var providedMeta = meta || {};
+        var labsSet = {};
+        var sourceForLabs = list.length ? list : nodes;
+        angular.forEach(sourceForLabs, function (node, key) {
+            var normalizedPath;
+            if (node && node.lab) {
+                normalizedPath = normalizeLabPath(node.lab);
+            } else if (node && node.path) {
+                normalizedPath = normalizeLabPath(node.path);
+            } else if (typeof key === 'string' && key.indexOf('/') !== -1) {
+                normalizedPath = normalizeLabPath(key);
+            }
+            if (normalizedPath) {
+                labsSet[normalizedPath] = true;
+            }
+        });
+        var totalLabs = providedMeta.lab_count || Object.keys(labsSet).length;
+        var totalNodes = providedMeta.node_count || list.length || Object.keys(sourceForLabs || {}).length;
         $scope.loadingState = {
             active: true,
             processed: 0,
-            total: list.length
+            total: totalNodes,
+            labProcessed: 0,
+            labTotal: totalLabs
         };
         if (!list.length) {
             $scope.userSummaries = [];
+            $scope.loadingState.labProcessed = $scope.loadingState.labTotal;
+            $scope.loadingState.processed = $scope.loadingState.total;
             $scope.loadingState.active = false;
             return;
         }
@@ -459,10 +518,155 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             nodes: list,
             index: 0,
             usersMap: {},
-            chunkSize: Math.max(100, Math.floor(list.length / 20))
+            chunkSize: Math.max(50, Math.floor(list.length / 40)),
+            labsSeen: {},
+            labsProcessed: 0,
+            totalLabs: totalLabs || providedMeta.lab_count || 0
         };
         scheduleChunkProcessing();
     }
+
+    function makeNodeKey(labPath, nodeId) {
+        if (!labPath && labPath !== '') {
+            return null;
+        }
+        var normalized = normalizeLabPath(labPath || '');
+        var parsedId = parseInt(nodeId, 10);
+        if (!normalized || isNaN(parsedId)) {
+            return null;
+        }
+        return normalized + '::' + parsedId;
+    }
+
+    function hydrateNodeIndex(nodes) {
+        nodeIndex = {};
+        angular.forEach(nodes || [], function (node) {
+            if (!node) {
+                return;
+            }
+            var key = makeNodeKey(node.lab, node.id);
+            if (key) {
+                nodeIndex[key] = angular.copy(node);
+            }
+        });
+    }
+
+    function normalizeNodeRecord(raw, username, labPath, fallback) {
+        fallback = fallback || {};
+        var base = angular.extend({}, raw || {});
+        var normalizedPath = labPath ? normalizeLabPath(labPath) : (fallback.lab || '/');
+        var idValue = base.id !== undefined ? base.id : fallback.id;
+        var parsedId = parseInt(idValue, 10);
+        var cpuCount = base.cpucount;
+        if (cpuCount === undefined && base.cpu !== undefined) {
+            cpuCount = base.cpu;
+        } else if (cpuCount === undefined) {
+            cpuCount = fallback.cpucount;
+        }
+        var ethernetCount = base.eth;
+        if (ethernetCount === undefined && base.ethernet !== undefined) {
+            ethernetCount = base.ethernet;
+        } else if (ethernetCount === undefined) {
+            ethernetCount = fallback.eth;
+        }
+        var serialCount = base.ser;
+        if (serialCount === undefined && base.serial !== undefined) {
+            serialCount = base.serial;
+        } else if (serialCount === undefined) {
+            serialCount = fallback.ser;
+        }
+        return {
+            id: !isNaN(parsedId) ? parsedId : (fallback.id || 0),
+            lab: normalizedPath,
+            user: username || fallback.user || '—',
+            name: base.name || fallback.name || '',
+            type: base.type || fallback.type || '',
+            template: base.template || fallback.template || '',
+            status: base.status !== undefined ? parseInt(base.status, 10) : (fallback.status || 0),
+            cpulimit: base.cpulimit !== undefined ? base.cpulimit : (fallback.cpulimit || 0),
+            cpucount: cpuCount !== undefined ? cpuCount : 0,
+            image: base.image || fallback.image || '',
+            nvram: base.nvram !== undefined ? base.nvram : (fallback.nvram || 0),
+            ram: base.ram !== undefined ? base.ram : (fallback.ram || 0),
+            eth: ethernetCount !== undefined ? ethernetCount : 0,
+            ser: serialCount !== undefined ? serialCount : 0,
+            console: base.console || fallback.console || '',
+            url: base.url || fallback.url || '',
+            port: base.port !== undefined ? base.port : (fallback.port || null),
+            icon: base.icon || fallback.icon || '',
+            delay: base.delay !== undefined ? base.delay : (fallback.delay || 0)
+        };
+    }
+
+    function upsertNodeRecord(record) {
+        if (!record) {
+            return;
+        }
+        var normalizedPath = normalizeLabPath(record.lab || '');
+        record.lab = normalizedPath;
+        var key = makeNodeKey(normalizedPath, record.id);
+        if (!key) {
+            return;
+        }
+        var copy = angular.copy(record);
+        nodeIndex[key] = copy;
+        var replaced = false;
+        for (var i = 0; i < $scope.nodedata.length; i++) {
+            var current = $scope.nodedata[i];
+            if (makeNodeKey(current.lab, current.id) === key) {
+                $scope.nodedata[i] = copy;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            $scope.nodedata.push(copy);
+        }
+    }
+
+    function replaceLabNodesInCache(labPath, nodes) {
+        if (!labPath) {
+            return;
+        }
+        var normalized = normalizeLabPath(labPath);
+        var prefix = normalized + '::';
+        var retained = [];
+        angular.forEach($scope.nodedata, function (node) {
+            if (normalizeLabPath(node.lab) === normalized) {
+                return;
+            }
+            retained.push(node);
+        });
+        $scope.nodedata = retained;
+        Object.keys(nodeIndex).forEach(function (key) {
+            if (key.indexOf(prefix) === 0) {
+                delete nodeIndex[key];
+            }
+        });
+        angular.forEach(nodes || [], function (node) {
+            upsertNodeRecord(node);
+        });
+    }
+
+    function rebuildSummariesImmediate() {
+        buildUserSummaries($scope.nodedata);
+    }
+
+    function setLabRefreshing(labPath, state) {
+        if (!labPath) {
+            return;
+        }
+        var normalized = normalizeLabPath(labPath);
+        labRefreshState[normalized] = !!state;
+    }
+
+    $scope.isLabRefreshing = function (labPath) {
+        if (!labPath) {
+            return false;
+        }
+        var normalized = normalizeLabPath(labPath);
+        return !!labRefreshState[normalized];
+    };
 
     $scope.categoryLayout = CATEGORY_CONFIG;
     $scope.otherCategoryGradient = OTHER_CATEGORY.gradient;
@@ -546,6 +750,73 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         toastr.info(message, title);
     }
 
+    function refreshLabSnapshot(user, lab) {
+        if (!user || !lab || !lab.path) {
+            return $q.reject('missing lab info');
+        }
+        var labPath = normalizeLabPath(lab.path);
+        setLabRefreshing(labPath, true);
+        return $http.get('/api/labs' + labPath + '/nodes').then(function (response) {
+            if (response.data.status !== 'success') {
+                return $q.reject(response.data.message || 'Failed to load lab nodes');
+            }
+            var payload = response.data.data || {};
+            var nodes = [];
+            angular.forEach(payload, function (value, key) {
+                var candidate = angular.extend({ id: key }, value);
+                var fallback = nodeIndex[makeNodeKey(labPath, candidate.id)];
+                nodes.push(normalizeNodeRecord(candidate, user.username, labPath, fallback));
+            });
+            replaceLabNodesInCache(labPath, nodes);
+            rebuildSummariesImmediate();
+            return nodes;
+        }).catch(function (err) {
+            console.error('Failed to refresh lab snapshot', labPath, err);
+            return $q.reject(err);
+        }).finally(function () {
+            setLabRefreshing(labPath, false);
+        });
+    }
+
+    function refreshLabsCollection(user, labs) {
+        if (!labs || !labs.length) {
+            return $q.when();
+        }
+        var promises = labs.map(function (lab) {
+            return refreshLabSnapshot(user, lab);
+        });
+        return $q.all(promises);
+    }
+
+    function refreshNodeSnapshot(node) {
+        if (!node || !node.id || !node.lab) {
+            return $q.reject('missing node details');
+        }
+        var labPath = normalizeLabPath(node.lab);
+        var nodeId = parseInt(node.id, 10);
+        if (isNaN(nodeId)) {
+            return $q.reject('invalid node id');
+        }
+        return $http.get('/api/labs' + labPath + '/nodes/' + nodeId).then(function (response) {
+            if (response.data.status !== 'success') {
+                return $q.reject(response.data.message || 'Failed to load node');
+            }
+            var fallback = nodeIndex[makeNodeKey(labPath, nodeId)] || node;
+            var normalized = normalizeNodeRecord(
+                angular.extend({ id: nodeId }, response.data.data || {}),
+                node.user || (fallback && fallback.user) || '—',
+                labPath,
+                fallback
+            );
+            upsertNodeRecord(normalized);
+            rebuildSummariesImmediate();
+            return normalized;
+        }).catch(function (err) {
+            console.error('Failed to refresh node snapshot', node, err);
+            return $q.reject(err);
+        });
+    }
+
     $scope.expandedUsers = {};
     $scope.expandedLabs = {};
 
@@ -567,10 +838,23 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return !!$scope.expandedLabs[key];
     };
 
+    $scope.refreshAllNodes = function () {
+        if ($scope.loadingState && $scope.loadingState.active) {
+            return;
+        }
+        $scope.getAllLabNodes();
+    };
+
+    $scope.refreshLabNodes = function (user, lab) {
+        refreshLabSnapshot(user, lab);
+    };
+
     $scope.loadingState = {
         active: false,
         processed: 0,
-        total: 0
+        total: 0,
+        labProcessed: 0,
+        labTotal: 0
     };
 
 	$scope.testAUTH("/nodemgmt"); // Проверка авторизации
@@ -581,7 +865,6 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         $scope.sortColumn = 'lab';
         $scope.reverseSort = false;
         $scope.userSummaries = [];
-        var refreshPromise = null;
 
         // Сортировка колонок
         $scope.sortData = function (column) {
@@ -602,23 +885,49 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             $scope.loadingState = {
                 active: true,
                 processed: 0,
-                total: 0
+                total: 0,
+                labProcessed: 0,
+                labTotal: 0
             };
             $http.get('/api/nodes').then(function (response) {
                 if (response.data.status === "success") {
                     $scope.nodedata = response.data.data || [];
-                    startIncrementalSummaries($scope.nodedata);
+                    hydrateNodeIndex($scope.nodedata);
+                    Object.keys(labRefreshState).forEach(function (key) { delete labRefreshState[key]; });
+                    var incomingMeta = response.data.meta || {};
+                    if (incomingMeta.node_count) {
+                        $scope.loadingState.total = incomingMeta.node_count;
+                    } else {
+                        $scope.loadingState.total = $scope.nodedata.length;
+                    }
+                    if (incomingMeta.lab_count) {
+                        $scope.loadingState.labTotal = incomingMeta.lab_count;
+                    } else {
+                        var labsSeen = {};
+                        angular.forEach($scope.nodedata, function (node) {
+                            var normalized = normalizeLabPath(node && node.lab);
+                            if (normalized) {
+                                labsSeen[normalized] = true;
+                            }
+                        });
+                        $scope.loadingState.labTotal = Object.keys(labsSeen).length;
+                    }
+                    startIncrementalSummaries($scope.nodedata, incomingMeta);
                 } else {
                     console.error("Ошибка при получении нод:", response.data.message);
                     $scope.nodedata = [];
                     $scope.userSummaries = [];
                     $scope.loadingState.active = false;
+                    $scope.loadingState.labProcessed = 0;
+                    $scope.loadingState.labTotal = 0;
                 }
             }).catch(function (error) {
                 console.error("Ошибка запроса:", error);
                 $scope.nodedata = [];
                 $scope.userSummaries = [];
                 $scope.loadingState.active = false;
+                $scope.loadingState.labProcessed = 0;
+                $scope.loadingState.labTotal = 0;
             });
         };
 
@@ -647,7 +956,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueLabNodes(lab, 'start')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshLabSnapshot(user, lab);
                     })
                     .catch(function (error) {
                         console.error('Ошибка запуска лаборатории:', error);
@@ -688,7 +997,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueLabNodes(lab, 'stop')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshLabSnapshot(user, lab);
                     })
                     .catch(function (error) {
                         console.error('Ошибка остановки лаборатории:', error);
@@ -725,7 +1034,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueLabNodes(lab, 'wipe')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshLabSnapshot(user, lab);
                     })
                     .catch(function (error) {
                         console.error('Ошибка очистки лаборатории:', error);
@@ -776,7 +1085,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
 
                 $q.all(promises)
                     .then(function () {
-                        $scope.getAllLabNodes();
+                        return refreshLabsCollection(user, labsWithNodes);
                     })
                     .catch(function (error) {
                         console.error('Ошибка остановки нод пользователя:', error);
@@ -823,7 +1132,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueSingleNode(nodeData, 'delete')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshLabSnapshot({ username: nodeData.user || '—' }, { path: labPath, displayName: nodeData.lab });
                     })
                     .catch(function (error) {
                         console.error("Ошибка при удалении ноды:", error);
@@ -841,7 +1150,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             queueSingleNode(node, 'start')
                 .then(function (response) {
                     notifyJobQueued(response);
-                    $scope.getAllLabNodes();
+                    return refreshNodeSnapshot(node);
                 })
                 .catch(function (err) {
                     console.error("Ошибка запуска:", err);
@@ -870,7 +1179,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueSingleNode(node, 'stop')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshNodeSnapshot(node);
                     })
                     .catch(function (err) {
                         console.error("Ошибка остановки ноды:", err);
@@ -900,7 +1209,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 queueSingleNode(node, 'wipe')
                     .then(function (response) {
                         notifyJobQueued(response);
-                        $scope.getAllLabNodes();
+                        return refreshNodeSnapshot(node);
                     })
                     .catch(function (err) {
                         console.error("Ошибка очистки ноды:", err);
@@ -941,17 +1250,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         
         $scope.getAllLabNodes();
 
-        refreshPromise = $interval(function () {
-            if ($location.path() === '/nodemgmt') {
-                $scope.getAllLabNodes();
-            }
-        }, 3000);
-
         $scope.$on('$destroy', function () {
-            if (refreshPromise) {
-                $interval.cancel(refreshPromise);
-                refreshPromise = null;
-            }
             cancelIncrementalProcessing();
         });
     }
