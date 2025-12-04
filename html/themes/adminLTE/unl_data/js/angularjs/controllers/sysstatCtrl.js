@@ -134,16 +134,42 @@ angular.module("unlMainApp").controller('sysstatController',function sysstatCont
                         applyGaugeTranslations();
                 }
         });
-        $scope.$watch(function () { return $rootScope.role; }, function (newVal, oldVal) {
-                if (newVal && newVal !== oldVal) {
-                    $scope.role = newVal;
-                }
-        });
-        $scope.$watch(function () { return $rootScope.role; }, function (newVal) {
-                if (newVal) {
-                        $scope.role = newVal;
-                }
-        });
+	var refreshPromise = null;
+	var pollingStarted = false;
+	function startSysstatPolling() {
+		if (pollingStarted) {
+			return;
+		}
+		if (typeof $scope.systemstat !== 'function') {
+			$timeout(startSysstatPolling, 50);
+			return;
+		}
+		pollingStarted = true;
+		$scope.systemstat();
+		refreshPromise = $interval(function () {
+			if ($location.path() === '/sysstat') {
+				$scope.systemstat();
+			}
+		}, 2000);
+	}
+	function stopSysstatPolling() {
+		if (refreshPromise) {
+			$interval.cancel(refreshPromise);
+			refreshPromise = null;
+		}
+		pollingStarted = false;
+	}
+	const roleWatcher = $scope.$watch(function () { return $rootScope.role; }, function (newVal) {
+		if (!newVal) {
+			return;
+		}
+		$scope.role = newVal;
+		if (newVal === 'admin') {
+			startSysstatPolling();
+		} else {
+			stopSysstatPolling();
+		}
+	});
 	$scope.testAUTH("/sysstat"); //TEST AUTH
 	$scope.role = $rootScope.role;
 	$scope.versiondata='';
@@ -353,15 +379,12 @@ $scope.optionsSwap = {
 				console.log("Unknown Error. Why did API doesn't respond?"); $location.path("/login");}	
 		);
 	}
-	$scope.systemstat()
-	var refreshPromise = $interval(function () {
-			if ($location.path() == '/sysstat') $scope.systemstat()
-    }, 2000);
-        $scope.$on('$destroy', function () {
-                if (refreshPromise) {
-                        $interval.cancel(refreshPromise);
-                }
-        });
+	$scope.$on('$destroy', function () {
+		stopSysstatPolling();
+		if (roleWatcher) {
+			roleWatcher();
+		}
+	});
 	        // Stop All Nodes //START
         //$app -> delete('/api/status', function() use ($app, $db) {
         $scope.stopAll = function() {

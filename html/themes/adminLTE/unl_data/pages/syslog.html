@@ -103,9 +103,4 @@
     </div>
   </section>
 
-  <section class="max-w-4xl mx-auto w-full px-6 py-24 text-center space-y-4"
-           ng-if="roleResolved && role !== 'admin'">
-    <p class="text-3xl font-semibold tracking-[0.2em] uppercase" ng-class="themeClass('text-red-300','text-red-600')" data-ng-bind="t.accessDeniedTitle || 'Access restricted'"></p>
-    <p class="text-lg theme-muted" data-ng-bind="t.accessDeniedDescription || 'System logs are available to administrators only.'"></p>
-  </section>
 </main>

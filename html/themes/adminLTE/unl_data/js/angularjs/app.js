@@ -339,13 +339,63 @@ app_main_unl.directive('myEnter', function () {
 
 /* Setup App Main Controller */
 app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '$location', '$cookies', 'themeService', function ($scope, $rootScope, $http, $location, $cookies, themeService) {
-    $.get('/themes/adminLTE/VERSION?' + Date.now(), function (data) {
-        if (data.trim() != $rootScope.EVE_VERSION) window.location.reload(true);
-    });
-    $scope.testAUTH = function (path, suppressRedirect) {
-        $scope.userfolder = 'none';
-        $http.get('/api/auth').then(
-            function successCallback(response) {
+	$.get('/themes/adminLTE/VERSION?' + Date.now(), function (data) {
+		if (data.trim() != $rootScope.EVE_VERSION) window.location.reload(true);
+	});
+	var accessDeniedMessages = {
+		en: {
+			title: 'Access blocked',
+			body: 'You do not have access to this section. Press OK to return to the dashboard.',
+			button: 'OK'
+		},
+		ru: {
+			title: 'Доступ заблокирован',
+			body: 'У вас нет доступа к этому разделу. Нажмите ОК, чтобы перейти на главную страницу.',
+			button: 'Ок'
+		}
+	};
+	if (!$rootScope.accessDeniedModal) {
+		$rootScope.accessDeniedModal = { visible: false, title: '', body: '', button: 'OK', nextPath: '/main' };
+	}
+
+	function preventLegacyAccessDeniedModal() {
+		if (typeof window === 'undefined' || !window.$ || preventLegacyAccessDeniedModal.registered) {
+			return;
+		}
+		var titles = ['Access denied', 'Доступ запрещён', 'Access blocked', 'Доступ заблокирован'];
+		window.$(document).on('show.bs.modal', function (evt) {
+			var $modal = window.$(evt.target);
+			var title = ($modal.find('.modal-title').text() || '').trim();
+			if (titles.indexOf(title) !== -1) {
+				evt.preventDefault();
+				evt.stopImmediatePropagation();
+				$modal.remove();
+				window.$('.modal-backdrop').remove();
+				if (document && document.body) {
+					document.body.classList.remove('modal-open');
+				}
+			}
+		});
+		preventLegacyAccessDeniedModal.registered = true;
+	}
+	preventLegacyAccessDeniedModal();
+
+	function openAccessDeniedModal() {
+		var lang = $rootScope.lang || 'ru';
+		var content = accessDeniedMessages[lang] || accessDeniedMessages.ru;
+		$rootScope.accessDeniedModal = {
+			visible: true,
+			title: content.title,
+			body: content.body,
+			button: content.button,
+			nextPath: '/main'
+		};
+	}
+	$rootScope.openAccessDeniedModal = openAccessDeniedModal;
+	$scope.testAUTH = function (path, suppressRedirect) {
+		$scope.userfolder = 'none';
+		$http.get('/api/auth').then(
+			function successCallback(response) {
                 if (response.status == '200' && response.statusText == 'OK') {
                     $rootScope.username = response.data.data.username;
                     $rootScope.folder = (response.data.data.folder === null) ? '/' : response.data.data.folder;
@@ -366,12 +416,6 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     themeService.apply(effectiveTheme, $rootScope.username);
                     $rootScope.tenant = response.data.data.tenant;
                     $scope.userfolder = response.data.folder;
-
-                    if (path === '/syslog' && $rootScope.role !== 'admin') {
-                        $location.path('/main');
-                        $.unblockUI();
-                        return;
-                    }
 
                     if ($rootScope.role !== 'editor') {
                         localStorage.clear();
@@ -475,13 +519,22 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
         ];
     }
 
-    refreshTranslations();
-    buildPickerOptions();
-    $scope.lang = resolveLanguage();
-    $scope.theme = $rootScope.theme || themeService.sync($rootScope.username);
+	refreshTranslations();
+	buildPickerOptions();
+	$scope.lang = resolveLanguage();
+	$scope.theme = $rootScope.theme || themeService.sync($rootScope.username);
+	$scope.accessDeniedModal = $rootScope.accessDeniedModal || { visible: false };
+	$scope.$watch(function () { return $rootScope.accessDeniedModal; }, function (modal) {
+		$scope.accessDeniedModal = modal || { visible: false };
+	});
+	$scope.closeAccessDeniedModal = function () {
+		var nextPath = ($scope.accessDeniedModal && $scope.accessDeniedModal.nextPath) || '/main';
+		$rootScope.accessDeniedModal = { visible: false, title: '', body: '', button: 'OK', nextPath: nextPath };
+		$location.path(nextPath);
+	};
 
-    $scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
-        if (newVal && newVal !== oldVal) {
+	$scope.$watch(function () { return $rootScope.lang; }, function (newVal, oldVal) {
+		if (newVal && newVal !== oldVal) {
             refreshTranslations();
             buildPickerOptions();
             $scope.lang = newVal;
@@ -582,9 +635,44 @@ app_main_unl.controller('HeaderController', ['$scope', '$http', '$location', '$r
         'sysstat': '/main',
         'nodemgmt': '/nodemgmt',
         'cloudmgmt': '/cloudmgmt',
-    }
+	}
 }]);
 
+app_main_unl.factory('accessGuard', ['$rootScope', '$http', '$q', function ($rootScope, $http, $q) {
+	function finalizeRoleCheck(deferred, role) {
+		if (role === 'admin') {
+			deferred.resolve(true);
+		} else {
+			if ($rootScope.openAccessDeniedModal) {
+				$rootScope.openAccessDeniedModal();
+			}
+			deferred.reject('forbidden');
+		}
+	}
+
+	function requireAdmin() {
+		var deferred = $q.defer();
+		if ($rootScope.role) {
+			finalizeRoleCheck(deferred, $rootScope.role);
+		} else {
+			$http.get('/api/auth').then(function (response) {
+				if (response.status === 200 && response.data && response.data.data) {
+					$rootScope.role = response.data.data.role;
+					finalizeRoleCheck(deferred, $rootScope.role);
+				} else {
+					finalizeRoleCheck(deferred, null);
+				}
+			}, function () {
+				finalizeRoleCheck(deferred, null);
+			});
+		}
+		return deferred.promise;
+	}
+
+	return {
+		requireAdmin: requireAdmin
+	};
+}]);
 
 
 /* Setup Rounting For All Pages */
@@ -641,7 +729,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('usermgmt', {
             url: "/usermgmt",
             templateUrl: "/themes/adminLTE/unl_data/pages/usermgmt.html",
-            data: { pageTitle: 'User management' },
+            data: { pageTitle: 'User management', requiresAdmin: true },
             controller: "usermgmtController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -660,7 +748,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('nodemgmt', {
             url: "/nodemgmt",
             templateUrl: "/themes/adminLTE/unl_data/pages/nodemgmt.html",
-            data: { pageTitle: 'Node Management' },
+            data: { pageTitle: 'Node Management', requiresAdmin: true },
             controller: "nodemgmtController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -678,7 +766,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('cloudmgmt', {
             url: "/cloudmgmt",
             templateUrl: "/themes/adminLTE/unl_data/pages/cloudmgmt.html",
-            data: { pageTitle: 'Cloud Management' },
+            data: { pageTitle: 'Cloud Management', requiresAdmin: true },
             controller: "cloudmgmtController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -697,7 +785,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('syslog', {
             url: "/syslog",
             templateUrl: "/themes/adminLTE/unl_data/pages/syslog.html",
-            data: { pageTitle: 'System logs' },
+            data: { pageTitle: 'System logs', requiresAdmin: true },
             controller: "syslogController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -715,7 +803,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('sysstat', {
             url: "/sysstat",
             templateUrl: "/themes/adminLTE/unl_data/pages/sysstat.html",
-            data: { pageTitle: 'System status' },
+            data: { pageTitle: 'System status', requiresAdmin: true },
             controller: "sysstatController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -734,7 +822,7 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
         .state('jobsqueue', {
             url: "/jobs",
             templateUrl: "/themes/adminLTE/unl_data/pages/jobsqueue.html",
-            data: { pageTitle: 'Job queue' },
+            data: { pageTitle: 'Job queue', requiresAdmin: true },
             controller: "jobsQueueController",
             resolve: {
                 deps: ['$ocLazyLoad', function ($ocLazyLoad) {
@@ -776,6 +864,13 @@ app_main_unl.config(['$stateProvider', '$urlRouterProvider', function ($statePro
 }]);
 
 /* Init global settings and run the app */
-app_main_unl.run(["$rootScope", "$state", function ($rootScope, $state) {
+app_main_unl.run(["$rootScope", "$state", "$transitions", "accessGuard", function ($rootScope, $state, $transitions, accessGuard) {
     $rootScope.$state = $state; // state to be accessed from view
+	$transitions.onBefore({ to: function (state) { return state && state.data && state.data.requiresAdmin; } }, function (trans) {
+		return accessGuard.requireAdmin().then(function () {
+			return true;
+		}, function () {
+			return trans.router.stateService.target('main');
+		});
+	});
 }]);

@@ -38,9 +38,6 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
             deleteConfirmRoleLabel: 'Role',
             deleteConfirmConfirm: 'Delete',
             deleteConfirmCancel: 'Cancel',
-            accessDeniedTitle: 'Access denied',
-            accessDeniedBody: 'You do not have access to this page. You will be redirected to the main view.',
-            accessDeniedButton: 'OK',
             userNotFound: 'User not found.',
             deleteFailed: 'Failed to delete user.',
             validationUsernameRequired: 'Username can\'t be empty!',
@@ -89,9 +86,6 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
             deleteConfirmRoleLabel: 'Роль',
             deleteConfirmConfirm: 'Удалить',
             deleteConfirmCancel: 'Отмена',
-            accessDeniedTitle: 'Доступ запрещён',
-            accessDeniedBody: 'У вас нет доступа к этой странице. Вы будете перенаправлены на главную.',
-            accessDeniedButton: 'Ок',
             userNotFound: 'Пользователь не найден.',
             deleteFailed: 'Не удалось удалить пользователя.',
             validationUsernameRequired: 'Имя пользователя не может быть пустым!',
@@ -135,46 +129,8 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
         if (val) { $scope.theme = val; }
     });
 
-    $scope.testAUTH("/usermgmt"); // Проверка авторизации
-
-    const waitForRole = $scope.$watch(function() {
-        return $rootScope.role;
-    }, function(newRole) {
-        if (!newRole) return; // Ждём, пока роль появится
-
-        if (newRole !== 'admin') {
-            showAccessDeniedModal();
-            return;
-        }
-
-        // ✅ Если админ, продолжаем инициализацию
-        init();
-        waitForRole(); // Отключаем watch
-    });
-
-    function showAccessDeniedModal() {
-        var t = $scope.t || translations[resolveLanguage()];
-        $uibModal.open({
-            animation: true,
-            template: `
-                <div class="modal-header">
-                    <h4 class="modal-title">` + t.accessDeniedTitle + `</h4>
-                </div>
-                <div class="modal-body">
-                    ` + t.accessDeniedBody + `
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" ng-click="$close()">` + t.accessDeniedButton + `</button>
-                </div>
-            `,
-            size: 'sm',
-            backdrop: 'static',
-            keyboard: false
-        }).result.finally(function () {
-            $location.path('/');
-            $scope.$apply();
-        });
-    }
+	$scope.testAUTH("/usermgmt"); // Проверка авторизации
+	init();
 
     function init() {
         $scope.userdata = '';
@@ -321,7 +277,9 @@ angular.module("unlMainApp").controller('usermgmtController', function usermgmtC
 				},
                 scope: $scope,
 				size: 'md',
-				backdrop: 'static',
+				backdrop: false,
+                windowTemplateUrl: '/themes/adminLTE/unl_data/pages/modals/tailwind-modal-window.html',
+                windowClass: 'tailwind-modal-window',
 				keyboard: false
 			});
 		

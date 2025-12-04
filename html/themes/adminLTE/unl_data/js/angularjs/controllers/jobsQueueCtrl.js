@@ -10,10 +10,15 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			nodePlaceholder: 'Node name or ID',
 			userLabel: 'User filter',
 			userPlaceholder: 'username',
-			perPageLabel: 'Rows per page',
-			refreshButton: 'Refresh',
-			resetButton: 'Reset filters',
-			statusToggleLabel: 'Statuses',
+		perPageLabel: 'Rows per page',
+		refreshButton: 'Refresh',
+		resetButton: 'Reset filters',
+		clearAllButton: 'Clear all jobs',
+		clearAllBusy: 'Clearing…',
+		clearAllConfirm: 'Clear every job from the queue? Running tasks will also be removed.',
+		clearAllSuccess: 'Job queue cleared',
+		clearAllError: 'Failed to clear jobs',
+		statusToggleLabel: 'Statuses',
 			statusLabels: {
 				pending: 'Pending',
 				running: 'Running',
@@ -70,10 +75,15 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 			nodePlaceholder: 'Имя или ID узла',
 			userLabel: 'Фильтр по пользователю',
 			userPlaceholder: 'имя пользователя',
-			perPageLabel: 'Строк на странице',
-			refreshButton: 'Обновить',
-			resetButton: 'Сбросить фильтры',
-			statusToggleLabel: 'Статусы',
+		perPageLabel: 'Строк на странице',
+		refreshButton: 'Обновить',
+		resetButton: 'Сбросить фильтры',
+		clearAllButton: 'Очистить задачи',
+		clearAllBusy: 'Очищаем…',
+		clearAllConfirm: 'Удалить все задачи из очереди? Записи будут убраны даже если они ещё выполняются.',
+		clearAllSuccess: 'Очередь очищена',
+		clearAllError: 'Не удалось очистить очередь',
+		statusToggleLabel: 'Статусы',
 			statusLabels: {
 				pending: 'В ожидании',
 				running: 'Выполняется',
@@ -264,6 +274,7 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	$scope.loading = false;
 	$scope.errorMessage = null;
 	$scope.describeCache = {};
+	$scope.clearingAll = false;
 
 	var searchDebounce = null;
 	var nodeDebounce = null;
@@ -337,6 +348,33 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 		}
 		statusOrder.forEach(function (key) { $scope.statusFilters[key] = true; });
 		$scope.applyFilters(true);
+	};
+
+	$scope.clearAllJobs = function () {
+		if ($scope.clearingAll) {
+			return;
+		}
+		if (typeof window.confirm === 'function' && !window.confirm($scope.t.clearAllConfirm)) {
+			return;
+		}
+		$scope.clearingAll = true;
+		var endpoint = '/api/jobs?force=1';
+		if ($scope.isAdmin() && $scope.filters.username) {
+			endpoint += '&username=' + encodeURIComponent($scope.filters.username);
+		}
+		$http.delete(endpoint).then(function () {
+			if (window.toastr) {
+				toastr.success($scope.t.clearAllSuccess, 'OK');
+			}
+			$scope.loadJobs();
+		}, function (error) {
+			var message = (error.data && error.data.message) ? error.data.message : $scope.t.clearAllError;
+			if (window.toastr) {
+				toastr.error(message, $scope.t.errorTitle);
+			}
+		}).finally(function () {
+			$scope.clearingAll = false;
+		});
 	};
 
 	function buildQueryParams() {

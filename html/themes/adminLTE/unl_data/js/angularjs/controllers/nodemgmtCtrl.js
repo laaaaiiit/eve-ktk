@@ -26,9 +26,6 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             totalNodesLabel: 'Total nodes',
             modalUserLabel: 'User',
             modalLabLabel: 'Lab',
-            accessDeniedTitle: 'Access denied',
-            accessDeniedBody: 'You do not have access to this page. You will be redirected to the main view.',
-            accessDeniedButton: 'OK',
             stopAllConfirmTitle: 'Stop all nodes',
             stopAllConfirmBody: 'Stopping every node may lead to lost configuration. Continue?',
             stopAllConfirmConfirm: 'Stop all',
@@ -116,9 +113,6 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             totalNodesLabel: 'Всего нод',
             modalUserLabel: 'Пользователь',
             modalLabLabel: 'Лаборатория',
-            accessDeniedTitle: 'Доступ запрещён',
-            accessDeniedBody: 'У вас нет доступа к этой странице. Вы будете перенаправлены на главную.',
-            accessDeniedButton: 'Ок',
             stopAllConfirmTitle: 'Остановить все ноды',
             stopAllConfirmBody: 'Остановка всех нод может привести к потере конфигураций. Продолжить?',
             stopAllConfirmConfirm: 'Остановить',
@@ -185,6 +179,9 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
     function openTailwindModal(config) {
         return $uibModal.open({
             animation: true,
+            backdrop: false,
+            windowTemplateUrl: '/themes/adminLTE/unl_data/pages/modals/tailwind-modal-window.html',
+            windowClass: 'tailwind-modal-window',
             template: `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
@@ -234,7 +231,6 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 $scope.modal = angular.extend(defaults, config || {});
             }],
             size: 'md',
-            backdrop: 'static',
             keyboard: false
         }).result;
     }
@@ -577,46 +573,8 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         total: 0
     };
 
-    $scope.testAUTH("/nodemgmt"); // Проверка авторизации
-
-    const waitForRole = $scope.$watch(function () {
-        return $rootScope.role;
-    }, function (newRole) {
-        if (!newRole) return; // Ждём, пока роль появится
-
-        if (newRole !== 'admin') {
-            showAccessDeniedModal();
-            return;
-        }
-
-        // ✅ Если роль admin, инициализируем
-        init();
-        waitForRole(); // Отключаем watch
-    });
-
-    function showAccessDeniedModal() {
-        var t = $scope.t || translations[resolveLanguage()];
-        $uibModal.open({
-            animation: true,
-            template: `
-                <div class="modal-header">
-                    <h4 class="modal-title">` + t.accessDeniedTitle + `</h4>
-                </div>
-                <div class="modal-body">
-                    ` + t.accessDeniedBody + `
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" ng-click="$close()">` + t.accessDeniedButton + `</button>
-                </div>
-            `,
-            size: 'sm',
-            backdrop: 'static',
-            keyboard: false
-        }).result.finally(function () {
-            $location.path('/');
-            $scope.$apply(); // Обновляем Angular после $location.path
-        });
-    }
+	$scope.testAUTH("/nodemgmt"); // Проверка авторизации
+	init();
 
     function init() {
         $scope.nodedata = [];

@@ -1,15 +1,15 @@
 function ModalCtrl($scope, $uibModal, $log) {
 
 	$scope.modalActions = {
-		'addfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
-		'editfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
-		'editLab': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl' },
-		'adduser': { 'path': '/themes/adminLTE/unl_data/pages/modals/adduser.html', 'controller': 'AddUserModalCtrl' },
-		'edituser': { 'path': '/themes/adminLTE/unl_data/pages/modals/edituser.html', 'controller': 'EditUserModalCtrl' },
-		'moveto': { 'path': '/themes/adminLTE/unl_data/pages/modals/moveto.html', 'controller': 'MoveToModalCtrl' },
+		'addfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl', 'tailwind': true },
+		'editfile': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl', 'tailwind': true },
+		'editLab': { 'path': '/themes/adminLTE/unl_data/pages/modals/addfile.html', 'controller': 'AddElModalCtrl', 'tailwind': true },
+		'adduser': { 'path': '/themes/adminLTE/unl_data/pages/modals/adduser.html', 'controller': 'AddUserModalCtrl', 'tailwind': true },
+		'edituser': { 'path': '/themes/adminLTE/unl_data/pages/modals/edituser.html', 'controller': 'EditUserModalCtrl', 'tailwind': true },
+		'moveto': { 'path': '/themes/adminLTE/unl_data/pages/modals/moveto.html', 'controller': 'MoveToModalCtrl', 'tailwind': true },
 		'default': { 'path': '/themes/adminLTE/unl_data/pages/modals/wtf.html', 'controller': 'ModalInstanceCtrl' },
-		'addcloud': { 'path': '/themes/adminLTE/unl_data/pages/modals/addcloud.html', 'controller': 'AddCloudModalCtrl' },
-		'editcloud': { 'path': '/themes/adminLTE/unl_data/pages/modals/editcloud.html', 'controller': 'EditCloudModalCtrl' }
+		'addcloud': { 'path': '/themes/adminLTE/unl_data/pages/modals/addcloud.html', 'controller': 'AddCloudModalCtrl', 'tailwind': true },
+		'editcloud': { 'path': '/themes/adminLTE/unl_data/pages/modals/editcloud.html', 'controller': 'EditCloudModalCtrl', 'tailwind': true }
 	};
 
 	$scope.animationsEnabled = true;
@@ -17,7 +17,7 @@ function ModalCtrl($scope, $uibModal, $log) {
 	$scope.openModal = function (action, modalData, size) {
 		$scope.modalData = modalData;
 		var pathToModal = (action === undefined) ? 'default' : action;
-		var modalInstance = $uibModal.open({
+		var modalConfig = {
 			animation: $scope.animationsEnabled,
 			templateUrl: $scope.modalActions[pathToModal]['path'],
 			controller: $scope.modalActions[pathToModal]['controller'],
@@ -51,7 +51,13 @@ function ModalCtrl($scope, $uibModal, $log) {
 					}
 				}
 			}
-		});
+		};
+		if ($scope.modalActions[pathToModal]['tailwind']) {
+			modalConfig.backdrop = false;
+			modalConfig.windowTemplateUrl = '/themes/adminLTE/unl_data/pages/modals/tailwind-modal-window.html';
+			modalConfig.windowClass = 'tailwind-modal-window';
+		}
+		var modalInstance = $uibModal.open(modalConfig);
 		switch (action) {
 			case 'addfile':
 				modalInstance.result.then(function (result) {

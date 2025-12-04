@@ -535,6 +535,49 @@ function deleteJobById($db, $jobId)
 	$statement->execute();
 }
 
+function deleteJobsBulk($db, $criteria = array())
+{
+	$conditions = array();
+	$params = array();
+	if (!empty($criteria['username'])) {
+		$conditions[] = 'username = :username';
+		$params[':username'] = $criteria['username'];
+	}
+	if (!empty($criteria['statuses']) && is_array($criteria['statuses'])) {
+		$validStatuses = array();
+		foreach ($criteria['statuses'] as $status) {
+			$normalized = strtolower(trim($status));
+			if ($normalized === '') {
+				continue;
+			}
+			if (!in_array($normalized, $validStatuses, true)) {
+				$validStatuses[] = $normalized;
+			}
+		}
+		if (!empty($validStatuses)) {
+			$placeholders = array();
+			foreach ($validStatuses as $index => $status) {
+				$placeholder = ':status_' . $index;
+				$placeholders[] = $placeholder;
+				$params[$placeholder] = $status;
+			}
+			$conditions[] = 'status IN (' . implode(',', $placeholders) . ')';
+		}
+	}
+	$whereClause = count($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+	$query = "DELETE FROM jobs $whereClause;";
+	$statement = $db->prepare($query);
+	foreach ($params as $key => $value) {
+		$type = PDO::PARAM_STR;
+		if (is_int($value)) {
+			$type = PDO::PARAM_INT;
+		}
+		$statement->bindValue($key, $value, $type);
+	}
+	$statement->execute();
+	return $statement->rowCount();
+}
+
 /**
  * Function to check if a string is valid as folder_path.
  *

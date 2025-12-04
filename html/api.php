@@ -2908,6 +2908,111 @@ $app->delete('/api/jobs/(:job_id)', function ($job_id) use ($app, $db) {
 	$app->response->setBody(json_encode($response));
 });
 
+$app->delete('/api/jobs', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$request = $app->request;
+	$forceParam = $request->params('force');
+	$force = false;
+	if ($forceParam !== null) {
+		$forceValue = strtolower((string)$forceParam);
+		$force = in_array($forceValue, array('1', 'true', 'yes'), true);
+	}
+	$statusParam = $request->params('status');
+	$statusFilter = array();
+	if (!empty($statusParam)) {
+		$rawStatuses = is_array($statusParam) ? $statusParam : explode(',', $statusParam);
+		foreach ($rawStatuses as $status) {
+			$normalized = strtolower(trim($status));
+			if ($normalized === '') {
+				continue;
+			}
+			if (!in_array($normalized, $statusFilter, true)) {
+				$statusFilter[] = $normalized;
+			}
+		}
+	}
+
+	$validStatuses = array('pending', 'running', 'success', 'failed', 'cancelled');
+	$finalStatuses = array('success', 'failed', 'cancelled');
+	foreach ($statusFilter as $status) {
+		if (!in_array($status, $validStatuses, true)) {
+			$response = array(
+				'code' => 400,
+				'status' => 'fail',
+				'message' => 'Invalid status filter.'
+			);
+			$app->response->setStatus(400);
+			$app->response->setBody(json_encode($response));
+			return;
+		}
+	}
+
+	if (!$force) {
+		if (empty($statusFilter)) {
+			$statusFilter = $finalStatuses;
+		} else {
+			foreach ($statusFilter as $status) {
+				if (!in_array($status, $finalStatuses, true)) {
+					$response = array(
+						'code' => 400,
+						'status' => 'fail',
+						'message' => 'Force flag required to delete pending or running jobs.'
+					);
+					$app->response->setStatus(400);
+					$app->response->setBody(json_encode($response));
+					return;
+				}
+			}
+		}
+	}
+
+	$targetUser = null;
+	if ($user['role'] !== 'admin') {
+		$targetUser = $user['username'];
+	} else {
+		$usernameParam = trim((string)$request->params('username'));
+		if ($usernameParam !== '') {
+			$targetUser = $usernameParam;
+		}
+	}
+
+	$options = array();
+	if ($targetUser !== null) {
+		$options['username'] = $targetUser;
+	}
+	if (!empty($statusFilter)) {
+		$options['statuses'] = $statusFilter;
+	}
+
+	try {
+		$deleted = deleteJobsBulk($db, $options);
+		$response = array(
+			'code' => 200,
+			'status' => 'success',
+			'message' => 'Jobs cleared.',
+			'data' => array('deleted' => $deleted)
+		);
+		$app->response->setStatus(200);
+		$app->response->setBody(json_encode($response));
+	} catch (Exception $e) {
+		error_log(date('M d H:i:s ') . 'ERROR: unable to clear jobs');
+		error_log(date('M d H:i:s ') . (string)$e);
+		$response = array(
+			'code' => 500,
+			'status' => 'fail',
+			'message' => 'Unable to clear job queue.'
+		);
+		$app->response->setStatus(500);
+		$app->response->setBody(json_encode($response));
+	}
+});
+
 $app->get('/api/jobs/settings', function () use ($app, $db) {
 	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
 	if ($user === False) {

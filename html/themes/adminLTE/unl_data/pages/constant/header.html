@@ -19,7 +19,7 @@
             </a>
           </li>
 
-          <li class="relative group" ng-if="role !== 'editor'">
+          <li class="relative group" ng-if="role === 'admin'">
             <button class="flex items-center gap-3 px-5 py-2.5 rounded-xl transition"
                     ng-class="themeClass('bg-white/5 hover:bg-white/15 text-white','bg-slate-100 hover:bg-slate-200 text-slate-800')">
               <i class="fa fa-wrench"></i>
@@ -52,7 +52,7 @@
             </ul>
           </li>
 
-          <li class="relative group">
+          <li class="relative group" ng-if="role === 'admin'">
             <button class="flex items-center gap-3 px-5 py-2.5 rounded-xl transition"
                     ng-class="themeClass('bg-white/5 hover:bg-white/15 text-white','bg-slate-100 hover:bg-slate-200 text-slate-800')">
               <i class="fa fa-book"></i>
@@ -61,14 +61,14 @@
             </button>
             <ul class="flex flex-col rounded-2xl shadow-xl min-w-[220px] overflow-hidden transition lg:absolute lg:top-full lg:left-1/2 lg:-translate-x-1/2 lg:hidden lg:group-hover:flex z-40"
                 ng-class="themeClass('bg-slate-900/95 border border-white/10','bg-white border-slate-200')">
-              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden" ng-if="role === 'admin'">
                 <a href="#!/sysstat" ng-click="blockui('/sysstat')" class="flex items-center gap-2 px-4 py-3 transition w-full"
                   ng-class="[themeClass('hover:bg-white/10 text-white','hover:bg-slate-100 text-slate-800'), currentPath == '/sysstat' ? themeClass('text-blue-200','text-blue-700') : '']">
                   <i class="fa fa-adjust mr-2"></i>
                   <span data-ng-bind="t.menuSysStatus"></span>
                 </a>
               </li>
-              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden">
+              <li class="px-0 first:rounded-t-2xl last:rounded-b-2xl overflow-hidden" ng-if="role === 'admin'">
                 <a href="#!/jobs" ng-click="blockui('/jobs')" class="flex items-center gap-2 px-4 py-3 transition w-full"
                   ng-class="[themeClass('hover:bg-white/10 text-white','hover:bg-slate-100 text-slate-800'), currentPath == '/jobs' ? themeClass('text-blue-200','text-blue-700') : '']">
                   <i class="fa fa-tasks mr-2"></i>
@@ -128,3 +128,18 @@
     </div>
   </div>
 </header>
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4" ng-if="accessDeniedModal.visible">
+  <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-md rounded-3xl border shadow-2xl p-6 space-y-4"
+       ng-class="themeClass('bg-slate-900 text-white border-white/10','bg-white text-slate-900 border-slate-200')">
+    <h3 class="text-2xl font-semibold" data-ng-bind="accessDeniedModal.title"></h3>
+    <p class="text-sm leading-relaxed" ng-class="themeClass('text-slate-300','text-slate-600')" data-ng-bind="accessDeniedModal.body"></p>
+    <div class="flex justify-end">
+      <button type="button"
+              class="px-5 py-2 rounded-2xl font-semibold text-sm transition border"
+              ng-class="themeClass('border-white/20 bg-white/10 text-white hover:bg-white/20','border-slate-200 bg-white text-slate-900 hover:bg-slate-100')"
+              ng-click="closeAccessDeniedModal()"
+              data-ng-bind="accessDeniedModal.button || 'OK'"></button>
+    </div>
+  </div>
+</div>

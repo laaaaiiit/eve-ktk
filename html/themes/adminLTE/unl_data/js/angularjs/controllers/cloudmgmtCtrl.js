@@ -44,9 +44,6 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
             deleteConfirmConfirm: 'Delete mapping',
             deleteConfirmCancel: 'Cancel',
             deleteFailed: 'Failed to delete cloud mapping.',
-            accessDeniedTitle: 'Access denied',
-            accessDeniedBody: 'You do not have access to this page. You will be redirected to the dashboard.',
-            accessDeniedButton: 'OK',
             modalAddTitle: 'Add cloud mapping',
             modalAddSubtitle: 'Bind a user to a bridge that already exists in /etc/network/interfaces.',
             modalEditTitle: 'Edit cloud mapping',
@@ -107,9 +104,6 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
             deleteConfirmConfirm: 'Удалить',
             deleteConfirmCancel: 'Отмена',
             deleteFailed: 'Не удалось удалить облако.',
-            accessDeniedTitle: 'Доступ запрещён',
-            accessDeniedBody: 'У вас нет прав на эту страницу. Сейчас произойдёт переход на главную.',
-            accessDeniedButton: 'Ок',
             modalAddTitle: 'Добавление облака',
             modalAddSubtitle: 'Привяжите пользователя к мосту из /etc/network/interfaces.',
             modalEditTitle: 'Редактирование облака',
@@ -128,7 +122,8 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
         }
     };
 
-    $scope.testAUTH("/cloudmgmt");
+	$scope.testAUTH("/cloudmgmt");
+	init();
 
     function resolveLanguage() {
         var cookieLang = ($cookies && $cookies.get('eve_login_lang')) || null;
@@ -166,23 +161,12 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
         }
     });
 
-    const waitForRole = $scope.$watch(function () {
-        return $rootScope.role;
-    }, function (newRole) {
-        if (!newRole) return;
-
-        if (newRole !== 'admin') {
-            showAccessDeniedModal();
-            return;
-        }
-
-        init();
-        waitForRole();
-    });
-
     function openTailwindModal(config) {
         return $uibModal.open({
             animation: true,
+            backdrop: false,
+            windowTemplateUrl: '/themes/adminLTE/unl_data/pages/modals/tailwind-modal-window.html',
+            windowClass: 'tailwind-modal-window',
             template: `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div class="absolute inset-0 theme-overlay transition-colors duration-300"></div>
@@ -235,27 +219,11 @@ angular.module("unlMainApp").controller('cloudmgmtController', function cloudmgm
                 $scope.modal = angular.extend(defaults, config || {});
             }],
             size: 'md',
-            backdrop: 'static',
             keyboard: false
         }).result;
     }
 
-    function showAccessDeniedModal() {
-        openTailwindModal({
-            icon: 'fa fa-lock',
-            iconClasses: 'bg-rose-500/30 text-rose-200',
-            confirmClasses: 'bg-rose-500 hover:bg-rose-400',
-            title: ($scope.t && $scope.t.accessDeniedTitle) || 'Access denied',
-            body: ($scope.t && $scope.t.accessDeniedBody) || 'Access denied',
-            cancelLabel: ($scope.t && $scope.t.accessDeniedButton) || 'OK',
-            confirmLabel: ($scope.t && $scope.t.accessDeniedButton) || 'OK'
-        }).finally(function () {
-            $location.path('/');
-            $scope.$applyAsync();
-        });
-    }
-
-    function init() {
+	function init() {
         $scope.clouddata = [];
         $scope.sortedClouds = [];
         $scope.userCloudMap = [];

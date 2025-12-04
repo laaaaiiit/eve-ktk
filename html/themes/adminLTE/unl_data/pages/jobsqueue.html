@@ -9,19 +9,32 @@
           <h1 class="text-4xl font-semibold theme-heading" data-ng-bind="t.heroTitle"></h1>
           <p class="theme-muted text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
         </div>
-        <div class="flex items-center gap-3">
-          <button type="button"
-                  class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
-                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10','border-slate-200 bg-white text-slate-900 hover:bg-slate-100')"
-                  ng-click="refresh()">
-            <span data-ng-bind="loading ? t.refreshing : t.refreshButton"></span>
-          </button>
-          <button type="button"
-                  class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
-                  ng-class="themeClass('border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30','border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100')"
-                  ng-click="clearFilters()"
-                  data-ng-bind="t.resetButton"></button>
-        </div>
+      </div>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-6 space-y-6 transition-colors duration-300">
+      <div class="flex flex-col gap-2">
+        <p class="text-xs uppercase theme-muted" data-ng-bind="t.limitTitle"></p>
+        <p class="theme-muted text-sm" data-ng-bind="t.limitDescription"></p>
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <label class="text-sm font-semibold theme-muted" for="limit-input" data-ng-bind="t.limitHelper"></label>
+        <input id="limit-input"
+               type="number"
+               min="1"
+               max="20"
+               class="w-24 px-4 py-2 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input text-center"
+               ng-model="maxParallelInput"
+               ng-disabled="!isAdmin() || savingParallelLimit">
+        <span class="text-sm theme-muted" ng-if="!isAdmin()">{{maxParallelLimit}}</span>
+        <button type="button"
+                class="px-5 py-2 rounded-2xl font-semibold text-sm transition border"
+                ng-if="isAdmin()"
+                ng-disabled="savingParallelLimit"
+                ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                ng-click="saveParallelLimit()">
+          <span data-ng-bind="t.limitSaveButton"></span>
+        </button>
       </div>
     </div>
 
@@ -70,48 +83,35 @@
             <span class="font-bold ml-2">{{counts[status.key] || 0}}</span>
           </button>
         </div>
-      </div>
-    </div>
-
-    <div class="theme-surface rounded-3xl shadow-2xl p-6 space-y-4 transition-colors duration-300">
-      <div class="flex flex-col gap-2">
-        <p class="text-xs uppercase theme-muted" data-ng-bind="t.limitTitle"></p>
-        <p class="theme-muted text-sm" data-ng-bind="t.limitDescription"></p>
-      </div>
-      <div class="flex flex-wrap items-center gap-4">
-        <label class="text-sm font-semibold theme-muted" for="limit-input" data-ng-bind="t.limitHelper"></label>
-        <input id="limit-input"
-               type="number"
-               min="1"
-               max="20"
-               class="w-24 px-4 py-2 rounded-2xl border focus:outline-none focus:ring-2 transition theme-input text-center"
-               ng-model="maxParallelInput"
-               ng-disabled="!isAdmin() || savingParallelLimit">
-        <span class="text-sm theme-muted" ng-if="!isAdmin()">{{maxParallelLimit}}</span>
         <button type="button"
-                class="px-5 py-2 rounded-2xl font-semibold text-sm transition border"
-                ng-if="isAdmin()"
-                ng-disabled="savingParallelLimit"
-                ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
-                ng-click="saveParallelLimit()">
-          <span data-ng-bind="t.limitSaveButton"></span>
-        </button>
+                class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
+                ng-class="themeClass('border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30','border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100')"
+                ng-click="clearFilters()"
+                data-ng-bind="t.resetButton"></button>
       </div>
     </div>
 
     <div class="theme-surface rounded-3xl shadow-2xl p-6 space-y-4 transition-colors duration-300">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <p class="text-sm font-semibold theme-muted" data-ng-bind="formatRange()"></p>
-        <div class="flex items-center gap-2">
-          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
-                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
-                  ng-disabled="pagination.page <= 1"
-                  ng-click="changePage(-1)">‹</button>
-          <span class="text-sm font-semibold">{{pagination.page}} / {{pagination.totalPages || 1}}</span>
-          <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
-                  ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
-                  ng-disabled="pagination.page >= pagination.totalPages"
-                  ng-click="changePage(1)">›</button>
+        <div class="flex items-center gap-3 flex-wrap justify-end">
+          <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                    ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                    ng-disabled="pagination.page <= 1"
+                    ng-click="changePage(-1)">‹</button>
+            <span class="text-sm font-semibold">{{pagination.page}} / {{pagination.totalPages || 1}}</span>
+            <button type="button" class="px-3 py-2 rounded-xl text-sm font-semibold border transition"
+                    ng-class="themeClass('border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40','border-slate-200 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-50')"
+                    ng-disabled="pagination.page >= pagination.totalPages"
+                    ng-click="changePage(1)">›</button>
+          </div>
+          <button type="button"
+                  class="px-5 py-3 rounded-2xl font-semibold text-sm transition border"
+                  ng-class="themeClass('border-rose-500/60 bg-rose-600/20 text-rose-100 hover:bg-rose-600/30 disabled:opacity-40','border-rose-400 bg-rose-50 text-rose-800 hover:bg-rose-100 disabled:opacity-50')"
+                  ng-click="clearAllJobs()"
+                  ng-disabled="clearingAll"
+                  data-ng-bind="clearingAll ? t.clearAllBusy : t.clearAllButton"></button>
         </div>
       </div>
 
