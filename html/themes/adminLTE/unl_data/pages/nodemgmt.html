@@ -42,22 +42,18 @@
             <p class="text-base font-semibold theme-heading" data-ng-bind="t.loadingTitle"></p>
             <p class="text-sm theme-muted" data-ng-bind="t.loadingSubtitle"></p>
           </div>
-          <div class="text-sm theme-muted" ng-if="loadingState.labTotal > 0">
-            {{loadingState.labProcessed}} / {{loadingState.labTotal}} labs
-          </div>
-          <div class="text-sm theme-muted" ng-if="!loadingState.labTotal && loadingState.total > 0">
-            {{loadingState.processed}} / {{loadingState.total}} nodes
+          <div class="text-sm theme-muted">
+            {{loadingProgress.processed}} / {{loadingProgress.total}} {{t.labCountLabel || 'labs'}}
           </div>
         </div>
         <div class="h-2 rounded-full overflow-hidden"
              ng-class="themeClass('bg-white/10','bg-slate-100')">
           <div class="h-full rounded-full transition-all duration-300"
                ng-class="themeClass('bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500','bg-blue-500')"
-               ng-style="{'width': (((loadingState.labTotal ? (loadingState.labProcessed / (loadingState.labTotal || 1)) : (loadingState.total ? (loadingState.processed / (loadingState.total || 1)) : 0)) * 100).toFixed(1) + '%'}"></div>
+               ng-style="{'width': (loadingProgress.percent || 0).toFixed(1) + '%'}"></div>
         </div>
         <div class="flex items-center justify-between text-xs theme-muted">
-          <span ng-if="loadingState.labTotal > 0">{{loadingState.labProcessed}} / {{loadingState.labTotal}} labs</span>
-          <span ng-if="loadingState.total > 0">{{loadingState.processed}} / {{loadingState.total}} nodes</span>
+          <span>{{loadingProgress.processed}} / {{loadingProgress.total}} {{t.labCountLabel || 'labs'}}</span>
         </div>
       </div>
 

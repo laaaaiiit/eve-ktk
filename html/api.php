@@ -112,6 +112,89 @@ $forbidden = array(
 	'message' => $GLOBALS['messages']['90032']
 );
 
+function nodemgmt_resolveLabOwnerFromPath($labPath)
+{
+	$relative = str_replace(BASE_LAB, '', $labPath);
+	$relative = trim($relative, '/');
+	if ($relative === '') {
+		return '';
+	}
+	$segments = explode('/', $relative);
+	return isset($segments[0]) ? $segments[0] : '';
+}
+
+function nodemgmt_collectLabs($dir, array &$labPaths, $user = null, array &$collectedNodes = null)
+{
+	if (!is_dir($dir)) {
+		return;
+	}
+	$files = scandir($dir);
+	if ($files === false) {
+		return;
+	}
+	foreach ($files as $file) {
+		if ($file === '.' || $file === '..') {
+			continue;
+		}
+		$path = $dir . '/' . $file;
+		if (is_dir($path)) {
+			nodemgmt_collectLabs($path, $labPaths, $user, $collectedNodes);
+			continue;
+		}
+		if (!preg_match('/\.unl$/', $file)) {
+			continue;
+		}
+		$relativeLabPath = str_replace(BASE_LAB, '', $path);
+		$relativeLabPath = '/' . ltrim($relativeLabPath, '/');
+		if ($relativeLabPath === '/') {
+			continue;
+		}
+		$labPaths[$relativeLabPath] = true;
+
+		if ($collectedNodes === null || $user === null) {
+			continue;
+		}
+
+		try {
+			$labOwner = nodemgmt_resolveLabOwnerFromPath($path);
+			$lab = new Lab($path, $user['tenant'], $labOwner ?: $user['username'], false);
+			$labAuthor = $lab->getAuthor();
+			if (empty($labAuthor)) {
+				$labAuthor = $labOwner ?: $user['username'];
+			}
+
+			if ($labOwner && $labAuthor && strcasecmp(trim($labOwner), trim($labAuthor)) !== 0) {
+				continue;
+			}
+
+			$nodes = $lab->getNodes();
+			foreach ($nodes as $nodeId => $node) {
+				$collectedNodes[] = array(
+					'lab' => str_replace(BASE_LAB, '', $path),
+					'id' => $nodeId,
+					'user' => $labAuthor,
+					'name' => $node->getName(),
+					'type' => $node->getNType(),
+					'template' => $node->getTemplate(),
+					'status' => $node->getStatus(),
+					'cpulimit' => $node->getCpuLimit(),
+					'cpucount' => $node->getCpu(),
+					'image' => $node->getImage(),
+					'nvram' => $node->getNvram(),
+					'ram' => $node->getRam(),
+					'eth' => $node->getEthernetCount(),
+					'ser' => $node->getSerialCount(),
+					'console' => $node->getConsole(),
+					'url' => $node->getConsoleUrl($user['html5'], $user, $labAuthor),
+					'port' => $node->getPort()
+				);
+			}
+		} catch (Exception $e) {
+			continue;
+		}
+	}
+}
+
 /***************************************************************************
  * Authentication
  **************************************************************************/
@@ -729,90 +812,49 @@ $app->get('/api/nodes', function () use ($app, $db) {
 	}
 
 	$allNodes = array();
-	$labPaths = array();
-
-	function resolveLabOwnerFromPath($labPath)
-	{
-		$relative = str_replace(BASE_LAB, '', $labPath);
-		$relative = trim($relative, '/');
-		if ($relative === '') {
-			return '';
-		}
-		$segments = explode('/', $relative);
-		return isset($segments[0]) ? $segments[0] : '';
-	}
-
-	// Рекурсивная функция для сканирования всех .unl файлов
-	function scanLabs($dir, &$allNodes, $user, &$labPaths)
-	{
-		$files = scandir($dir);
-		foreach ($files as $file) {
-			if ($file == '.' || $file == '..') continue;
-
-			$path = $dir . '/' . $file;
-			if (is_dir($path)) {
-				scanLabs($path, $allNodes, $user, $labPaths);
-			} elseif (preg_match('/\.unl$/', $file)) {
-				try {
-					$labOwner = resolveLabOwnerFromPath($path);
-					$lab = new Lab($path, $user['tenant'], $labOwner ?: $user['username'], false);
-					$labAuthor = $lab->getAuthor();
-					if (empty($labAuthor)) {
-						$labAuthor = $labOwner ?: $user['username'];
-					}
-
-					if ($labOwner && $labAuthor && strcasecmp(trim($labOwner), trim($labAuthor)) !== 0) {
-						// Пропускаем опубликованные лаборатории, которые лежат в чужих папках.
-						continue;
-					}
-					$relativeLabPath = str_replace(BASE_LAB, '', $path);
-					$relativeLabPath = '/' . ltrim($relativeLabPath, '/');
-					$labPaths[] = $relativeLabPath;
-					$nodes = $lab->getNodes();
-
-					foreach ($nodes as $nodeId => $node) {
-						$allNodes[] = array(
-							'lab' => str_replace(BASE_LAB, '', $path),
-							'id' => $nodeId,
-							'user' => $labAuthor,
-							'name' => $node->getName(),
-							'type' => $node->getNType(),
-							'template' => $node->getTemplate(),
-							'status' => $node->getStatus(),
-							'cpulimit' => $node->getCpuLimit(),
-							'cpucount' => $node->getCpu(),
-							'image' => $node->getImage(),
-							'nvram' => $node->getNvram(),
-							'ram' => $node->getRam(),
-							'eth' => $node->getEthernetCount(),
-							'ser' => $node->getSerialCount(),
-							'console' => $node->getConsole(),
-							'url' => $node->getConsoleUrl($user['html5'], $user, $labAuthor),
-							'port' => $node->getPort()
-						);
-					}
-				} catch (Exception $e) {
-					// Пропускаем невалидные lab файлы
-					continue;
-				}
-			}
-		}
-	}
-
-	// Запускаем сканирование с корня лабораторий
-	scanLabs(BASE_LAB, $allNodes, $user, $labPaths);
+	$labPathMap = array();
+	nodemgmt_collectLabs(BASE_LAB, $labPathMap, $user, $allNodes);
+	$labPathList = array_keys($labPathMap);
 
 	$output['code'] = 200;
 	$output['status'] = 'success';
 	$output['message'] = $GLOBALS['messages'][60020];
 	$output['data'] = $allNodes;
 	$output['meta'] = array(
-		'lab_count' => count($labPaths),
+		'lab_count' => count($labPathList),
+		'lab_paths' => $labPathList,
 		'node_count' => count($allNodes)
 	);
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
+});
+
+
+$app->get('/api/labs/summary', function () use ($app, $db) {
+	list($user, $output) = apiAuthorization($db, $app->getCookie('unetlab_session'));
+	if ($user === False) {
+		$app->response->setStatus($output['code']);
+		$app->response->setBody(json_encode($output));
+		return;
+	}
+
+	$labPathMap = array();
+	nodemgmt_collectLabs(BASE_LAB, $labPathMap, $user);
+	$labPathList = array_keys($labPathMap);
+
+	$response = array(
+		'code' => 200,
+		'status' => 'success',
+		'message' => $GLOBALS['messages'][60020],
+		'data' => array(
+			'lab_count' => count($labPathList),
+			'lab_paths' => $labPathList
+		)
+	);
+
+	$app->response->setStatus(200);
+	$app->response->setBody(json_encode($response));
 });
 
 

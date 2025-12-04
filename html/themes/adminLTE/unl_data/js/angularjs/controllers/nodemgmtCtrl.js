@@ -323,9 +323,23 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return last.replace(/\.unl$/i, '') || last;
     }
 
+    function extractOwnerFromLabPath(path) {
+        var cleanPath = (path || '').replace(/^\/+/, '');
+        if (!cleanPath.length) {
+            return '—';
+        }
+        var segments = cleanPath.split('/');
+        return segments.length ? segments[0] : '—';
+    }
+
     var nodeIndex = {};
     var labRefreshState = {};
     $scope.labRefreshState = labRefreshState;
+    var cachedLabPaths = [];
+    var cachedLabTotal = 0;
+    var pendingLabSummary = null;
+    var labMetaTimer = null;
+    var labFetchState = null;
 
     function ensureUserEntry(usersMap, username) {
         if (!usersMap[username]) {
@@ -353,17 +367,402 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         return userEntry.labs[labKey];
     }
 
+    function markLabSeen(normalized) {
+        if (!incrementalState || !normalized) {
+            return;
+        }
+        if (incrementalState.labsSeen[normalized]) {
+            return;
+        }
+        incrementalState.labsSeen[normalized] = true;
+        incrementalState.labsProcessedCount += 1;
+        if (incrementalState.totalLabs && incrementalState.labsProcessedCount > incrementalState.totalLabs) {
+            incrementalState.labsProcessedCount = incrementalState.totalLabs;
+        }
+        if (incrementalState.totalLabs && incrementalState.labsProcessedCount >= incrementalState.totalLabs) {
+            incrementalState.metaLabsComplete = true;
+        }
+        $scope.loadingState.labProcessed = incrementalState.labsProcessedCount;
+    }
+
     function trackLabProgress(labPath) {
         if (!incrementalState) {
             return;
         }
         var normalized = normalizeLabPath(labPath || '');
-        if (!normalized || incrementalState.labsSeen[normalized]) {
+        if (!normalized) {
             return;
         }
-        incrementalState.labsSeen[normalized] = true;
-        incrementalState.labsProcessed += 1;
-        $scope.loadingState.labProcessed = incrementalState.labsProcessed;
+        markLabSeen(normalized);
+    }
+
+    function consumePendingLabs(quota) {
+        if (!incrementalState || !incrementalState.metaLabOrder || !incrementalState.metaLabOrder.length) {
+            return;
+        }
+        var unlimited = quota === undefined || quota === null;
+        var remaining = unlimited ? Number.POSITIVE_INFINITY : Math.max(1, quota || 1);
+        while (remaining > 0 && incrementalState.metaLabCursor < incrementalState.metaLabOrder.length) {
+            var labPath = incrementalState.metaLabOrder[incrementalState.metaLabCursor];
+            incrementalState.metaLabCursor += 1;
+            markLabSeen(labPath);
+            if (!unlimited) {
+                remaining -= 1;
+            }
+        }
+        if (incrementalState.metaLabCursor >= incrementalState.metaLabOrder.length) {
+            incrementalState.metaLabsComplete = true;
+        }
+        checkLoadingCompletion();
+    }
+
+    function checkLoadingCompletion() {
+        if (!incrementalState) {
+            return;
+        }
+        var nodesDone = incrementalState.nodesComplete || !incrementalState.nodes || incrementalState.index >= incrementalState.nodes.length;
+        var labsDone = incrementalState.metaLabsComplete || !incrementalState.metaLabOrder || incrementalState.metaLabCursor >= (incrementalState.metaLabOrder.length || 0);
+        if (labsDone && incrementalState.totalLabs && $scope.loadingState.labProcessed < incrementalState.totalLabs) {
+            $scope.loadingState.labProcessed = incrementalState.totalLabs;
+        }
+        if (labsDone && nodesDone) {
+            $scope.loadingState.active = false;
+            cancelIncrementalProcessing();
+        }
+    }
+
+    function scheduleLabMetaChunk() {
+        if (!incrementalState || !incrementalState.metaLabOrder || !incrementalState.metaLabOrder.length) {
+            if (incrementalState) {
+                incrementalState.metaLabsComplete = true;
+            }
+            cancelLabMetaTimer();
+            checkLoadingCompletion();
+            return;
+        }
+        var remaining = incrementalState.metaLabOrder.length - incrementalState.metaLabCursor;
+        if (remaining <= 0) {
+            incrementalState.metaLabsComplete = true;
+            cancelLabMetaTimer();
+            checkLoadingCompletion();
+            return;
+        }
+        var totalLabs = incrementalState.totalLabs || incrementalState.metaLabOrder.length || remaining;
+        var chunk = Math.max(1, Math.floor(totalLabs / 50));
+        chunk = Math.min(chunk, remaining);
+        consumePendingLabs(chunk);
+        if (!incrementalState || incrementalState.metaLabsComplete || incrementalState.metaLabCursor >= incrementalState.metaLabOrder.length) {
+            cancelLabMetaTimer();
+            checkLoadingCompletion();
+            return;
+        }
+        cancelLabMetaTimer();
+        labMetaTimer = $timeout(scheduleLabMetaChunk, 30);
+    }
+
+    function appendMetaLabsFromArray(paths) {
+        if (!incrementalState || !angular.isArray(paths) || !paths.length) {
+            return;
+        }
+        if (!incrementalState.metaLabOrder) {
+            incrementalState.metaLabOrder = [];
+            incrementalState.metaLabCursor = 0;
+        }
+        if (!incrementalState.metaLabSet) {
+            incrementalState.metaLabSet = {};
+            incrementalState.metaLabOrder.forEach(function (path) {
+                if (path) {
+                    incrementalState.metaLabSet[path] = true;
+                }
+            });
+        }
+        var added = false;
+        angular.forEach(paths, function (path) {
+            var normalized = normalizeLabPath(path);
+            if (!normalized || incrementalState.metaLabSet[normalized] || incrementalState.labsSeen[normalized]) {
+                return;
+            }
+            incrementalState.metaLabSet[normalized] = true;
+            incrementalState.metaLabOrder.push(normalized);
+            added = true;
+        });
+        if (!added) {
+            return;
+        }
+        if (cachedLabTotal && cachedLabTotal > incrementalState.totalLabs) {
+            incrementalState.totalLabs = cachedLabTotal;
+        }
+        incrementalState.metaLabsComplete = false;
+        scheduleLabMetaChunk();
+    }
+
+    function cancelLabFetchState() {
+        if (labFetchState) {
+            labFetchState.cancelled = true;
+            labFetchState = null;
+        }
+    }
+
+    function fetchLabNodesForPath(labPath) {
+        if (!labPath) {
+            return $q.when([]);
+        }
+        var normalized = normalizeLabPath(labPath);
+        var owner = extractOwnerFromLabPath(normalized);
+        return $http.get('/api/labs' + normalized + '/nodes').then(function (response) {
+            if (!response.data || response.data.status !== 'success') {
+                return [];
+            }
+            var payload = response.data.data || {};
+            var nodes = [];
+            angular.forEach(payload, function (value, key) {
+                var candidate = angular.extend({ id: key }, value);
+                nodes.push(normalizeNodeRecord(candidate, owner, normalized, {}));
+            });
+            return nodes;
+        }).catch(function (err) {
+            console.error('Failed to load lab nodes', normalized, err);
+            return [];
+        });
+    }
+
+    function appendLabNodesToCache(nodes) {
+        if (!angular.isArray(nodes) || !nodes.length) {
+            return;
+        }
+        angular.forEach(nodes, function (node) {
+            upsertNodeRecord(node);
+        });
+        rebuildSummariesImmediate();
+        $scope.loadingState.processed = $scope.nodedata.length;
+        $scope.loadingState.total = $scope.nodedata.length;
+    }
+
+    function finalizeLabQueue() {
+        if ($scope.loadingState) {
+            $scope.loadingState.active = false;
+        }
+        labFetchState = null;
+    }
+
+    function pumpLabQueue() {
+        if (!labFetchState || labFetchState.cancelled) {
+            return;
+        }
+        if (labFetchState.cursor >= labFetchState.labs.length && labFetchState.inFlight === 0) {
+            finalizeLabQueue();
+            return;
+        }
+        while (!labFetchState.cancelled &&
+               labFetchState.inFlight < labFetchState.maxConcurrency &&
+               labFetchState.cursor < labFetchState.labs.length) {
+            var currentPath = labFetchState.labs[labFetchState.cursor++];
+            if (!currentPath) {
+                continue;
+            }
+            labFetchState.inFlight += 1;
+            (function (labPath) {
+                fetchLabNodesForPath(labPath).then(function (nodes) {
+                    appendLabNodesToCache(nodes);
+                }).finally(function () {
+                    if (!labFetchState || labFetchState.cancelled) {
+                        return;
+                    }
+                    labFetchState.inFlight -= 1;
+                    $scope.loadingState.labProcessed = Math.min(
+                        ($scope.loadingState.labProcessed || 0) + 1,
+                        $scope.loadingState.labTotal || labFetchState.labs.length
+                    );
+                    if (labFetchState.cursor >= labFetchState.labs.length && labFetchState.inFlight === 0) {
+                        finalizeLabQueue();
+                        return;
+                    }
+                    $timeout(pumpLabQueue, 0);
+                });
+            })(currentPath);
+        }
+    }
+
+    function beginLabQueueLoading(labPaths) {
+        cancelLabFetchState();
+        var normalizedList = (labPaths || []).map(function (path) {
+            return normalizeLabPath(path);
+        }).filter(function (path) { return !!path; });
+        labFetchState = {
+            labs: normalizedList,
+            cursor: 0,
+            inFlight: 0,
+            maxConcurrency: 4,
+            cancelled: false
+        };
+        $scope.nodedata = [];
+        nodeIndex = {};
+        $scope.userSummaries = [];
+        $scope.loadingState.active = true;
+        $scope.loadingState.processed = 0;
+        $scope.loadingState.total = 0;
+        $scope.loadingState.labProcessed = 0;
+        $scope.loadingState.labTotal = normalizedList.length;
+        if (!normalizedList.length) {
+            finalizeLabQueue();
+            return;
+        }
+        pumpLabQueue();
+    }
+
+    function legacyLoadAllNodes() {
+        cancelIncrementalProcessing();
+        cancelLabFetchState();
+        $scope.loadingState = {
+            active: true,
+            processed: 0,
+            total: 0,
+            labProcessed: 0,
+            labTotal: 0
+        };
+        $http.get('/api/nodes').then(function (response) {
+            if (response.data.status === "success") {
+                $scope.nodedata = response.data.data || [];
+                hydrateNodeIndex($scope.nodedata);
+                Object.keys(labRefreshState).forEach(function (key) { delete labRefreshState[key]; });
+                var incomingMeta = response.data.meta || {};
+                if (incomingMeta.lab_paths && incomingMeta.lab_paths.length) {
+                    updateCachedLabSummary({
+                        paths: incomingMeta.lab_paths,
+                        total: incomingMeta.lab_paths.length
+                    });
+                } else if (incomingMeta.lab_count) {
+                    updateCachedLabSummary({
+                        paths: cachedLabPaths,
+                        total: incomingMeta.lab_count
+                    });
+                }
+                if (incomingMeta.node_count) {
+                    $scope.loadingState.total = incomingMeta.node_count;
+                } else {
+                    $scope.loadingState.total = $scope.nodedata.length;
+                }
+                if (incomingMeta.lab_count) {
+                    $scope.loadingState.labTotal = incomingMeta.lab_count;
+                } else if (incomingMeta.lab_paths && incomingMeta.lab_paths.length) {
+                    $scope.loadingState.labTotal = incomingMeta.lab_paths.length;
+                } else {
+                    var labsSeen = {};
+                    angular.forEach($scope.nodedata, function (node) {
+                        var normalized = normalizeLabPath(node && node.lab);
+                        if (normalized) {
+                            labsSeen[normalized] = true;
+                        }
+                    });
+                    var derivedTotal = Object.keys(labsSeen).length;
+                    if (!derivedTotal && cachedLabTotal) {
+                        derivedTotal = cachedLabTotal;
+                    }
+                    $scope.loadingState.labTotal = derivedTotal;
+                }
+                if ((!incomingMeta.lab_paths || !incomingMeta.lab_paths.length) && cachedLabPaths.length) {
+                    incomingMeta.lab_paths = cachedLabPaths.slice();
+                }
+                if ((!incomingMeta.lab_count || incomingMeta.lab_count < 1) && cachedLabTotal) {
+                    incomingMeta.lab_count = cachedLabTotal;
+                }
+                startIncrementalSummaries($scope.nodedata, incomingMeta);
+            } else {
+                console.error("Ошибка при получении нод:", response.data.message);
+                $scope.nodedata = [];
+                $scope.userSummaries = [];
+                $scope.loadingState.active = false;
+                $scope.loadingState.labProcessed = 0;
+                $scope.loadingState.labTotal = 0;
+            }
+        }).catch(function (error) {
+            console.error("Ошибка запроса:", error);
+            $scope.nodedata = [];
+            $scope.userSummaries = [];
+            $scope.loadingState.active = false;
+            $scope.loadingState.labProcessed = 0;
+            $scope.loadingState.labTotal = 0;
+        });
+    }
+
+    function clampPercent(value) {
+        if (!isFinite(value) || isNaN(value)) {
+            return 0;
+        }
+        if (value < 0) {
+            return 0;
+        }
+        if (value > 100) {
+            return 100;
+        }
+        return value;
+    }
+
+    function computePercent(partial, total) {
+        if (!total || total <= 0) {
+            return partial > 0 ? 100 : 0;
+        }
+        return clampPercent((partial / total) * 100);
+    }
+
+    function refreshLoadingProgressContext() {
+        var state = $scope.loadingState || {};
+        var labsProcessed = state.labProcessed || 0;
+        var labsTotal = state.labTotal || 0;
+        $scope.loadingProgress = {
+            processed: labsProcessed,
+            total: labsTotal,
+            percent: computePercent(labsProcessed, labsTotal)
+        };
+    }
+
+    function normalizeSummaryPayload(payload) {
+        var data = payload || {};
+        var paths = angular.isArray(data.lab_paths) ? data.lab_paths.slice() : [];
+        var parsedCount = parseInt(data.lab_count, 10);
+        var total = (!isNaN(parsedCount) && parsedCount >= 0) ? parsedCount : paths.length;
+        return {
+            paths: paths,
+            total: total
+        };
+    }
+
+    function updateCachedLabSummary(summary) {
+        if (!summary) {
+            return;
+        }
+        cachedLabPaths = summary.paths || [];
+        cachedLabTotal = summary.total || cachedLabPaths.length || 0;
+        appendMetaLabsFromArray(cachedLabPaths);
+        if (incrementalState && summary.total && summary.total > incrementalState.totalLabs) {
+            incrementalState.totalLabs = summary.total;
+        }
+    }
+
+    function requestLabSummary() {
+        if (pendingLabSummary) {
+            return pendingLabSummary;
+        }
+        pendingLabSummary = $http.get('/api/labs/summary').then(function (response) {
+            if (!response.data || response.data.status !== 'success') {
+                return $q.reject((response.data && response.data.message) || 'Failed to load labs summary');
+            }
+            var summary = normalizeSummaryPayload(response.data.data);
+            updateCachedLabSummary(summary);
+            if ($scope.loadingState && summary.total) {
+                $scope.loadingState.labTotal = summary.total;
+                if ($scope.loadingState.labProcessed > summary.total) {
+                    $scope.loadingState.labProcessed = summary.total;
+                }
+            }
+            return summary;
+        }).catch(function (err) {
+            console.error('Failed to fetch labs summary', err);
+            return $q.reject(err);
+        }).finally(function () {
+            pendingLabSummary = null;
+        });
+        return pendingLabSummary;
     }
 
     function appendNodeToMap(usersMap, node) {
@@ -436,11 +835,19 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
     var incrementalState = null;
     var incrementalTimer = null;
 
+    function cancelLabMetaTimer() {
+        if (labMetaTimer) {
+            $timeout.cancel(labMetaTimer);
+            labMetaTimer = null;
+        }
+    }
+
     function cancelIncrementalProcessing() {
         if (incrementalTimer) {
             $timeout.cancel(incrementalTimer);
             incrementalTimer = null;
         }
+        cancelLabMetaTimer();
         incrementalState = null;
     }
 
@@ -453,16 +860,16 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         var end = Math.min(start + incrementalState.chunkSize, nodes.length);
 
         appendNodesRange(incrementalState.usersMap, nodes, start, end);
+        consumePendingLabs(end - start);
         incrementalState.index = end;
         $scope.userSummaries = convertUsersMapToSummaries(incrementalState.usersMap);
         $scope.loadingState.processed = end;
 
         if (end >= nodes.length) {
-            $scope.loadingState.active = false;
             if (incrementalState) {
-                $scope.loadingState.labProcessed = incrementalState.totalLabs || $scope.loadingState.labProcessed;
+                incrementalState.nodesComplete = true;
             }
-            cancelIncrementalProcessing();
+            checkLoadingCompletion();
             return;
         }
 
@@ -483,6 +890,31 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             list = [];
         }
         var providedMeta = meta || {};
+        var normalizedMetaLabs = [];
+        var normalizedMetaSet = {};
+        if (angular.isArray(providedMeta.lab_paths)) {
+            var normalizedLabSeen = {};
+            providedMeta.lab_paths.forEach(function (path) {
+                var normalizedPath = normalizeLabPath(path);
+                if (!normalizedPath || normalizedLabSeen[normalizedPath]) {
+                    return;
+                }
+                normalizedLabSeen[normalizedPath] = true;
+                normalizedMetaLabs.push(normalizedPath);
+                normalizedMetaSet[normalizedPath] = true;
+            });
+        } else if (cachedLabPaths.length) {
+            var cachedSeen = {};
+            cachedLabPaths.forEach(function (path) {
+                var normalizedPath = normalizeLabPath(path);
+                if (!normalizedPath || cachedSeen[normalizedPath]) {
+                    return;
+                }
+                cachedSeen[normalizedPath] = true;
+                normalizedMetaLabs.push(normalizedPath);
+                normalizedMetaSet[normalizedPath] = true;
+            });
+        }
         var labsSet = {};
         var sourceForLabs = list.length ? list : nodes;
         angular.forEach(sourceForLabs, function (node, key) {
@@ -498,7 +930,17 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 labsSet[normalizedPath] = true;
             }
         });
-        var totalLabs = providedMeta.lab_count || Object.keys(labsSet).length;
+        var providedLabCount = parseInt(providedMeta.lab_count, 10);
+        var totalLabs = (!isNaN(providedLabCount) && providedLabCount > 0) ? providedLabCount : 0;
+        if (!totalLabs && normalizedMetaLabs.length) {
+            totalLabs = normalizedMetaLabs.length;
+        }
+        if (!totalLabs && cachedLabTotal) {
+            totalLabs = cachedLabTotal;
+        }
+        if (!totalLabs) {
+            totalLabs = Object.keys(labsSet).length;
+        }
         var totalNodes = providedMeta.node_count || list.length || Object.keys(sourceForLabs || {}).length;
         $scope.loadingState = {
             active: true,
@@ -507,22 +949,26 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
             labProcessed: 0,
             labTotal: totalLabs
         };
-        if (!list.length) {
-            $scope.userSummaries = [];
-            $scope.loadingState.labProcessed = $scope.loadingState.labTotal;
-            $scope.loadingState.processed = $scope.loadingState.total;
-            $scope.loadingState.active = false;
-            return;
-        }
         incrementalState = {
             nodes: list,
             index: 0,
             usersMap: {},
-            chunkSize: Math.max(50, Math.floor(list.length / 40)),
+            chunkSize: Math.max(50, Math.floor((list.length || 1) / 40)),
             labsSeen: {},
-            labsProcessed: 0,
-            totalLabs: totalLabs || providedMeta.lab_count || 0
+            labsProcessedCount: 0,
+            metaLabOrder: normalizedMetaLabs,
+            metaLabCursor: 0,
+            metaLabSet: normalizedMetaSet,
+            totalLabs: totalLabs || providedLabCount || 0,
+            metaLabsComplete: !normalizedMetaLabs.length,
+            nodesComplete: !list.length
         };
+        scheduleLabMetaChunk();
+        if (!list.length) {
+            $scope.userSummaries = [];
+            checkLoadingCompletion();
+            return;
+        }
         scheduleChunkProcessing();
     }
 
@@ -856,6 +1302,15 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         labProcessed: 0,
         labTotal: 0
     };
+    $scope.loadingProgress = {
+        processed: 0,
+        total: 0,
+        percent: 0
+    };
+    refreshLoadingProgressContext();
+    $scope.$watch('loadingState', function () {
+        refreshLoadingProgressContext();
+    }, true);
 
 	$scope.testAUTH("/nodemgmt"); // Проверка авторизации
 	init();
@@ -882,6 +1337,7 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
         // Получение всех нод
         $scope.getAllLabNodes = function () {
             cancelIncrementalProcessing();
+            cancelLabFetchState();
             $scope.loadingState = {
                 active: true,
                 processed: 0,
@@ -889,45 +1345,29 @@ angular.module("unlMainApp").controller('nodemgmtController', function nodemgmtC
                 labProcessed: 0,
                 labTotal: 0
             };
-            $http.get('/api/nodes').then(function (response) {
-                if (response.data.status === "success") {
-                    $scope.nodedata = response.data.data || [];
-                    hydrateNodeIndex($scope.nodedata);
-                    Object.keys(labRefreshState).forEach(function (key) { delete labRefreshState[key]; });
-                    var incomingMeta = response.data.meta || {};
-                    if (incomingMeta.node_count) {
-                        $scope.loadingState.total = incomingMeta.node_count;
-                    } else {
-                        $scope.loadingState.total = $scope.nodedata.length;
+            if (cachedLabTotal) {
+                $scope.loadingState.labTotal = cachedLabTotal;
+            }
+            requestLabSummary().then(function (summary) {
+                var labPaths = (summary && summary.paths) ? summary.paths : [];
+                if (summary && summary.total) {
+                    $scope.loadingState.labTotal = summary.total;
+                    if ($scope.loadingState.labProcessed > summary.total) {
+                        $scope.loadingState.labProcessed = summary.total;
                     }
-                    if (incomingMeta.lab_count) {
-                        $scope.loadingState.labTotal = incomingMeta.lab_count;
-                    } else {
-                        var labsSeen = {};
-                        angular.forEach($scope.nodedata, function (node) {
-                            var normalized = normalizeLabPath(node && node.lab);
-                            if (normalized) {
-                                labsSeen[normalized] = true;
-                            }
-                        });
-                        $scope.loadingState.labTotal = Object.keys(labsSeen).length;
-                    }
-                    startIncrementalSummaries($scope.nodedata, incomingMeta);
                 } else {
-                    console.error("Ошибка при получении нод:", response.data.message);
+                    $scope.loadingState.labTotal = labPaths.length;
+                }
+                if (!labPaths.length) {
                     $scope.nodedata = [];
                     $scope.userSummaries = [];
                     $scope.loadingState.active = false;
-                    $scope.loadingState.labProcessed = 0;
-                    $scope.loadingState.labTotal = 0;
+                    return;
                 }
-            }).catch(function (error) {
-                console.error("Ошибка запроса:", error);
-                $scope.nodedata = [];
-                $scope.userSummaries = [];
-                $scope.loadingState.active = false;
-                $scope.loadingState.labProcessed = 0;
-                $scope.loadingState.labTotal = 0;
+                beginLabQueueLoading(labPaths);
+            }).catch(function (err) {
+                console.error('Failed to load lab summary, falling back to legacy loader', err);
+                legacyLoadAllNodes();
             });
         };
 
