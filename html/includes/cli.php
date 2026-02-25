@@ -14,6 +14,39 @@
  */
 
 /**
+ * Resolve wrappers directory.
+ * Can be overridden per-process with EVE_WRAPPERS_DIR.
+ *
+ * @return	string
+ */
+function wrappersDir()
+{
+	$env = getenv('EVE_WRAPPERS_DIR');
+	if (is_string($env)) {
+		$env = rtrim(trim($env), '/');
+		if ($env !== '' && is_dir($env)) {
+			return $env;
+		}
+	}
+	$preferred = '/opt/unetlab/wrappers-v2';
+	if (is_dir($preferred)) {
+		return $preferred;
+	}
+	return '/opt/unetlab/wrappers';
+}
+
+/**
+ * Build full path to wrapper binary/script.
+ *
+ * @param	string	$name
+ * @return	string
+ */
+function wrappersPath($name)
+{
+	return wrappersDir() . '/' . ltrim((string) $name, '/');
+}
+
+/**
  * Function to create a bridge
  *
  * @param   string  $s                  Bridge name
@@ -305,7 +338,7 @@ function checkUsername($i)
 	}
 
 	// Last, link the profile
-	if (!file_exists($path . '/.profile') && !symlink('/opt/unetlab/wrappers/unl_profile', $path . '/.profile')) {
+	if (!file_exists($path . '/.profile') && !symlink(wrappersPath('unl_profile'), $path . '/.profile')) {
 		// Failed to link the profile
 		error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80013]);
 		return False;
@@ -795,6 +828,21 @@ function prepareNode($n, $id, $t, $nets)
 	// Transition fix: mark the node as prepared (TODO)
 	if (is_dir($n->getRunningPath())) !touch($n->getRunningPath() . '/.prepared');
 
+	// Transition fix for IOL: keep license link valid even when .prepared already exists.
+	if ($n->getNType() == 'iol' && is_dir($n->getRunningPath())) {
+		if (!is_file('/opt/unetlab/addons/iol/bin/iourc')) {
+			// IOL license not found
+			error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80039]);
+			return 80039;
+		}
+		if (!file_exists($n->getRunningPath() . '/iourc') && !is_link($n->getRunningPath() . '/iourc')
+			&& !symlink('/opt/unetlab/addons/iol/bin/iourc', $n->getRunningPath() . '/iourc')) {
+			// Cannot link IOL license
+			error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80040]);
+			return 80040;
+		}
+	}
+
 	if (!is_file($n->getRunningPath() . '/.prepared') && !is_file($n->getRunningPath() . '/.lock')) {
 
 		// Node is not prepared/locked
@@ -1049,7 +1097,7 @@ function start($n, $id, $t, $nets, $scripttimeout)
 			error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][80038]);
 			return 80028;
 		case 'iol':
-			$cmd = '/opt/unetlab/wrappers/iol_wrapper -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F /opt/unetlab/addons/iol/bin/' . $n->getImage() . ' -d ' . $n->getDelay() . ' -e ' . $n->getEthernetCount() . ' -s ' . $n->getSerialCount();
+			$cmd = '/usr/bin/nice -n 5 ' . wrappersPath('iol_wrapper') . ' -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F /opt/unetlab/addons/iol/bin/' . $n->getImage() . ' -d ' . $n->getDelay() . ' -e ' . $n->getEthernetCount() . ' -s ' . $n->getSerialCount();
 			// Adding Serial links
 			foreach ($n->getSerials() as $interface_id => $interface) {
 				if ($interface->getRemoteId() > 0) {
@@ -1065,7 +1113,7 @@ function start($n, $id, $t, $nets, $scripttimeout)
 			$cmd = '/opt/vpcsu/bin/vpcs -m ' . $id . ' -N ' . $n->getName();
 			break;
 		case 'dynamips':
-			$cmd = '/opt/unetlab/wrappers/dynamips_wrapper -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F /opt/unetlab/addons/dynamips/' . $n->getImage() . ' -d ' . $n->getDelay();
+			$cmd = wrappersPath('dynamips_wrapper') . ' -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F /opt/unetlab/addons/dynamips/' . $n->getImage() . ' -d ' . $n->getDelay();
 			break;
 		case 'qemu':
 			if (!is_dir($n->getRunningPath() . '/jail')) {
@@ -1117,7 +1165,7 @@ function start($n, $id, $t, $nets, $scripttimeout)
 				error_log(date('M d H:i:s ') . implode("\n", $o));
 				return 80092;
 			}
-			$cmd = '/opt/unetlab/wrappers/qemu_wrapper -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F ' . $bin . ' -d ' . $n->getDelay();
+			$cmd = wrappersPath('qemu_wrapper') . ' -T ' . $t . ' -D ' . $id . ' -t "' . $n->getName() . '" -F ' . $bin . ' -d ' . $n->getDelay();
 			if ($n->getConsole() == 'vnc'  || $n->getConsole() == 'rdp') {
 				// Disable telnet (wrapper) console
 				$cmd .= ' -x';
