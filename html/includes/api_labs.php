@@ -950,6 +950,129 @@ function buildWorkLabPaths($user, $relativePath, $absolutePath)
 	);
 }
 
+function getDirectorySizeBytes($src)
+{
+	if (!is_dir($src)) {
+		return 0;
+	}
+	$items = scandir($src);
+	if ($items === false) {
+		return 0;
+	}
+	$total = 0;
+	foreach ($items as $item) {
+		if ($item === '.' || $item === '..') {
+			continue;
+		}
+		$path = $src . '/' . $item;
+		if (is_link($path)) {
+			continue;
+		}
+		if (is_dir($path)) {
+			$total += getDirectorySizeBytes($path);
+		} else {
+			$size = @filesize($path);
+			if ($size !== false) {
+				$total += $size;
+			}
+		}
+	}
+	return $total;
+}
+
+function publishCopyProgress(&$state, $progressCallback, $force = false)
+{
+	if (!$progressCallback || !is_callable($progressCallback)) {
+		return;
+	}
+	$total = isset($state['total']) ? (int) $state['total'] : 0;
+	if ($total <= 0) {
+		return;
+	}
+	$copied = isset($state['copied']) ? (int) $state['copied'] : 0;
+	$percent = (int) floor(($copied / $total) * 100);
+	$capPercent = isset($state['cap_percent']) ? (int) $state['cap_percent'] : 100;
+	if ($percent > 100) {
+		$percent = 100;
+	}
+	if ($percent > $capPercent) {
+		$percent = $capPercent;
+	}
+	$now = microtime(true);
+	$lastPercent = isset($state['last_percent']) ? (int) $state['last_percent'] : -1;
+	$lastUpdate = isset($state['last_update']) ? (float) $state['last_update'] : 0;
+	if ($force || ($percent !== $lastPercent && ($now - $lastUpdate) >= 0.5)) {
+		$state['last_percent'] = $percent;
+		$state['last_update'] = $now;
+		call_user_func($progressCallback, $percent);
+	}
+}
+
+function copyDirectoryWithProgress($src, $dst, $ownerUser, $ownerGroup, &$progressState, $progressCallback)
+{
+	if (!is_dir($src)) {
+		return false;
+	}
+	if (!is_dir($dst)) {
+		$parent = dirname($dst);
+		if (!is_dir($parent)) {
+			@mkdir($parent, 0777, true);
+		}
+		if (!@mkdir($dst, 0777, true)) {
+			error_log('[copyDirectoryWithProgress] mkdir failed: ' . $dst);
+			return false;
+		}
+		@chown($dst, $ownerUser);
+		@chgrp($dst, $ownerGroup);
+	}
+	$items = scandir($src);
+	if ($items === false) {
+		return false;
+	}
+	$result = true;
+	foreach ($items as $item) {
+		if ($item === '.' || $item === '..') {
+			continue;
+		}
+		$srcPath = $src . '/' . $item;
+		$dstPath = $dst . '/' . $item;
+		if (is_link($srcPath)) {
+			$target = readlink($srcPath);
+			if (file_exists($dstPath) || is_link($dstPath)) {
+				@unlink($dstPath);
+			}
+			$tmpRes = @symlink($target, $dstPath);
+			if ($tmpRes === false) {
+				error_log('[copyDirectoryWithProgress] symlink failed: ' . $dstPath . ' -> ' . $target);
+			}
+			$result = ($tmpRes !== false) && $result;
+		} else if (is_dir($srcPath)) {
+			$tmpRes = copyDirectoryWithProgress($srcPath, $dstPath, $ownerUser, $ownerGroup, $progressState, $progressCallback);
+			if ($tmpRes === false) {
+				error_log('[copyDirectoryWithProgress] recurse failed: ' . $srcPath . ' -> ' . $dstPath);
+			}
+			$result = ($tmpRes !== false) && $result;
+		} else {
+			$tmpRes = @copy($srcPath, $dstPath);
+			if ($tmpRes === false) {
+				error_log('[copyDirectoryWithProgress] copy failed: ' . $srcPath . ' -> ' . $dstPath);
+			} else {
+				$size = @filesize($srcPath);
+				if ($size !== false && $size > 0) {
+					$progressState['copied'] += $size;
+					publishCopyProgress($progressState, $progressCallback);
+				}
+			}
+			$result = ($tmpRes !== false) && $result;
+		}
+		if (is_file($dstPath) || is_link($dstPath)) {
+			@chown($dstPath, $ownerUser);
+			@chgrp($dstPath, $ownerGroup);
+		}
+	}
+	return $result;
+}
+
 function copyDirectory($src, $dst, $ownerUser = 'www-data', $ownerGroup = 'unl')
 {
 	if (!is_dir($src)) {
@@ -1032,6 +1155,68 @@ function copyDirectoryShellFallback($src, $dst, $ownerUser = 'www-data', $ownerG
 	return true;
 }
 
+function renameNodeArtifacts($nodeDir, $oldId, $newId, $ownerUser, $ownerGroup)
+{
+	if (!is_dir($nodeDir)) {
+		return;
+	}
+	if ((int) $oldId === (int) $newId) {
+		return;
+	}
+	$oldSuffix = sprintf('%05d', $oldId);
+	$newSuffix = sprintf('%05d', $newId);
+	$patterns = array(
+		'nvram_%s',
+		'vlan.dat-%s',
+		'vlan.dat_%s'
+	);
+	foreach ($patterns as $pattern) {
+		$oldFile = $nodeDir . '/' . sprintf($pattern, $oldSuffix);
+		$newFile = $nodeDir . '/' . sprintf($pattern, $newSuffix);
+		if (is_file($oldFile)) {
+			if (is_file($newFile)) {
+				@unlink($newFile);
+			}
+			if (!renameWithShellFallback($oldFile, $newFile, $ownerUser, $ownerGroup)) {
+				error_log('[renameNodeArtifacts] failed rename: ' . $oldFile . ' -> ' . $newFile);
+			}
+		}
+	}
+}
+
+function remapWorkLabClouds($lab, $username)
+{
+	$available = array_keys(listNetworkTypes($username));
+	if (empty($available)) {
+		return;
+	}
+	$available = array_values($available);
+	sort($available);
+	$assigned = array();
+	$index = 0;
+	foreach ($lab->getNetworks() as $network) {
+		$type = $network->getNType();
+		if (!preg_match('/^pnet[0-9]+$/', $type)) {
+			continue;
+		}
+		if (in_array($type, $available, true)) {
+			continue;
+		}
+		if (isset($assigned[$type])) {
+			$target = $assigned[$type];
+		} else {
+			$target = $available[$index % count($available)];
+			$assigned[$type] = $target;
+			$index++;
+		}
+		$network->edit(array(
+			'type' => $target,
+			'username' => $username,
+			'visibility' => 1
+		));
+	}
+}
+
 function renameWithShellFallback($src, $dst, $ownerUser = 'www-data', $ownerGroup = 'unl')
 {
 	if (@rename($src, $dst)) {
@@ -1109,7 +1294,7 @@ function renameTmpViaWrapper($src, $dst, $targetPod)
 	return true;
 }
 
-function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action = 'start')
+function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action = 'start', $progressCallback = null)
 {
 	if (!is_file($absoluteLabPath)) {
 		return array('code' => 404, 'status' => 'fail', 'message' => 'Lab file not found');
@@ -1136,6 +1321,7 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 		'source_exists' => false,
 		'copy_ok' => false
 	);
+	$progressState = null;
 
 	// Reset existing work copy if needed
 	if ($action === 'reset' && is_file($workFile)) {
@@ -1214,6 +1400,8 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 		return array('code' => 400, 'status' => 'fail', 'message' => 'Failed to update node IDs', 'data' => array('copy_debug' => $copyDebug));
 	}
 
+	remapWorkLabClouds($workLab, $user['username']);
+
 	$rc = $workLab->save();
 	if ($rc !== 0) {
 		@unlink($workFile);
@@ -1244,7 +1432,49 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	$copyDebug['dest_tmp'] = $destTmp;
 	$copyDebug['source_exists'] = is_dir($sourceTmp);
 
+	if ($sourceLab->getIsMirror() && $sourceLab->getMirrorPath()) {
+		$mirrorRelative = normalizeUserLabRelativePath($sourceLab->getMirrorPath());
+		$mirrorAbsolute = BASE_LAB . $mirrorRelative;
+		if (is_file($mirrorAbsolute)) {
+			try {
+				$ownerPod = getUserPodByUsername($db, $sourceLab->getAuthor());
+				if ($ownerPod !== false) {
+					$mirrorLab = new Lab($mirrorAbsolute, $ownerPod, $sourceLab->getAuthor(), false);
+					$mirrorLabId = $mirrorLab->getId();
+					$mirrorPod = $mirrorLab->getTenant();
+					if (!empty($mirrorLabId) && $mirrorPod !== false) {
+						$sourcePod = $mirrorPod;
+						$sourceLabId = $mirrorLabId;
+						$sourceTmp = '/opt/unetlab/tmp/' . $sourcePod . '/' . $sourceLabId;
+						$copyDebug['source_tmp'] = $sourceTmp;
+						$copyDebug['source_exists'] = is_dir($sourceTmp);
+						$copyDebug['mirror_source'] = true;
+					}
+				}
+			} catch (Exception $e) {
+				$copyDebug['mirror_source'] = false;
+				$copyDebug['mirror_error'] = $e->getMessage();
+			}
+		}
+	}
+
 	error_log('[apiCreateWorkLab] action=' . $action . ' copy tmp from ' . $sourceTmp . ' to ' . $destTmp);
+
+	$labSize = is_file($absoluteLabPath) ? (int) @filesize($absoluteLabPath) : 0;
+	$totalBytes = $labSize;
+	if (is_dir($sourceTmp)) {
+		$totalBytes += getDirectorySizeBytes($sourceTmp);
+	}
+	if (is_callable($progressCallback) && $totalBytes > 0) {
+		$progressState = array(
+			'total' => $totalBytes,
+			'copied' => max(0, $labSize),
+			'last_percent' => -1,
+			'last_update' => 0,
+			'cap_percent' => 99
+		);
+		publishCopyProgress($progressState, $progressCallback, true);
+	}
 
 	if (is_dir($destTmp)) {
 		rrmdir($destTmp);
@@ -1256,33 +1486,76 @@ function apiCreateWorkLab($db, $user, $absoluteLabPath, $relativePath, $action =
 	}
 
 	if (is_dir($sourceTmp)) {
-		$copied = copyDirectory($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl');
+		if ($progressState !== null && is_callable($progressCallback)) {
+			$copied = copyDirectoryWithProgress($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl', $progressState, $progressCallback);
+		} else {
+			$copied = copyDirectory($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl');
+		}
 		if (!$copied) {
 			error_log('[apiCreateWorkLab] fallback copy via shell');
+			if ($progressState !== null && is_callable($progressCallback)) {
+				$progressState['copied'] = (int) floor($progressState['total'] * 0.95);
+				publishCopyProgress($progressState, $progressCallback, true);
+			}
 			$copied = copyTmpViaWrapper($sourceTmp, $destTmp, $targetPod);
 		}
 		if (!$copied) {
 			error_log('[apiCreateWorkLab] fallback copy via shell cp');
+			if ($progressState !== null && is_callable($progressCallback)) {
+				$progressState['copied'] = (int) floor($progressState['total'] * 0.95);
+				publishCopyProgress($progressState, $progressCallback, true);
+			}
 			$copied = copyDirectoryShellFallback($sourceTmp, $destTmp, 'unl' . $targetPod, 'unl');
 		}
 		$copyDebug['copy_ok'] = $copied ? true : false;
 		error_log('[apiCreateWorkLab] copy result: ' . ($copied ? 'ok' : 'fail'));
-		// Rename node directories according to mapping
+		// Rename node directories to temp_* first to avoid collisions, then to new IDs
+		$staged = array();
 		foreach ($nodeMap as $oldId => $newId) {
 			$oldDir = $destTmp . '/' . $oldId;
-			$newDir = $destTmp . '/' . $newId;
-			if (is_dir($oldDir)) {
-				$renamed = renameWithShellFallback($oldDir, $newDir, 'unl' . $targetPod, 'unl');
-				if (!$renamed) {
-					$renamed = renameTmpViaWrapper($oldDir, $newDir, $targetPod);
-				}
-				if (!$renamed) {
-					error_log('[apiCreateWorkLab] rename failed: ' . $oldDir . ' -> ' . $newDir);
-				}
+			if (!is_dir($oldDir)) {
+				continue;
 			}
+			$tmpDir = $destTmp . '/temp_' . $oldId;
+			if (is_dir($tmpDir)) {
+				rrmdir($tmpDir);
+			}
+			$renamed = renameWithShellFallback($oldDir, $tmpDir, 'unl' . $targetPod, 'unl');
+			if (!$renamed) {
+				$renamed = renameTmpViaWrapper($oldDir, $tmpDir, $targetPod);
+			}
+			if (!$renamed) {
+				error_log('[apiCreateWorkLab] staging rename failed: ' . $oldDir . ' -> ' . $tmpDir);
+				continue;
+			}
+			$staged[] = array(
+				'old_id' => $oldId,
+				'new_id' => $newId,
+				'tmp_dir' => $tmpDir,
+				'new_dir' => $destTmp . '/' . $newId
+			);
+		}
+
+		foreach ($staged as $entry) {
+			$tmpDir = $entry['tmp_dir'];
+			$newDir = $entry['new_dir'];
+			$renamed = renameWithShellFallback($tmpDir, $newDir, 'unl' . $targetPod, 'unl');
+			if (!$renamed) {
+				$renamed = renameTmpViaWrapper($tmpDir, $newDir, $targetPod);
+			}
+			if (!$renamed) {
+				error_log('[apiCreateWorkLab] rename failed: ' . $tmpDir . ' -> ' . $newDir);
+				continue;
+			}
+			renameNodeArtifacts($newDir, $entry['old_id'], $entry['new_id'], 'unl' . $targetPod, 'unl');
 		}
 	} else {
 		error_log('[apiCreateWorkLab] source tmp dir not found: ' . $sourceTmp);
+	}
+	if ($progressState !== null && is_callable($progressCallback)) {
+		$progressState['cap_percent'] = 100;
+		$progressState['copied'] = $progressState['total'];
+		publishCopyProgress($progressState, $progressCallback, true);
 	}
 
 	return array(

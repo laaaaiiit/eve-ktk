@@ -49,6 +49,9 @@ function processJob($db, $job)
 			case 'lab_operation':
 				$result = runLabOperationJob($db, $job, $payload);
 				break;
+			case 'work_copy':
+				$result = runWorkCopyJob($db, $job, $payload);
+				break;
 			default:
 				throw new Exception('Unsupported job action: ' . $job['action']);
 		}
@@ -63,6 +66,37 @@ function processJob($db, $job)
 		updateJobStatus($db, $job['id'], 'failed', $errorPayload);
 		error_log(date('M d H:i:s ') . 'ERROR: job #' . $job['id'] . ' failed - ' . $e->getMessage());
 	}
+}
+
+function runWorkCopyJob($db, $job, $payload)
+{
+	$action = isset($payload['action']) ? strtolower($payload['action']) : 'start';
+	if (!in_array($action, array('start', 'reset'))) {
+		$action = 'start';
+	}
+	$relativePath = isset($payload['relative_path']) ? $payload['relative_path'] : '';
+	if ($relativePath === '') {
+		$relativePath = $job['lab_path'];
+	}
+	$labFileFull = BASE_LAB . $job['lab_path'];
+	if (!is_file($labFileFull)) {
+		throw new Exception('Lab file missing: ' . $job['lab_path']);
+	}
+
+	$userContext = array(
+		'username' => $job['username'],
+		'tenant' => $job['tenant'],
+		'role' => $job['user_role']
+	);
+	$progressCallback = function ($percent) use ($db, $job) {
+		updateJobProgress($db, $job['id'], $percent);
+	};
+
+	$result = apiCreateWorkLab($db, $userContext, $labFileFull, $relativePath, $action, $progressCallback);
+	if (!isset($result['final_status'])) {
+		$result['final_status'] = isset($result['status']) && $result['status'] === 'success' ? 'success' : 'failed';
+	}
+	return $result;
 }
 
 function runNodeBatchJob($db, $job, $payload)

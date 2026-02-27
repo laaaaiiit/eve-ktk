@@ -22,6 +22,13 @@ php_value upload_max_filesize 180M
 	RewriteEngine On
 	RewriteBase /
 
+	# Route primary domain entry to v2 UI (keep /v2 prefix during migration)
+	RewriteRule ^$ /v2/login [R=302,L,NE]
+
+	# Redirect legacy top-level UI routes to new v2 pages
+	RewriteRule ^(login|main|usermgmt|cloudmgmt|labmgmt|roles|system-status|system-logs|taskqueue|console)/?$ /v2/$1 [R=302,L,NE]
+	RewriteRule ^lab/([A-Fa-f0-9-]{36})/?$ /v2/lab/$1 [R=302,L,NE]
+
 	# If starts with /api, call API router
 	RewriteCond %{REQUEST_URI} ^/api/
 	RewriteRule ^(.*)$ /api.php [B,L,QSA]

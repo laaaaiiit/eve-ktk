@@ -1949,7 +1949,7 @@ function pollJob(jobId) {
                     deferred.resolve(job);
                     if (typeof updateJobOverlay === 'function') {
                         setTimeout(function () {
-                            hideJobOverlay();
+                            hideJobOverlay(job.id);
                         }, 1200);
                     }
                 } else {
@@ -1986,14 +1986,15 @@ function enqueueNodeAction(action, ids) {
         data: JSON.stringify({ action: action, ids: ids })
     }).done(function (data) {
         if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
+            var jobId = data.data.job_id;
             if (typeof updateJobOverlay === 'function') {
-                updateJobOverlay({ id: data.data.job_id, action: 'nodes_batch', operation: action, progress: 0, status: 'running' });
+                updateJobOverlay({ id: jobId, action: 'nodes_batch', operation: action, progress: 0, status: 'running' });
             }
-            pollJob(data.data.job_id).done(function (job) {
+            pollJob(jobId).done(function (job) {
                 deferred.resolve(job.result || job);
             }).fail(function (err) {
                 if (typeof updateJobOverlay === 'function') {
-                    hideJobOverlay();
+                    hideJobOverlay(jobId);
                 }
                 deferred.reject(err);
             });
@@ -2040,14 +2041,15 @@ function enqueueLabOperation(operation, payload) {
         data: JSON.stringify(body)
     }).done(function (data) {
         if ((data.code === 202 || data.status === 'accepted') && data.data && data.data.job_id) {
+            var jobId = data.data.job_id;
             if (typeof updateJobOverlay === 'function') {
-                updateJobOverlay({ id: data.data.job_id, action: 'lab_operation', operation: operation, progress: 0, status: 'running' });
+                updateJobOverlay({ id: jobId, action: 'lab_operation', operation: operation, progress: 0, status: 'running' });
             }
-            pollJob(data.data.job_id).done(function (job) {
+            pollJob(jobId).done(function (job) {
                 deferred.resolve(job.result || job);
             }).fail(function (err) {
                 if (typeof updateJobOverlay === 'function') {
-                    hideJobOverlay();
+                    hideJobOverlay(jobId);
                 }
                 deferred.reject(err);
             });
@@ -2148,12 +2150,20 @@ function extractJobResults(payload) {
 }
 
 function ensureJobOverlayElement() {
-    var existing = $('#job-overlay-panel');
+    var existing = $('#job-overlay-stack');
     if (existing.length) {
         return existing;
     }
-    var panel = $(
-        '<div id="job-overlay-panel" style="position:fixed;right:20px;bottom:20px;z-index:1050;width:260px;background:#0f172a;box-shadow:0 10px 25px rgba(0,0,0,0.45);border-radius:16px;border:1px solid rgba(255,255,255,0.1);color:#f8fafc;padding:16px;font-family:\'Inter\',sans-serif;">' +
+    var stack = $(
+        '<div id="job-overlay-stack" style="position:fixed;right:20px;bottom:20px;z-index:1050;display:flex;flex-direction:column;gap:12px;width:260px;"></div>'
+    );
+    $('body').append(stack);
+    return stack;
+}
+
+function buildJobOverlayCard(jobId) {
+    return $(
+        '<div class="job-overlay-card" data-job-id="' + jobId + '" style="background:#0f172a;box-shadow:0 10px 25px rgba(0,0,0,0.45);border-radius:16px;border:1px solid rgba(255,255,255,0.1);color:#f8fafc;padding:16px;font-family:\'Inter\',sans-serif;">' +
             '<div class="job-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
                 '<div>' +
                     '<div class="job-action" style="font-size:12px;font-weight:600;color:#94a3b8;">' + getJobHeaderLabel() + '</div>' +
@@ -2167,8 +2177,6 @@ function ensureJobOverlayElement() {
             '<div class="job-meta" style="margin-top:12px;font-size:12px;color:#94a3b8;">Job #<span class="job-id">--</span> • <span class="job-status">' + getLocalizedJobStatus('queued') + '</span></div>' +
         '</div>'
     );
-    $('body').append(panel);
-    return panel;
 }
 
 function updateJobOverlay(job) {
@@ -2176,20 +2184,75 @@ function updateJobOverlay(job) {
         return;
     }
     var panel = ensureJobOverlayElement();
+    var card = panel.find('.job-overlay-card[data-job-id="' + job.id + '"]');
+    if (!card.length) {
+        card = buildJobOverlayCard(job.id);
+        panel.append(card);
+    }
     var actionKey = (job.operation || (job.payload && job.payload.operation) || job.action || '').toString().toLowerCase();
     var statusNormalized = (job.status || '').toLowerCase();
-    panel.find('.job-action').text(getJobHeaderLabel());
-    panel.find('.job-title').text(describeJobAction(actionKey));
-    panel.find('.job-id').text(job.id);
-    panel.find('.job-status').text(getLocalizedJobStatus(statusNormalized));
+    card.find('.job-action').text(getJobHeaderLabel());
+    card.find('.job-title').text(describeJobAction(actionKey));
+    card.find('.job-id').text(job.id);
+    card.find('.job-status').text(getLocalizedJobStatus(statusNormalized));
     var percent = job.progress !== undefined ? parseInt(job.progress, 10) : 0;
     percent = Math.max(0, Math.min(100, percent));
-    panel.find('.job-progress-bar').css('width', percent + '%');
-    panel.find('.job-percent').text(percent + '%');
+    card.find('.job-progress-bar').css('width', percent + '%');
+    card.find('.job-percent').text(percent + '%');
 }
 
-function hideJobOverlay() {
-    $('#job-overlay-panel').remove();
+function hideJobOverlay(jobId) {
+    if (jobId !== undefined && jobId !== null) {
+        $('#job-overlay-stack').find('.job-overlay-card[data-job-id="' + jobId + '"]').remove();
+        if (!$('#job-overlay-stack').children().length) {
+            $('#job-overlay-stack').remove();
+        }
+        return;
+    }
+    $('#job-overlay-stack').remove();
+}
+
+function restoreJobOverlaysForLab() {
+    if (!$('#lab-viewport').length) {
+        return;
+    }
+    var labPath = $('#lab-viewport').attr('data-path') || '';
+    if (!labPath) {
+        return;
+    }
+    if (window.JOB_OVERLAY_LAB_PATH === labPath) {
+        return;
+    }
+    window.JOB_OVERLAY_LAB_PATH = labPath;
+    window.JOB_OVERLAY_POLLING = window.JOB_OVERLAY_POLLING || {};
+    $.ajax({
+        cache: false,
+        timeout: TIMEOUT,
+        type: 'GET',
+        url: encodeURI('/api/jobs'),
+        dataType: 'json',
+        data: {
+            status: 'running,pending',
+            per_page: 10,
+            lab: labPath
+        }
+    }).done(function (data) {
+        if (!data || !data.data || !Array.isArray(data.data.items)) {
+            return;
+        }
+        data.data.items.forEach(function (job) {
+            if (!job || !job.id) {
+                return;
+            }
+            updateJobOverlay(job);
+            if (!window.JOB_OVERLAY_POLLING[job.id]) {
+                window.JOB_OVERLAY_POLLING[job.id] = true;
+                pollJob(job.id).always(function () {
+                    delete window.JOB_OVERLAY_POLLING[job.id];
+                });
+            }
+        });
+    });
 }
 
 function describeJobAction(actionKey) {
@@ -2318,7 +2381,31 @@ function recursive_start(nodes, count) {
         deferred.resolve();
         return deferred.promise();
     }
-    var ids = targets.map(function (t) { return t.id; });
+    var runningStatus = {};
+    try {
+        if (window.LAB_STATUS && window.LAB_STATUS.nodes) {
+            $.each(window.LAB_STATUS.nodes, function (_, node) {
+                if (node && node.id !== undefined && node.status !== undefined) {
+                    runningStatus[node.id.toString()] = parseInt(node.status, 10);
+                }
+            });
+        }
+    } catch (err) {
+        runningStatus = {};
+    }
+
+    var filteredTargets = targets.filter(function (meta) {
+        var status = runningStatus[meta.id];
+        return !(status === 1 || status === 2);
+    });
+
+    if (!filteredTargets.length) {
+        addMessage('info', 'All selected nodes are already running.');
+        deferred.resolve([]);
+        return deferred.promise();
+    }
+
+    var ids = filteredTargets.map(function (t) { return t.id; });
     enqueueNodeAction('start', ids).done(function (payload) {
         var results = extractJobResults(payload);
         var resultMap = {};
@@ -2327,7 +2414,7 @@ function recursive_start(nodes, count) {
                 resultMap[entry.id.toString()] = entry;
             }
         });
-        targets.forEach(function (meta) {
+        filteredTargets.forEach(function (meta) {
             var entry = resultMap[meta.id];
             if (entry && entry.code === 200) {
                 addMessage('success', meta.name + ': ' + MESSAGES[76]);
@@ -4001,6 +4088,7 @@ function printLabTopology() {
             //lab_topology.repaintEverything()
             $("#loading-lab").remove();
             $("#lab-sidebar *").show();
+            restoreJobOverlaysForLab();
         })
     }).fail(function (message1, message2) {
         if (message1 != null) {
@@ -4337,7 +4425,13 @@ function printListTextobjects(textobjects) {
 
 // Print Authentication Page
 function printPageAuthentication() {
-    location.href = "/";
+    var redirect = window.location.pathname + window.location.search;
+    if (!redirect || redirect === '/') {
+        location.href = "/#!/login";
+        return;
+    }
+
+    location.href = "/#!/login?redirect=" + encodeURIComponent(redirect);
     //var html = new EJS({url: '/themes/default/ejs/login.ejs'}).render()
     //$('#body').html(html);
     //$("#form-login input:eq(0)").focus();
@@ -4537,10 +4631,24 @@ function printPageLabOpen(lab) {
 
 
         })
-        if (LOCK == 1) {
-            lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), false);
-            $('.customShape').resizable('disable');
-        }
+		var hasLockButton = $('.action-lock-lab, .action-unlock-lab').length > 0;
+		if (hasLockButton) {
+			if (LOCK == 1) {
+				$('.action-lock-lab').html('<i style="color:red" class="glyphicon glyphicon-remove-circle"></i>' + MESSAGES[167]);
+				$('.action-lock-lab').removeClass('action-lock-lab').addClass('action-unlock-lab');
+				if (typeof lab_topology !== 'undefined' && lab_topology) {
+					lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), false);
+				}
+				$('.customShape').resizable('disable');
+			} else {
+				$('.action-unlock-lab').html('<i class="glyphicon glyphicon-ok-circle"></i>' + MESSAGES[166]);
+				$('.action-unlock-lab').removeClass('action-unlock-lab').addClass('action-lock-lab');
+				if (hasLabWritePermissions() && typeof lab_topology !== 'undefined' && lab_topology) {
+					lab_topology.setDraggable($('.node_frame, .network_frame, .customShape'), true);
+					$('.customShape').resizable('enable');
+				}
+			}
+		}
     })
 }
 
@@ -5832,6 +5940,7 @@ function newConnModal(info, oe) {
             }
             html += '</option>'
             html += '</select>' +
+                '<p class="text-danger addConn-src-warning" style="display:none;"></p>' +
                 '<div style="width:3px;height:30px;"></div>' +
                 '</div>' +
                 '</div>' +
@@ -5885,6 +5994,7 @@ function newConnModal(info, oe) {
             }
             html += '</option>'
             html += '</select>' +
+                '<p class="text-danger addConn-dst-warning" style="display:none;"></p>' +
                 '<div style="width:3px;height:30px;"></div>' +
                 '</div>' +
                 '</div>' +
@@ -5905,16 +6015,47 @@ function newConnModal(info, oe) {
                 '</form>'
 
             addModal(title, html, '');
+            setTimeout(updateAddConnSaveState, 0);
         });
     });
     $('body').on('change', 'select.srcConn', function (e) {
         var iname = $('select.srcConn option[value="' + $('select.srcConn').val() + '"]').text();
         $('.addConnSrc').html(iname)
+        updateAddConnSaveState();
     });
     $('body').on('change', 'select.dstConn', function (e) {
         var iname = $('select.dstConn option[value="' + $('select.dstConn').val() + '"]').text();
         $('.addConnDst').html(iname)
+        updateAddConnSaveState();
     });
+}
+
+function updateAddConnSaveState() {
+    var $form = $('#addConn');
+    if (!$form.length) {
+        return;
+    }
+
+    var $saveButton = $form.find('.addConn-form-save');
+    var srcType = ($form.find('input[name="addConn[srcNodeType]"]').val() === 'node');
+    var dstType = ($form.find('input[name="addConn[dstNodeType]"]').val() === 'node');
+    var $srcSelect = $form.find('select.srcConn');
+    var $dstSelect = $form.find('select.dstConn');
+
+    var srcOptionsAvailable = !srcType || $srcSelect.find('option:not([disabled])').length > 0;
+    var dstOptionsAvailable = !dstType || $dstSelect.find('option:not([disabled])').length > 0;
+    var srcHasValue = !srcType || ($srcSelect.val() && !$srcSelect.find('option:selected').prop('disabled'));
+    var dstHasValue = !dstType || ($dstSelect.val() && !$dstSelect.find('option:selected').prop('disabled'));
+
+    $form.find('.addConn-src-warning')
+        .text(srcOptionsAvailable ? '' : 'No available interfaces on this node')
+        .toggle(srcType && !srcOptionsAvailable);
+    $form.find('.addConn-dst-warning')
+        .text(dstOptionsAvailable ? '' : 'No available interfaces on this node')
+        .toggle(dstType && !dstOptionsAvailable);
+
+    var enable = srcOptionsAvailable && dstOptionsAvailable && srcHasValue && dstHasValue;
+    $saveButton.prop('disabled', !enable);
 }
 
 function connContextMenu(e, ui) {

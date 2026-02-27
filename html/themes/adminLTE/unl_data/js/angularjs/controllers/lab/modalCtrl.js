@@ -703,6 +703,8 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data) {
   	};
 
 	function queueConnectionJob(payload, detail) {
+		$scope.result.jobQueued = true;
+		$uibModalInstance.close($scope.result);
 		return $http.post('/api/labs'+$rootScope.lab+'/operations', payload).then(function successCallback(response){
 			var jobId = response.data && response.data.data ? response.data.data.job_id : null;
 			if (jobId) {
@@ -715,8 +717,6 @@ function AddConnModalCtrl($scope, $uibModalInstance, $http, $rootScope, data) {
 					successMessage: detail
 				});
 			}
-			$scope.result.jobQueued = true;
-			$uibModalInstance.close($scope.result);
 		}, function errorCallback(response){
 			var message = (response.data && response.data.message) ? response.data.message : 'Server Error';
 			toastr["error"](message, "Error");

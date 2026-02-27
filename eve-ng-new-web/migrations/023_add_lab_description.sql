@@ -1,0 +1,2 @@
+ALTER TABLE labs
+  ADD COLUMN IF NOT EXISTS description TEXT NULL;

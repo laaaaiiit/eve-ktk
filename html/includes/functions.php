@@ -175,6 +175,7 @@ function ensureJobsTable($db)
 				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				INDEX status_idx (status),
+				INDEX status_tenant_username_idx (status, tenant, username),
 				INDEX username_idx (username)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 			$statement = $db->prepare($query);
@@ -206,6 +207,20 @@ function ensureJobsTable($db)
 				}
 			} catch (Exception $ce) {
 				error_log(date('M d H:i:s ') . 'ERROR: unable to ensure job cancel flag column');
+				error_log(date('M d H:i:s ') . (string) $ce);
+			}
+			try {
+				$indexQuery = "SHOW INDEX FROM jobs WHERE Key_name = 'status_tenant_username_idx';";
+				$indexStatement = $db->prepare($indexQuery);
+				$indexStatement->execute();
+				$indexResult = $indexStatement->fetch();
+				if (empty($indexResult)) {
+					$alter = "ALTER TABLE jobs ADD INDEX status_tenant_username_idx (status, tenant, username);";
+					$alterStatement = $db->prepare($alter);
+					$alterStatement->execute();
+				}
+			} catch (Exception $ce) {
+				error_log(date('M d H:i:s ') . 'ERROR: unable to ensure job status/user index');
 				error_log(date('M d H:i:s ') . (string) $ce);
 			}
 		}
@@ -277,7 +292,16 @@ function claimPendingJob($db)
 {
 	try {
 		$db->beginTransaction();
-		$query = "SELECT * FROM jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1 FOR UPDATE;";
+		$query = "SELECT j.* FROM jobs j
+			WHERE j.status = 'pending'
+				AND NOT EXISTS (
+					SELECT 1 FROM jobs r
+					WHERE r.status = 'running'
+						AND r.tenant = j.tenant
+						AND r.username = j.username
+				)
+			ORDER BY j.id ASC
+			LIMIT 1 FOR UPDATE;";
 		$statement = $db->prepare($query);
 		$statement->execute();
 		$job = $statement->fetch(PDO::FETCH_ASSOC);
@@ -1014,7 +1038,8 @@ function getUserByCookie($db, $cookie)
 			return array(
 				'email' => $result['email'],
 				'folder' => $result['folder'],
-				'lab' => $result['lab'],
+				// Do not bind users to a previously opened lab during auth.
+				'lab' => null,
 				'lang' => (empty($result['lang']) ? 'en' : $result['lang']),
 				'theme' => (empty($result['theme']) ? 'dark' : $result['theme']),
 				'name' => $result['name'],

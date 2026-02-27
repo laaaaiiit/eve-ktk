@@ -170,7 +170,7 @@
                     class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                     ng-class="themeClass('bg-amber-500/30 text-white hover:bg-amber-500/50','bg-amber-100 text-amber-800 hover:bg-amber-200')"
                     ng-if="!labInfo.workExists"
-                    ng-disabled="blockButtons"
+                    ng-disabled="blockButtons || workCopyInProgress"
                     ng-click="startLabWork('start')">
               <span data-ng-bind="t.startWorkButton"></span>
             </button>
@@ -178,6 +178,7 @@
                     class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                     ng-class="themeClass('bg-emerald-500/30 text-white hover:bg-emerald-500/50','bg-emerald-100 text-emerald-800 hover:bg-emerald-200')"
                     ng-if="labInfo.workExists"
+                    ng-disabled="workCopyInProgress"
                     ng-click="continueLabWork()">
               <span data-ng-bind="t.continueWorkButton"></span>
             </button>
@@ -185,7 +186,7 @@
                     class="px-4 py-2 rounded-2xl text-sm font-semibold transition cursor-pointer"
                     ng-class="themeClass('bg-rose-500/30 text-white hover:bg-rose-500/50','bg-rose-100 text-rose-800 hover:bg-rose-200')"
                     ng-if="labInfo.workExists"
-                    ng-disabled="blockButtons"
+                    ng-disabled="blockButtons || workCopyInProgress"
                     ng-click="startLabWork('reset')">
               <span data-ng-bind="t.restartWorkButton"></span>
             </button>

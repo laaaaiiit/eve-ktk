@@ -355,7 +355,7 @@ function getNodeTemplateOptionsV2(string $template): array
         ];
     }
     if (in_array($type, ['qemu', 'dynamips', 'iol', 'docker'], true)) {
-        $defaultRam = ($type === 'iol') ? 512 : 1024;
+        $defaultRam = 1024;
         $options['ram'] = ['type' => 'input', 'value' => (int) ($tpl['ram'] ?? $defaultRam)];
     }
     if ($type === 'qemu') {
@@ -383,7 +383,7 @@ function getNodeTemplateOptionsV2(string $template): array
     if ($type === 'docker') {
         $options['ethernet'] = ['type' => 'input', 'value' => (int) ($tpl['ethernet'] ?? 1)];
     }
-    if (in_array($template, ['bigip', 'firepower6', 'firepower', 'linux'], true)) {
+    if (in_array($template, ['bigip', 'firepower6', 'firepower'], true)) {
         $options['firstmac'] = ['type' => 'input', 'value' => (string) ($tpl['firstmac'] ?? '')];
     }
 
@@ -393,6 +393,42 @@ function getNodeTemplateOptionsV2(string $template): array
         'type' => $type,
         'options' => $options,
     ];
+}
+
+function nodeImageMatchesTemplateList(string $image, array $images): bool
+{
+    if ($image === '') {
+        return true;
+    }
+    if (array_key_exists($image, $images)) {
+        return true;
+    }
+    foreach ($images as $key => $_label) {
+        if (strcasecmp((string) $key, $image) === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function validateNodeImageForTemplate(string $nodeType, string $template, string $image): void
+{
+    $nodeType = strtolower(trim($nodeType));
+    $template = trim($template);
+    $image = trim($image);
+
+    if ($image === '' || $template === '' || $nodeType === 'vpcs') {
+        return;
+    }
+
+    $images = listNodeImagesV2($nodeType, $template, true);
+    if (empty($images)) {
+        return;
+    }
+
+    if (!nodeImageMatchesTemplateList($image, $images)) {
+        throw new InvalidArgumentException('image_invalid_for_template');
+    }
 }
 
 function decodeLabObjectDataBase64(string $encoded)
@@ -899,6 +935,7 @@ function createLabNode(PDO $db, array $viewer, string $labId, array $payload): a
     $qemuVersion = trim((string) ($payload['qemu_version'] ?? ($tpl['qemu_version'] ?? '')));
     $qemuArch = trim((string) ($payload['qemu_arch'] ?? ($tpl['qemu_arch'] ?? '')));
     $qemuNic = trim((string) ($payload['qemu_nic'] ?? ($tpl['qemu_nic'] ?? '')));
+    validateNodeImageForTemplate($nodeType, $template, $image);
 
     if ($name === '') {
         throw new InvalidArgumentException('name_required');
@@ -908,10 +945,10 @@ function createLabNode(PDO $db, array $viewer, string $labId, array $payload): a
     }
     $isIolNode = ($nodeType === 'iol');
     if ($isIolNode) {
-        if ($ramMb <= 0 || $ramMb === 1024) {
-            $ramMb = 512;
+        if ($ramMb <= 0) {
+            $ramMb = 1024;
         }
-        if ($nvramMb <= 0 || $nvramMb === 1024) {
+        if ($nvramMb <= 0) {
             $nvramMb = 256;
         }
         if ($ethernetCount < 0 || $ethernetCount > 16) {
@@ -1250,6 +1287,7 @@ function updateLabNode(PDO $db, array $viewer, string $labId, string $nodeId, ar
                 qemu_arch,
                 qemu_nic,
                 node_type,
+                template,
                 ethernet_count,
                 serial_count,
                 left_pos,
@@ -1277,6 +1315,7 @@ function updateLabNode(PDO $db, array $viewer, string $labId, string $nodeId, ar
     $ramMb = (int) ($current['ram_mb'] ?? 0);
     $nvramMb = (int) ($current['nvram_mb'] ?? 0);
     $nodeType = strtolower(trim((string) ($current['node_type'] ?? '')));
+    $template = trim((string) ($current['template'] ?? ''));
     $firstMac = (string) ($current['first_mac'] ?? '');
     $qemuOptions = (string) ($current['qemu_options'] ?? '');
     $qemuVersion = (string) ($current['qemu_version'] ?? '');
@@ -1348,6 +1387,8 @@ function updateLabNode(PDO $db, array $viewer, string $labId, string $nodeId, ar
     if (array_key_exists('serial', $payload)) {
         $serialCount = (int) $payload['serial'];
     }
+    validateNodeImageForTemplate($nodeType, $template, $image);
+
     if ($nodeType === 'iol') {
         if ($ethernetCount < 0 || $ethernetCount > 16) {
             throw new InvalidArgumentException('ethernet_count_invalid');
@@ -2165,6 +2206,55 @@ function detachLabAttachment(PDO $db, array $viewer, string $labId, string $atta
             ]
         );
     }
+    $hotApplyFailure = null;
+    if ($detached && !empty($hotApply['skipped']) && is_array($hotApply['skipped'])) {
+        foreach ($hotApply['skipped'] as $skip) {
+            if (!is_array($skip)) {
+                continue;
+            }
+            $skippedNodeId = trim((string) ($skip['node_id'] ?? ''));
+            $rowNodeId = trim((string) ($row['node_id'] ?? ''));
+            if ($skippedNodeId !== '' && $rowNodeId !== '' && $skippedNodeId !== $rowNodeId) {
+                continue;
+            }
+            $reason = strtolower(trim((string) ($skip['reason'] ?? '')));
+            if ($reason === '' || $reason === 'node_not_running') {
+                continue;
+            }
+            $detail = is_array($skip['detail'] ?? null) ? (array) $skip['detail'] : [];
+            $error = trim((string) ($detail['error'] ?? $detail['details'] ?? $skip['error'] ?? ''));
+            if ($error === '') {
+                $error = $reason;
+            }
+            $hotApplyFailure = [
+                'reason' => $reason,
+                'error' => $error,
+            ];
+            break;
+        }
+    }
+    if (is_array($hotApplyFailure)) {
+        $db->beginTransaction();
+        try {
+            $rollbackStmt = $db->prepare(
+                "UPDATE lab_node_ports
+                 SET network_id = :network_id,
+                     updated_at = NOW()
+                 WHERE id = :attachment_id"
+            );
+            $rollbackStmt->bindValue(':network_id', (string) ($row['network_id'] ?? ''), PDO::PARAM_STR);
+            $rollbackStmt->bindValue(':attachment_id', $attachmentId, PDO::PARAM_STR);
+            $rollbackStmt->execute();
+            $db->commit();
+        } catch (Throwable $rollbackError) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw new RuntimeException('cloud_detach_rollback_failed: ' . $rollbackError->getMessage(), 0, $rollbackError);
+        }
+
+        throw new RuntimeException('cloud_detach_hot_apply_failed: ' . (string) ($hotApplyFailure['error'] ?? 'unknown'));
+    }
 
 		return [
 	        'attachment_id' => (string) ($row['id'] ?? $attachmentId),
@@ -2853,22 +2943,76 @@ function createLabNodeNetworkLink(PDO $db, array $viewer, string $labId, array $
             ]
         );
     }
+    $hotApplyFailure = null;
+    if (!empty($hotApply['skipped']) && is_array($hotApply['skipped'])) {
+        foreach ($hotApply['skipped'] as $skip) {
+            if (!is_array($skip)) {
+                continue;
+            }
+            $skippedNodeId = trim((string) ($skip['node_id'] ?? ''));
+            if ($skippedNodeId !== '' && $skippedNodeId !== $sourceNodeId) {
+                continue;
+            }
+            $reason = strtolower(trim((string) ($skip['reason'] ?? '')));
+            if ($reason === '' || $reason === 'node_not_running') {
+                continue;
+            }
+            $detail = is_array($skip['detail'] ?? null) ? (array) $skip['detail'] : [];
+            $error = trim((string) ($detail['error'] ?? $detail['details'] ?? $skip['error'] ?? ''));
+            if ($error === '') {
+                $error = $reason;
+            }
+            $hotApplyFailure = [
+                'reason' => $reason,
+                'error' => $error,
+            ];
+            break;
+        }
+    }
 
-		return [
-	        'network_id' => (string) ($network['id'] ?? $networkId),
-	        'network_name' => (string) ($network['name'] ?? ''),
-	        'network_type' => (string) ($network['network_type'] ?? ''),
-			'source' => [
-				'node_id' => (string) ($sourcePort['node_id'] ?? ''),
-				'node_name' => (string) ($sourcePort['node_name'] ?? ''),
-				'port_id' => (string) ($sourcePort['id'] ?? ''),
-				'port_name' => (string) ($sourcePort['name'] ?? ''),
-                'port_label' => formatLabPortDisplayName(
-                    (string) ($sourcePort['node_type'] ?? ''),
-                    (string) ($sourcePort['name'] ?? '')
-                ),
-			],
-			'runtime_relink' => $relink,
-	        'runtime_hot_apply' => $hotApply,
-		];
+    if (is_array($hotApplyFailure)) {
+        $previousNetworkId = trim((string) ($sourcePort['network_id'] ?? ''));
+        $db->beginTransaction();
+        try {
+            $rollbackStmt = $db->prepare(
+                "UPDATE lab_node_ports
+                 SET network_id = :network_id,
+                     updated_at = NOW()
+                 WHERE id = :port_id"
+            );
+            if ($previousNetworkId === '') {
+                $rollbackStmt->bindValue(':network_id', null, PDO::PARAM_NULL);
+            } else {
+                $rollbackStmt->bindValue(':network_id', $previousNetworkId, PDO::PARAM_STR);
+            }
+            $rollbackStmt->bindValue(':port_id', (string) ($sourcePort['id'] ?? ''), PDO::PARAM_STR);
+            $rollbackStmt->execute();
+            $db->commit();
+        } catch (Throwable $rollbackError) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw new RuntimeException('cloud_attach_rollback_failed: ' . $rollbackError->getMessage(), 0, $rollbackError);
+        }
+
+        throw new RuntimeException('cloud_attach_hot_apply_failed: ' . (string) ($hotApplyFailure['error'] ?? 'unknown'));
+    }
+
+    return [
+        'network_id' => (string) ($network['id'] ?? $networkId),
+        'network_name' => (string) ($network['name'] ?? ''),
+        'network_type' => (string) ($network['network_type'] ?? ''),
+        'source' => [
+            'node_id' => (string) ($sourcePort['node_id'] ?? ''),
+            'node_name' => (string) ($sourcePort['node_name'] ?? ''),
+            'port_id' => (string) ($sourcePort['id'] ?? ''),
+            'port_name' => (string) ($sourcePort['name'] ?? ''),
+            'port_label' => formatLabPortDisplayName(
+                (string) ($sourcePort['node_type'] ?? ''),
+                (string) ($sourcePort['name'] ?? '')
+            ),
+        ],
+        'runtime_relink' => $relink,
+        'runtime_hot_apply' => $hotApply,
+    ];
 }

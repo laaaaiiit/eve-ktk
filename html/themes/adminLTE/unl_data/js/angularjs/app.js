@@ -402,7 +402,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
                     $rootScope.email = response.data.data.email;
                     $rootScope.role = response.data.data.role;
                     $rootScope.name = response.data.data.name;
-                    if (path != "/lab") $rootScope.lab = response.data.data.lab;
+                    $rootScope.lab = null;
                     var cookieLang = $cookies.get('eve_login_lang');
                     var serverLang = response.data.data.lang;
                     var serverTheme = response.data.data.theme;
@@ -434,11 +434,7 @@ app_main_unl.controller('unlMainController', ['$scope', '$rootScope', '$http', '
 
                     // Preview need to get back to legacy UI
                     if (!suppressRedirect) {
-                        if ($rootScope.UIlegacy == 1) {
-                            if ($rootScope.lab === null) { $location.path(path) } else { location.href = '/legacy/' };
-                        } else {
-                            if ($rootScope.lab === null) { $location.path(path) } else { $location.path('/lab') };
-                        }
+                        $location.path(path);
                     }
                     $.unblockUI(); // Unblock UI on successful authentication
                 }

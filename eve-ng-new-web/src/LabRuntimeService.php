@@ -108,12 +108,56 @@ function runtimeQmpSocketPath(string $nodeId): string
     return '/tmp/eve-v2-qmp-' . $clean . '.sock';
 }
 
+function runtimeQgaSocketPath(string $nodeId): string
+{
+    $clean = strtolower(trim($nodeId));
+    $clean = preg_replace('/[^a-z0-9-]/', '', $clean);
+    if (!is_string($clean) || $clean === '') {
+        $clean = substr(hash('sha256', $nodeId), 0, 24);
+    }
+    return '/tmp/eve-v2-qga-' . $clean . '.sock';
+}
+
 function runtimeCleanupQmpSocket(string $nodeId): void
 {
     $path = runtimeQmpSocketPath($nodeId);
     if ((is_file($path) || is_link($path)) && !@unlink($path)) {
         // Ignore unlink errors for stale sockets.
     }
+}
+
+function runtimeCleanupQgaSocket(string $nodeId): void
+{
+    $path = runtimeQgaSocketPath($nodeId);
+    if ((is_file($path) || is_link($path)) && !@unlink($path)) {
+        // Ignore unlink errors for stale sockets.
+    }
+}
+
+function runtimeQemuLooksLikeLinuxNode(array $ctx): bool
+{
+    $fingerprint = strtolower(trim(implode(' ', [
+        (string) ($ctx['template'] ?? ''),
+        (string) ($ctx['image'] ?? ''),
+        (string) ($ctx['name'] ?? ''),
+        (string) ($ctx['node_type'] ?? ''),
+    ])));
+    if ($fingerprint === '') {
+        return false;
+    }
+
+    return preg_match('/\b(ubuntu|debian|centos|fedora|alpine|linux|rhel|rocky|opensuse|suse|kali|mint)\b/i', $fingerprint) === 1;
+}
+
+function runtimeQemuOptionsHasGuestAgent(string $qemuOptions): bool
+{
+    $text = strtolower(trim($qemuOptions));
+    if ($text === '') {
+        return false;
+    }
+    return strpos($text, 'org.qemu.guest_agent.0') !== false
+        || strpos($text, 'virtserialport') !== false
+        || strpos($text, 'qga') !== false;
 }
 
 function resolveLabNodeRuntimeDir(string $labId, string $nodeId, string $ownerUserId = ''): string
@@ -562,6 +606,59 @@ function runtimeCmdlineHasArgPair(array $args, string $flag, string $value): boo
     return false;
 }
 
+function runtimeCmdlineGetArgValue(array $args, string $flag): ?string
+{
+    $flag = trim($flag);
+    if ($flag === '') {
+        return null;
+    }
+
+    $count = count($args);
+    for ($i = 0; $i < $count; $i++) {
+        if ((string) $args[$i] !== $flag) {
+            continue;
+        }
+        if ($i + 1 >= $count) {
+            return null;
+        }
+        $value = trim((string) $args[$i + 1]);
+        return $value === '' ? null : $value;
+    }
+    return null;
+}
+
+function runtimePidOwnerUsername(int $pid): string
+{
+    if ($pid <= 1) {
+        return '';
+    }
+    $statusPath = '/proc/' . $pid . '/status';
+    if (!is_file($statusPath) || !is_readable($statusPath)) {
+        return '';
+    }
+    $status = @file_get_contents($statusPath);
+    if (!is_string($status) || $status === '') {
+        return '';
+    }
+    if (preg_match('/^Uid:\s+([0-9]+)/m', $status, $m) !== 1) {
+        return '';
+    }
+    $uid = (int) ($m[1] ?? -1);
+    if ($uid < 0) {
+        return '';
+    }
+    if (function_exists('posix_getpwuid')) {
+        $pw = @posix_getpwuid($uid);
+        if (is_array($pw)) {
+            $name = trim((string) ($pw['name'] ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
+    }
+    return '';
+}
+
 function runtimeListIolWrapperPidsBySignature(string $labId, string $nodeId, array $ctx): array
 {
     $name = trim((string) ($ctx['name'] ?? ''));
@@ -827,8 +924,196 @@ function runtimeQmpReadJsonMessage($stream, float $timeoutSec = 0.8): ?array
     return null;
 }
 
-function runtimeRequestQemuSystemPowerdown(string $nodeId): bool
+function runtimeQgaSendMessage($socket, array $payload): bool
 {
+    if (!is_resource($socket)) {
+        return false;
+    }
+
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($json) || $json === '') {
+        return false;
+    }
+
+    $buffer = $json . "\n";
+    while ($buffer !== '') {
+        $written = @fwrite($socket, $buffer);
+        if (!is_int($written) || $written <= 0) {
+            return false;
+        }
+        $buffer = (string) substr($buffer, $written);
+    }
+    return true;
+}
+
+function runtimeQgaReadMessage($socket, string &$buffer, float $timeoutSec = 1.0): ?array
+{
+    if (!is_resource($socket)) {
+        return null;
+    }
+
+    $deadline = microtime(true) + max(0.15, $timeoutSec);
+    while (microtime(true) < $deadline) {
+        $chunk = @fread($socket, 65536);
+        if (is_string($chunk) && $chunk !== '') {
+            $buffer .= $chunk;
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = (string) substr($buffer, 0, $pos);
+                $buffer = (string) substr($buffer, $pos + 1);
+                $line = trim((string) ltrim($line, "\x00..\x1F\x7F\xFF"));
+                if ($line !== '') {
+                    // Strip leading non-JSON bytes that can appear after delimiter sync.
+                    $line = (string) preg_replace('/^[^\{\[]+/', '', $line);
+                }
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+            continue;
+        }
+        if ($chunk === '' && @feof($socket)) {
+            break;
+        }
+        usleep(20000);
+    }
+
+    return null;
+}
+
+function runtimeQgaRequest($socket, string &$buffer, string $execute, array $arguments = [], float $timeoutSec = 2.0): array
+{
+    $id = '';
+    try {
+        $id = 'rt-' . bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $id = 'rt-' . dechex((int) (microtime(true) * 1000000));
+    }
+
+    $payload = [
+        'execute' => $execute,
+        'id' => $id,
+    ];
+    if (!empty($arguments)) {
+        $payload['arguments'] = $arguments;
+    }
+    if (!runtimeQgaSendMessage($socket, $payload)) {
+        return [
+            'ok' => false,
+            'error' => 'linux_agent_io_failed',
+            'return' => null,
+        ];
+    }
+
+    $deadline = microtime(true) + max(0.3, $timeoutSec);
+    while (microtime(true) < $deadline) {
+        $msg = runtimeQgaReadMessage($socket, $buffer, min(0.4, max(0.1, $deadline - microtime(true))));
+        if (!is_array($msg)) {
+            continue;
+        }
+
+        $msgId = isset($msg['id']) ? (string) $msg['id'] : '';
+        if ($id !== '') {
+            // Ignore untagged async/error frames and wait for response of this request id.
+            if ($msgId === '' || !hash_equals($msgId, $id)) {
+                continue;
+            }
+        }
+
+        if (array_key_exists('return', $msg)) {
+            return [
+                'ok' => true,
+                'error' => null,
+                'return' => $msg['return'],
+            ];
+        }
+        if (array_key_exists('error', $msg)) {
+            $err = is_array($msg['error']) ? (array) $msg['error'] : ['desc' => (string) $msg['error']];
+            return [
+                'ok' => false,
+                'error' => trim((string) ($err['desc'] ?? $err['class'] ?? 'linux_agent_exec_failed')),
+                'return' => null,
+            ];
+        }
+    }
+
+    return [
+        'ok' => false,
+        'error' => 'linux_agent_timeout',
+        'return' => null,
+    ];
+}
+
+function runtimeRequestQemuGuestShutdown(string $nodeId): bool
+{
+    $socketPath = runtimeQgaSocketPath($nodeId);
+    if (!is_string($socketPath) || $socketPath === '' || !file_exists($socketPath)) {
+        return false;
+    }
+
+    $errno = 0;
+    $errstr = '';
+    $socket = @stream_socket_client(
+        'unix://' . $socketPath,
+        $errno,
+        $errstr,
+        1.0,
+        STREAM_CLIENT_CONNECT
+    );
+    if (!is_resource($socket)) {
+        return false;
+    }
+
+    @stream_set_blocking($socket, false);
+    @stream_set_write_buffer($socket, 0);
+    $buffer = '';
+
+    try {
+        $syncId = 0;
+        try {
+            $syncId = random_int(1, PHP_INT_MAX);
+        } catch (Throwable $e) {
+            $syncId = max(1, (int) (microtime(true) * 1000000));
+        }
+
+        $sync = runtimeQgaRequest($socket, $buffer, 'guest-sync', ['id' => $syncId], 2.0);
+        if (empty($sync['ok'])) {
+            return false;
+        }
+
+        $shutdown = runtimeQgaRequest($socket, $buffer, 'guest-shutdown', ['mode' => 'powerdown'], 2.0);
+        if (!empty($shutdown['ok'])) {
+            return true;
+        }
+
+        // Some guests close QGA channel immediately after accepting shutdown.
+        $error = strtolower(trim((string) ($shutdown['error'] ?? '')));
+        if ($error === 'linux_agent_timeout' || $error === 'linux_agent_io_failed') {
+            return true;
+        }
+
+        return false;
+    } catch (Throwable $e) {
+        return false;
+    } finally {
+        if (is_resource($socket)) {
+            @stream_socket_shutdown($socket, STREAM_SHUT_RDWR);
+            @fclose($socket);
+        }
+    }
+}
+
+function runtimeRequestQemuSystemPowerdown(string $nodeId, ?string &$mode = null): bool
+{
+    $mode = null;
+    if (runtimeRequestQemuGuestShutdown($nodeId)) {
+        $mode = 'guest_agent';
+        return true;
+    }
+
     $socketPath = runtimeQmpSocketPath($nodeId);
     if (!is_string($socketPath) || $socketPath === '' || !file_exists($socketPath)) {
         return false;
@@ -859,6 +1144,7 @@ function runtimeRequestQemuSystemPowerdown(string $nodeId): bool
     @fflush($stream);
     runtimeQmpReadJsonMessage($stream, 0.8);
     @fclose($stream);
+    $mode = 'acpi';
     return true;
 }
 
@@ -933,7 +1219,189 @@ function runtimeQmpHmp($stream, string $commandLine): array
     );
 }
 
-function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId): array
+function runtimeQmpHmpResultText(array $reply): string
+{
+    if (!isset($reply['result'])) {
+        return '';
+    }
+    $result = $reply['result'];
+    if (is_string($result)) {
+        return trim($result);
+    }
+    if (is_scalar($result)) {
+        return trim((string) $result);
+    }
+    return '';
+}
+
+function runtimeQmpHmpLooksLikeError(string $text): bool
+{
+    $normalized = strtolower(trim($text));
+    if ($normalized === '') {
+        return false;
+    }
+
+    $needles = [
+        'error',
+        'failed',
+        'cannot ',
+        "can't",
+        'could not',
+        'operation not permitted',
+        'permission denied',
+        'not found',
+        'invalid',
+        'unknown',
+        'no such',
+        'already exists',
+        'already in use',
+        'property ',
+    ];
+    foreach ($needles as $needle) {
+        if (strpos($normalized, $needle) !== false) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function runtimeQmpFindDevicePciSlotInBus(array $bus, string $devId): ?int
+{
+    $devices = isset($bus['devices']) && is_array($bus['devices']) ? $bus['devices'] : [];
+    foreach ($devices as $device) {
+        if (!is_array($device)) {
+            continue;
+        }
+        $qdevId = trim((string) ($device['qdev_id'] ?? ''));
+        if ($qdevId === $devId) {
+            $slot = isset($device['slot']) ? (int) $device['slot'] : -1;
+            if ($slot >= 0 && $slot <= 0x1f) {
+                return $slot;
+            }
+            return null;
+        }
+
+        if (isset($device['pci_bridge']) && is_array($device['pci_bridge'])) {
+            $childBus = isset($device['pci_bridge']['bus']) && is_array($device['pci_bridge']['bus'])
+                ? $device['pci_bridge']['bus']
+                : null;
+            if (is_array($childBus)) {
+                $found = runtimeQmpFindDevicePciSlotInBus($childBus, $devId);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function runtimeQmpFindDevicePciSlot($stream, string $devId): ?int
+{
+    $devId = trim($devId);
+    if ($devId === '') {
+        return null;
+    }
+
+    $reply = runtimeQmpExecute($stream, 'query-pci');
+    if (empty($reply['ok']) || !isset($reply['result']) || !is_array($reply['result'])) {
+        return null;
+    }
+
+    foreach ($reply['result'] as $bus) {
+        if (!is_array($bus)) {
+            continue;
+        }
+        $found = runtimeQmpFindDevicePciSlotInBus($bus, $devId);
+        if ($found !== null) {
+            return $found;
+        }
+    }
+
+    return null;
+}
+
+function runtimeQmpWaitDeviceRemoval($stream, string $devId, int $attempts = 20, int $sleepUsec = 50000): void
+{
+    $attempts = max(1, $attempts);
+    for ($i = 0; $i < $attempts; $i++) {
+        if (runtimeQmpFindDevicePciSlot($stream, $devId) === null) {
+            return;
+        }
+        usleep(max(1000, $sleepUsec));
+    }
+}
+
+function runtimeQmpWaitDevicePresent($stream, string $devId, int $attempts = 20, int $sleepUsec = 50000): bool
+{
+    $attempts = max(1, $attempts);
+    for ($i = 0; $i < $attempts; $i++) {
+        if (runtimeQmpFindDevicePciSlot($stream, $devId) !== null) {
+            return true;
+        }
+        usleep(max(1000, $sleepUsec));
+    }
+    return false;
+}
+
+function runtimeQemuBridgeHelperPath(): string
+{
+    $candidates = [];
+    $custom = trim((string) getenv('EVE_QEMU_BRIDGE_HELPER'));
+    if ($custom !== '') {
+        $candidates[] = $custom;
+    }
+    $candidates[] = '/usr/lib/qemu/qemu-bridge-helper';
+    $candidates[] = '/usr/libexec/qemu-bridge-helper';
+    $candidates[] = '/usr/lib64/qemu/qemu-bridge-helper';
+
+    foreach ($candidates as $path) {
+        $path = trim((string) $path);
+        if ($path === '') {
+            continue;
+        }
+        if (is_file($path) && is_executable($path)) {
+            return $path;
+        }
+    }
+
+    return '';
+}
+
+function runtimeQemuBridgeAclAllows(string $bridge): bool
+{
+    $bridge = strtolower(trim($bridge));
+    if ($bridge === '') {
+        return false;
+    }
+
+    $configPath = '/etc/qemu/bridge.conf';
+    if (!is_file($configPath) || !is_readable($configPath)) {
+        return false;
+    }
+
+    $lines = @file($configPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!is_array($lines)) {
+        return false;
+    }
+
+    foreach ($lines as $line) {
+        $line = trim((string) $line);
+        if ($line === '' || strpos($line, '#') === 0 || strpos($line, ';') === 0) {
+            continue;
+        }
+        $line = strtolower(preg_replace('/\s+/', ' ', $line) ?? '');
+        if ($line === 'allow all' || $line === ('allow ' . $bridge)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId, array $nodeChanges = []): array
 {
     refreshLabNodeRuntimeState($db, $labId, $nodeId);
     $ctx = runtimeLoadNodeContext($db, $labId, $nodeId);
@@ -952,14 +1420,49 @@ function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId): a
         return ['ok' => false, 'reason' => 'qmp_unavailable'];
     }
 
+    $changesByPortId = [];
+    foreach ($nodeChanges as $change) {
+        if (!is_array($change)) {
+            continue;
+        }
+        $portId = trim((string) ($change['port_id'] ?? ''));
+        if ($portId === '') {
+            continue;
+        }
+        $changesByPortId[$portId] = $change;
+    }
+
     $nicDriver = runtimeResolveQemuNicDriver($ctx);
     $ethCount = max(0, (int) ($ctx['ethernet_count'] ?? 0));
     $indexedPorts = runtimeBuildPortIndexMap((array) ($ctx['ports'] ?? []), $ethCount);
     $netKeys = runtimeBuildNetworkKeys((array) ($ctx['ports'] ?? []), $ethCount, $labId, $nodeId);
     $results = [];
+    $bridgeHelperPath = runtimeQemuBridgeHelperPath();
+
+    $targetIndices = [];
+    if (!empty($changesByPortId)) {
+        foreach ($indexedPorts as $idx => $portMeta) {
+            if (!is_array($portMeta)) {
+                continue;
+            }
+            $portId = trim((string) ($portMeta['id'] ?? ''));
+            if ($portId === '' || !isset($changesByPortId[$portId])) {
+                continue;
+            }
+            $targetIndices[(int) $idx] = true;
+        }
+    }
+    if (empty($targetIndices)) {
+        for ($i = 0; $i < $ethCount; $i++) {
+            $targetIndices[$i] = true;
+        }
+    }
+    $targetIndexes = array_keys($targetIndices);
+    sort($targetIndexes, SORT_NUMERIC);
 
     try {
-        for ($i = 0; $i < $ethCount; $i++) {
+        foreach ($targetIndexes as $i) {
+            $i = (int) $i;
             $key = $netKeys[$i] ?? ('isolated:' . $labId . ':' . $nodeId . ':' . $i);
             $portMeta = $indexedPorts[$i] ?? null;
             $p2p = runtimePortUdpPointToPoint(is_array($portMeta) ? $portMeta : null);
@@ -967,40 +1470,123 @@ function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId): a
             $mac = runtimeMacAddress($nodeId, $i, $ctx['first_mac'] ?? null);
             $netId = 'net' . $i;
             $devId = 'nic' . $i;
+            $networkType = strtolower(trim((string) (is_array($portMeta) ? ($portMeta['network_type'] ?? '') : '')));
+            $isCloudPort = $networkType !== '' && preg_match('/^pnet[0-9]+$/', $networkType) === 1;
+            $cloudBridge = $isCloudPort ? $networkType : '';
+            $mode = 'mcast';
 
-            // Existing nodes started before NIC IDs were introduced may fail hot apply.
-            runtimeQmpHmp($stream, 'device_del ' . $devId);
-            usleep(120000);
-            runtimeQmpHmp($stream, 'netdev_del ' . $netId);
+            $probeSuffix = '';
+            try {
+                $probeSuffix = dechex(random_int(0, 0xffff));
+            } catch (Throwable $e) {
+                $probeSuffix = dechex((int) (microtime(true) * 1000000) & 0xffff);
+            }
+            $probeId = 'v2probe' . $i . '_' . $probeSuffix;
 
-            if ($p2p !== null) {
+            if ($isCloudPort) {
+                if ($bridgeHelperPath === '') {
+                    return [
+                        'ok' => false,
+                        'reason' => 'cloud_bridge_helper_missing',
+                        'interface' => $i,
+                        'error' => 'qemu-bridge-helper not found',
+                    ];
+                }
+                if (!runtimeQemuBridgeAclAllows($cloudBridge)) {
+                    return [
+                        'ok' => false,
+                        'reason' => 'cloud_bridge_acl_missing',
+                        'interface' => $i,
+                        'error' => 'Bridge "' . $cloudBridge . '" is not allowed in /etc/qemu/bridge.conf',
+                    ];
+                }
+                $netdevCmd = 'netdev_add tap,id=' . $netId
+                    . ',br=' . $cloudBridge
+                    . ',helper=' . $bridgeHelperPath;
+                $probeNetdevCmd = 'netdev_add tap,id=' . $probeId
+                    . ',br=' . $cloudBridge
+                    . ',helper=' . $bridgeHelperPath;
+                $mode = 'cloud_bridge';
+            } elseif ($p2p !== null) {
                 $netdevCmd = 'netdev_add socket,id=' . $netId
                     . ',localaddr=127.0.0.1:' . (int) $p2p['local_port']
                     . ',udp=127.0.0.1:' . (int) $p2p['remote_port'];
+                $probeNetdevCmd = 'netdev_add socket,id=' . $probeId
+                    . ',localaddr=127.0.0.1:' . (int) $p2p['local_port']
+                    . ',udp=127.0.0.1:' . (int) $p2p['remote_port'];
+                $mode = 'udp_p2p';
             } else {
                 $netdevCmd = 'netdev_add socket,id=' . $netId
                     . ',mcast=' . $endpoint['addr'] . ':' . $endpoint['port'];
+                $probeNetdevCmd = 'netdev_add socket,id=' . $probeId
+                    . ',mcast=' . $endpoint['addr'] . ':' . $endpoint['port'];
+                $mode = 'mcast';
             }
+
+            // Pre-check target backend before removing current NIC. This prevents
+            // losing interface when cloud TAP attach is not permitted for runtime user.
+            $probeAdd = runtimeQmpHmp($stream, $probeNetdevCmd);
+            $probeText = runtimeQmpHmpResultText($probeAdd);
+            runtimeQmpHmp($stream, 'netdev_del ' . $probeId);
+            if (empty($probeAdd['ok']) || runtimeQmpHmpLooksLikeError($probeText)) {
+                if ($isCloudPort) {
+                    return [
+                        'ok' => false,
+                        'reason' => 'cloud_hot_apply_failed',
+                        'interface' => $i,
+                        'error' => $probeText !== '' ? $probeText : ((string) ($probeAdd['error'] ?? 'unknown')),
+                    ];
+                }
+                return [
+                    'ok' => false,
+                    'reason' => 'netdev_precheck_failed',
+                    'interface' => $i,
+                    'error' => $probeText !== '' ? $probeText : ((string) ($probeAdd['error'] ?? 'unknown')),
+                ];
+            }
+
+            // Existing nodes started before NIC IDs were introduced may fail hot apply.
+            runtimeQmpHmp($stream, 'device_del ' . $devId);
+            runtimeQmpWaitDeviceRemoval($stream, $devId);
+            runtimeQmpHmp($stream, 'netdev_del ' . $netId);
+
             $addNetdev = runtimeQmpHmp($stream, $netdevCmd);
-            if (empty($addNetdev['ok'])) {
+            $addNetdevText = runtimeQmpHmpResultText($addNetdev);
+            if (empty($addNetdev['ok']) || runtimeQmpHmpLooksLikeError($addNetdevText)) {
                 return [
                     'ok' => false,
                     'reason' => 'netdev_reconfigure_failed',
                     'interface' => $i,
-                    'error' => (string) ($addNetdev['error'] ?? 'unknown'),
+                    'error' => $addNetdevText !== '' ? $addNetdevText : ((string) ($addNetdev['error'] ?? 'unknown')),
                 ];
             }
 
-            $addDevice = runtimeQmpHmp(
-                $stream,
-                'device_add ' . $nicDriver . ',id=' . $devId . ',netdev=' . $netId . ',mac=' . $mac
-            );
-            if (empty($addDevice['ok'])) {
+            $addDeviceCmd = 'device_add ' . $nicDriver . ',id=' . $devId . ',netdev=' . $netId . ',mac=' . $mac;
+            $addDevice = runtimeQmpHmp($stream, $addDeviceCmd);
+            $addDeviceText = runtimeQmpHmpResultText($addDevice);
+            if (empty($addDevice['ok']) || runtimeQmpHmpLooksLikeError($addDeviceText)) {
                 return [
                     'ok' => false,
                     'reason' => 'device_reconfigure_failed',
                     'interface' => $i,
-                    'error' => (string) ($addDevice['error'] ?? 'unknown'),
+                    'error' => $addDeviceText !== '' ? $addDeviceText : ((string) ($addDevice['error'] ?? 'unknown')),
+                ];
+            }
+            if (!runtimeQmpWaitDevicePresent($stream, $devId, 30, 50000)) {
+                $networkSnapshot = runtimeQmpHmpResultText(runtimeQmpHmp($stream, 'info network'));
+                $networkSnapshot = preg_replace('/\s+/', ' ', trim($networkSnapshot));
+                if (!is_string($networkSnapshot)) {
+                    $networkSnapshot = '';
+                }
+                if (strlen($networkSnapshot) > 240) {
+                    $networkSnapshot = substr($networkSnapshot, 0, 240);
+                }
+                $extra = $networkSnapshot !== '' ? ('; info network: ' . $networkSnapshot) : '';
+                return [
+                    'ok' => false,
+                    'reason' => 'device_reconfigure_missing_after_add',
+                    'interface' => $i,
+                    'error' => 'QEMU accepted device_add but NIC is not present after reconfigure' . $extra,
                 ];
             }
 
@@ -1008,7 +1594,9 @@ function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId): a
                 'index' => $i,
                 'net_id' => $netId,
                 'device_id' => $devId,
-                'mode' => $p2p !== null ? 'udp_p2p' : 'mcast',
+                'mode' => $mode,
+                'bridge' => $cloudBridge !== '' ? $cloudBridge : null,
+                'tap' => null,
             ];
         }
     } finally {
@@ -1016,6 +1604,206 @@ function runtimeHotApplyQemuNodeLinks(PDO $db, string $labId, string $nodeId): a
     }
 
     return ['ok' => true, 'interfaces' => $results];
+}
+
+function runtimeNativeIolBindingFromContext(array $ctx, string $labId, string $nodeId): ?array
+{
+    $pid = (int) ($ctx['runtime_pid'] ?? 0);
+    if ($pid <= 1 || !runtimePidAlive($pid)) {
+        return null;
+    }
+
+    if (!runtimePidBelongsToNode($pid, $labId, $nodeId)) {
+        $cmdline = strtolower(runtimeReadProcCmdline($pid));
+        if ($cmdline === '' || strpos($cmdline, 'iol_wrapper') === false) {
+            return null;
+        }
+    }
+
+    $iolNodeId = runtimeStableIntInRange('iol:' . $labId . ':' . $nodeId, 1, 1023);
+    $tenant = 0;
+
+    $args = runtimeReadProcCmdlineArgs($pid);
+    if (!empty($args)) {
+        $dValue = runtimeCmdlineGetArgValue($args, '-D');
+        if (is_string($dValue) && ctype_digit($dValue)) {
+            $parsed = (int) $dValue;
+            if ($parsed > 0) {
+                $iolNodeId = $parsed;
+            }
+        }
+
+        $tValue = runtimeCmdlineGetArgValue($args, '-T');
+        if (is_string($tValue) && ctype_digit($tValue)) {
+            $parsed = (int) $tValue;
+            if ($parsed >= 1 && $parsed <= 120) {
+                $tenant = $parsed;
+            }
+        }
+    }
+
+    if ($tenant < 1) {
+        $consolePort = isset($ctx['runtime_console_port']) ? (int) $ctx['runtime_console_port'] : 0;
+        if ($consolePort > 0) {
+            $delta = $consolePort - 32768 - $iolNodeId;
+            if ($delta >= (1 * 256) && $delta <= (120 * 256) && $delta % 256 === 0) {
+                $candidate = (int) ($delta / 256);
+                if ($candidate >= 1 && $candidate <= 120) {
+                    $tenant = $candidate;
+                }
+            }
+        }
+    }
+
+    if ($tenant < 1 || $iolNodeId < 1) {
+        return null;
+    }
+
+    return [
+        'tenant' => $tenant,
+        'node_numeric_id' => $iolNodeId,
+        'runtime_pid' => $pid,
+    ];
+}
+
+function runtimeLegacyFindFreeNodeNumericId(array $nodesMap, int $min = 1, int $max = 1023, array $exclude = []): int
+{
+    $used = [];
+    foreach ($nodesMap as $id) {
+        $value = (int) $id;
+        if ($value >= $min && $value <= $max) {
+            $used[$value] = true;
+        }
+    }
+    foreach ($exclude as $value) {
+        $value = (int) $value;
+        if ($value >= $min && $value <= $max) {
+            $used[$value] = true;
+        }
+    }
+
+    for ($i = $min; $i <= $max; $i++) {
+        if (!isset($used[$i])) {
+            return $i;
+        }
+    }
+    return 0;
+}
+
+function runtimeHotApplyNativeIolNodeLinks(PDO $db, array $ctx, string $labId, string $nodeId, array $nodeChanges): array
+{
+    $binding = runtimeNativeIolBindingFromContext($ctx, $labId, $nodeId);
+    if (!is_array($binding)) {
+        return ['ok' => false, 'reason' => 'native_iol_binding_unavailable'];
+    }
+
+    $ownerUserId = isset($ctx['author_user_id']) ? (string) $ctx['author_user_id'] : '';
+    $authorUsername = trim((string) ($ctx['author_username'] ?? ''));
+    if ($authorUsername === '') {
+        $authorUsername = 'root';
+    }
+    $tenant = (int) ($binding['tenant'] ?? 0);
+    $nodeNumericId = (int) ($binding['node_numeric_id'] ?? 0);
+    if ($tenant < 1 || $nodeNumericId < 1) {
+        return ['ok' => false, 'reason' => 'native_iol_binding_invalid'];
+    }
+
+    $topology = runtimeLegacyLoadLabTopology($db, $labId);
+    $map = runtimeLegacyPrepareMap($topology, $labId, $ownerUserId);
+    $map['tenant'] = $tenant;
+
+    $nodesMap = is_array($map['nodes'] ?? null) ? (array) $map['nodes'] : [];
+    foreach ($nodesMap as $uuid => $mappedId) {
+        $uuid = strtolower(trim((string) $uuid));
+        if ($uuid === '' || $uuid === $nodeId) {
+            continue;
+        }
+        if ((int) $mappedId === $nodeNumericId) {
+            $replacement = runtimeLegacyFindFreeNodeNumericId($nodesMap, 1, 1023, [$nodeNumericId]);
+            if ($replacement > 0) {
+                $nodesMap[$uuid] = $replacement;
+            }
+        }
+    }
+    $nodesMap[$nodeId] = $nodeNumericId;
+    $map['nodes'] = $nodesMap;
+
+    $labFile = runtimeLegacyWriteLabFile($topology, $map, $labId, $ownerUserId);
+    $nodeDir = resolveLabNodeRuntimeDir($labId, $nodeId, $ownerUserId);
+    $logPath = runtimeNodeLogPathForType($nodeDir, 'legacy_wrapper');
+
+    $ports = is_array($ctx['ports'] ?? null) ? (array) $ctx['ports'] : [];
+    $portIfMap = [];
+    $fallbackIndex = 0;
+    foreach ($ports as $port) {
+        if (!is_array($port)) {
+            continue;
+        }
+        $portId = trim((string) ($port['id'] ?? ''));
+        if ($portId === '') {
+            continue;
+        }
+        $index = runtimeLegacyPortIndexFromName((string) ($port['name'] ?? ''), $fallbackIndex);
+        $fallbackIndex = max($fallbackIndex + 1, $index + 1);
+        $portIfMap[$portId] = runtimeLegacyInterfaceIdForPort('iol', $index);
+    }
+
+    $oldNetworksMap = is_array($map['networks'] ?? null) ? (array) $map['networks'] : [];
+    $applied = [];
+    $skipped = [];
+
+    foreach ($nodeChanges as $change) {
+        if (!is_array($change)) {
+            continue;
+        }
+        $portId = trim((string) ($change['port_id'] ?? ''));
+        if ($portId === '' || !isset($portIfMap[$portId])) {
+            $skipped[] = ['port_id' => $portId, 'reason' => 'port_not_found'];
+            continue;
+        }
+
+        $oldNetworkUuid = strtolower(trim((string) ($change['old_network_id'] ?? '')));
+        $oldLegacyId = isset($oldNetworksMap[$oldNetworkUuid]) ? (int) $oldNetworksMap[$oldNetworkUuid] : 0;
+        if ($oldLegacyId <= 0) {
+            $detectedLegacyId = runtimeLegacyTapCurrentBridgeLegacyId($tenant, $nodeNumericId, (int) $portIfMap[$portId]);
+            if ($detectedLegacyId > 0) {
+                $oldLegacyId = $detectedLegacyId;
+            }
+        }
+
+        try {
+            runtimeLegacyRunWrapperLinkAction(
+                $tenant,
+                $labFile,
+                $nodeNumericId,
+                (int) $portIfMap[$portId],
+                $oldLegacyId,
+                $authorUsername,
+                $logPath
+            );
+            $applied[] = [
+                'port_id' => $portId,
+                'interface_id' => (int) $portIfMap[$portId],
+                'old_network_legacy_id' => $oldLegacyId,
+            ];
+        } catch (Throwable $e) {
+            $skipped[] = [
+                'port_id' => $portId,
+                'interface_id' => (int) $portIfMap[$portId],
+                'reason' => 'link_action_failed',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    return [
+        'ok' => true,
+        'mode' => 'native_iol_wrapper_link',
+        'tenant' => $tenant,
+        'node_numeric_id' => $nodeNumericId,
+        'applied' => $applied,
+        'skipped' => $skipped,
+    ];
 }
 
 function runtimeHotApplyLegacyNodeLinks(PDO $db, string $labId, string $nodeId, array $nodeChanges): array
@@ -1030,9 +1818,15 @@ function runtimeHotApplyLegacyNodeLinks(PDO $db, string $labId, string $nodeId, 
     $ownerUserId = isset($ctx['author_user_id']) ? (string) $ctx['author_user_id'] : '';
     $runtimePid = (int) ($ctx['runtime_pid'] ?? 0);
     $isRunning = false;
+    $isLegacyRuntime = false;
     if ($runtimePid > 1) {
         if (runtimePidBelongsToNode($runtimePid, $labId, $nodeId)) {
             $isRunning = true;
+            $isLegacyRuntime = false;
+        } elseif ($nodeType === 'iol' && runtimePidAlive($runtimePid)) {
+            // IOL wrappers can hide environment from the worker; treat alive PID as running.
+            $isRunning = true;
+            $isLegacyRuntime = false;
         } elseif (runtimeLegacyPidBelongsToNode(
             $db,
             $runtimePid,
@@ -1043,10 +1837,15 @@ function runtimeHotApplyLegacyNodeLinks(PDO $db, string $labId, string $nodeId, 
             (string) ($ctx['image'] ?? '')
         )) {
             $isRunning = true;
+            $isLegacyRuntime = true;
         }
     }
     if (!$isRunning) {
         return ['ok' => false, 'reason' => 'node_not_running'];
+    }
+
+    if ($nodeType === 'iol' && !$isLegacyRuntime) {
+        return runtimeHotApplyNativeIolNodeLinks($db, $ctx, $labId, $nodeId, $nodeChanges);
     }
 
     $topology = runtimeLegacyLoadLabTopology($db, $labId);
@@ -1139,22 +1938,31 @@ function runtimeHotApplyLegacyNodeLinks(PDO $db, string $labId, string $nodeId, 
     return ['ok' => true, 'mode' => 'legacy_link_wrapper', 'applied' => $applied, 'skipped' => $skipped];
 }
 
-function runtimeLegacyTapCurrentBridgeLegacyId(int $tenant, int $legacyNodeId, int $interfaceId): int
+function runtimeLegacyTapCurrentBridgeName(int $tenant, int $legacyNodeId, int $interfaceId): string
 {
     if ($tenant < 1 || $legacyNodeId < 1 || $interfaceId < 0) {
-        return 0;
+        return '';
     }
     $tap = 'vunl' . $tenant . '_' . $legacyNodeId . '_' . $interfaceId;
     $masterPath = '/sys/class/net/' . $tap . '/master';
     if (!is_link($masterPath)) {
-        return 0;
+        return '';
     }
     $target = @readlink($masterPath);
     if (!is_string($target) || $target === '') {
-        return 0;
+        return '';
     }
     $bridge = basename($target);
     if (!is_string($bridge) || $bridge === '') {
+        return '';
+    }
+    return $bridge;
+}
+
+function runtimeLegacyTapCurrentBridgeLegacyId(int $tenant, int $legacyNodeId, int $interfaceId): int
+{
+    $bridge = runtimeLegacyTapCurrentBridgeName($tenant, $legacyNodeId, $interfaceId);
+    if ($bridge === '') {
         return 0;
     }
     if (preg_match('/^vnet' . preg_quote((string) $tenant, '/') . '_([0-9]+)$/', $bridge, $m) !== 1) {
@@ -1208,7 +2016,12 @@ function runtimeHotApplyNodeLinks(PDO $db, string $labId, array $nodeIds, array 
                         isset($changesByNode[$nodeId]) ? $changesByNode[$nodeId] : []
                     );
                 } else {
-                    $result = runtimeHotApplyQemuNodeLinks($db, $labId, $nodeId);
+                    $result = runtimeHotApplyQemuNodeLinks(
+                        $db,
+                        $labId,
+                        $nodeId,
+                        isset($changesByNode[$nodeId]) ? $changesByNode[$nodeId] : []
+                    );
                 }
             } else {
                 $result = runtimeHotApplyLegacyNodeLinks(
@@ -1387,11 +2200,34 @@ function runtimeNodeHasLegacyPeer(PDO $db, string $labId, string $nodeId): bool
 function runtimeShouldUseLegacyRuntime(PDO $db, array $ctx, string $labId, string $nodeId): bool
 {
     $nodeType = strtolower(trim((string) ($ctx['node_type'] ?? '')));
-    if ($nodeType === 'iol' || $nodeType === 'dynamips' || $nodeType === 'vpcs') {
-        return true;
+    if (!runtimeLegacyNodeTypeSupported($nodeType)) {
+        return false;
     }
-    if ($nodeType === 'qemu') {
-        return true;
+
+    $pid = isset($ctx['runtime_pid']) ? (int) $ctx['runtime_pid'] : 0;
+    if ($pid <= 1) {
+        return false;
+    }
+    if (runtimePidBelongsToNode($pid, $labId, $nodeId)) {
+        return false;
+    }
+
+    $ownerUserId = (string) ($ctx['author_user_id'] ?? '');
+    $image = trim((string) ($ctx['image'] ?? ''));
+    return runtimeLegacyPidBelongsToNode($db, $pid, $labId, $nodeId, $ownerUserId, $nodeType, $image);
+}
+
+function runtimeNodeHasCloudPorts(array $ctx): bool
+{
+    $ports = is_array($ctx['ports'] ?? null) ? (array) $ctx['ports'] : [];
+    foreach ($ports as $port) {
+        if (!is_array($port)) {
+            continue;
+        }
+        $networkType = strtolower(trim((string) ($port['network_type'] ?? '')));
+        if ($networkType !== '' && preg_match('/^pnet[0-9]+$/', $networkType) === 1) {
+            return true;
+        }
     }
     return false;
 }
@@ -1821,7 +2657,30 @@ function runtimeLegacyPrepareMap(array $topology, string $labId, string $ownerUs
     return $map;
 }
 
-function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId): string
+function runtimeLegacyInjectQemuCheckSerialOption(string $qemuOptions, int $checkPort): string
+{
+    $checkPort = (int) $checkPort;
+    if ($checkPort < 1 || $checkPort > 65535) {
+        return trim($qemuOptions);
+    }
+
+    $tokens = splitShellArgs($qemuOptions);
+    foreach ($tokens as $token) {
+        $lower = strtolower(trim((string) $token));
+        if ($lower === '-serial' || $lower === '--serial' || strpos($lower, '-serial=') === 0 || strpos($lower, '--serial=') === 0) {
+            return trim($qemuOptions);
+        }
+    }
+
+    $serialOption = '-serial tcp:127.0.0.1:' . $checkPort . ',server,nowait,nodelay';
+    $base = trim($qemuOptions);
+    if ($base === '') {
+        return $serialOption;
+    }
+    return $base . ' ' . $serialOption;
+}
+
+function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId, array $runtimeHints = []): string
 {
     $lab = is_array($topology['lab'] ?? null) ? $topology['lab'] : [];
     $nodes = is_array($topology['nodes'] ?? null) ? $topology['nodes'] : [];
@@ -1833,6 +2692,16 @@ function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId): s
     }
     $mappedNodes = is_array($map['nodes'] ?? null) ? (array) $map['nodes'] : [];
     $mappedNetworks = is_array($map['networks'] ?? null) ? (array) $map['networks'] : [];
+    $checkPortMapRaw = is_array($runtimeHints['qemu_check_ports'] ?? null) ? (array) $runtimeHints['qemu_check_ports'] : [];
+    $checkPortMap = [];
+    foreach ($checkPortMapRaw as $rawNodeId => $rawPort) {
+        $nodeKey = strtolower(trim((string) $rawNodeId));
+        $port = (int) $rawPort;
+        if ($nodeKey === '' || $port < 1 || $port > 65535) {
+            continue;
+        }
+        $checkPortMap[$nodeKey] = $port;
+    }
 
     $labName = runtimeLegacyXmlAttr((string) ($lab['name'] ?? 'Lab'));
     $author = trim((string) ($lab['author_username'] ?? 'root'));
@@ -1907,12 +2776,11 @@ function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId): s
         $ram = max(0, (int) ($node['ram_mb'] ?? 0));
         $nvram = max(0, (int) ($node['nvram_mb'] ?? 0));
         if ($nodeType === 'iol') {
-            // Legacy templates often store 1024/1024 which is excessive for dense IOL labs.
-            // Keep explicit custom values, but remap the common default profile to lighter values.
-            if ($ram <= 0 || $ram === 1024) {
-                $ram = 512;
+            // Keep explicit custom values and apply safe defaults for empty fields.
+            if ($ram <= 0) {
+                $ram = 1024;
             }
-            if ($nvram <= 0 || $nvram === 1024) {
+            if ($nvram <= 0) {
                 $nvram = 256;
             }
         }
@@ -1922,6 +2790,12 @@ function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId): s
         $config = 0;
         $cpu = max(0, (int) ($node['cpu'] ?? 0));
         $qemuOptions = trim((string) ($node['qemu_options'] ?? ''));
+        if ($nodeType === 'qemu') {
+            $consoleTypeRaw = strtolower(trim((string) ($node['console'] ?? '')));
+            if (in_array($consoleTypeRaw, ['vnc', 'rdp'], true) && isset($checkPortMap[$nodeUuid])) {
+                $qemuOptions = runtimeLegacyInjectQemuCheckSerialOption($qemuOptions, (int) $checkPortMap[$nodeUuid]);
+            }
+        }
         $qemuVersion = trim((string) ($node['qemu_version'] ?? ''));
         $qemuArch = trim((string) ($node['qemu_arch'] ?? ''));
         $qemuNic = trim((string) ($node['qemu_nic'] ?? ''));
@@ -2039,11 +2913,11 @@ function runtimeLegacyBuildUnlXml(array $topology, array $map, string $labId): s
     return implode("\n", $lines) . "\n";
 }
 
-function runtimeLegacyWriteLabFile(array $topology, array $map, string $labId, string $ownerUserId = ''): string
+function runtimeLegacyWriteLabFile(array $topology, array $map, string $labId, string $ownerUserId = '', array $runtimeHints = []): string
 {
     $labFile = runtimeLegacyLabFilePath($labId, $ownerUserId);
     ensureRuntimeDirectory((string) dirname($labFile));
-    $xml = runtimeLegacyBuildUnlXml($topology, $map, $labId);
+    $xml = runtimeLegacyBuildUnlXml($topology, $map, $labId, $runtimeHints);
     if (@file_put_contents($labFile, $xml) === false) {
         throw new RuntimeException('Failed to write legacy runtime lab file');
     }
@@ -2546,14 +3420,30 @@ function runtimeLegacyStartNodeRuntime(PDO $db, array $ctx, string $labId, strin
         throw new RuntimeException('Legacy node ID mapping not found');
     }
 
-    $labFile = runtimeLegacyWriteLabFile($topology, $map, $labId, $ownerUserId);
+    $nodeType = strtolower(trim((string) ($ctx['node_type'] ?? '')));
+    $image = trim((string) ($ctx['image'] ?? ''));
+    $consoleType = strtolower(trim((string) ($ctx['console'] ?? '')));
+    $checkConsolePort = null;
+    $runtimeHints = [];
+    if ($nodeType === 'qemu' && in_array($consoleType, ['vnc', 'rdp'], true)) {
+        $preferredCheckPort = isset($ctx['runtime_check_console_port']) ? (int) $ctx['runtime_check_console_port'] : null;
+        if ($preferredCheckPort !== null && $preferredCheckPort <= 0) {
+            $preferredCheckPort = null;
+        }
+        try {
+            $checkConsolePort = runtimeAllocateConsolePort($labId, $nodeId, 'qemu-check', $preferredCheckPort);
+            $runtimeHints['qemu_check_ports'] = [$nodeId => $checkConsolePort];
+        } catch (Throwable $e) {
+            $checkConsolePort = null;
+        }
+    }
+
+    $labFile = runtimeLegacyWriteLabFile($topology, $map, $labId, $ownerUserId, $runtimeHints);
     $tenant = (int) ($map['tenant'] ?? 0);
     if ($tenant < 1) {
         throw new RuntimeException('Legacy tenant mapping is invalid');
     }
 
-    $nodeType = strtolower(trim((string) ($ctx['node_type'] ?? '')));
-    $image = trim((string) ($ctx['image'] ?? ''));
     $nodeWrapperLogPath = runtimeLegacyNodeWrapperLogPath($tenant, $labId, $nodeNumericId);
 
     $startError = null;
@@ -2597,7 +3487,11 @@ function runtimeLegacyStartNodeRuntime(PDO $db, array $ctx, string $labId, strin
     }
 
     $consolePort = runtimeLegacyConsolePort($nodeType, $tenant, $nodeNumericId, $pid);
-    setNodeRunningState($db, $labId, $nodeId, $pid, $consolePort);
+    if ($nodeType === 'qemu' && in_array($consoleType, ['vnc', 'rdp'], true) && $checkConsolePort === null) {
+        // Fallback for legacy starts where hidden check socket couldn't be provisioned.
+        $checkConsolePort = $consolePort;
+    }
+    setNodeRunningState($db, $labId, $nodeId, $pid, $consolePort, $checkConsolePort);
 
     $legacyLinkSync = ['applied' => [], 'skipped' => []];
     if ($nodeType === 'qemu') {
@@ -3311,7 +4205,8 @@ function runtimeLoadNodeContext(PDO $db, string $labId, string $nodeId): array
                 n.ethernet_count,
                 n.serial_count,
                 n.runtime_pid,
-                n.runtime_console_port
+                n.runtime_console_port,
+                n.runtime_check_console_port
          FROM lab_nodes n
          INNER JOIN labs l ON l.id = n.lab_id
          LEFT JOIN users owner ON owner.id = l.author_user_id
@@ -3434,7 +4329,20 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
     $args[] = '-uuid';
     $args[] = $nodeId;
 
+    $enableGuestAgent = runtimeQemuLooksLikeLinuxNode($ctx)
+        && !runtimeQemuOptionsHasGuestAgent((string) ($ctx['qemu_options'] ?? ''));
+    if ($enableGuestAgent) {
+        runtimeCleanupQgaSocket($nodeId);
+        $args[] = '-chardev';
+        $args[] = 'socket,id=v2qga0,path=' . runtimeQgaSocketPath($nodeId) . ',server,nowait';
+        $args[] = '-device';
+        $args[] = 'virtio-serial-pci,id=v2qga-serial0';
+        $args[] = '-device';
+        $args[] = 'virtserialport,chardev=v2qga0,name=org.qemu.guest_agent.0';
+    }
+
     $consolePort = null;
+    $checkConsolePort = null;
     if ($console === 'vnc') {
         $consolePort = runtimeAllocateConsolePort(
             $labId,
@@ -3449,6 +4357,18 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
         }
         $args[] = '-vnc';
         $args[] = '127.0.0.1:' . $display;
+        $checkConsolePort = runtimeAllocateConsolePort(
+            $labId,
+            $nodeId,
+            'qemu-check',
+            isset($ctx['runtime_check_console_port']) ? (int) $ctx['runtime_check_console_port'] : null
+        );
+        $args[] = '-chardev';
+        $args[] = 'socket,id=v2checkserial0,host=127.0.0.1,port=' . $checkConsolePort . ',server,nowait,telnet=off';
+        $args[] = '-serial';
+        $args[] = 'chardev:v2checkserial0';
+        $args[] = '-monitor';
+        $args[] = 'none';
     } elseif ($console === 'telnet') {
         $consolePort = runtimeAllocateConsolePort(
             $labId,
@@ -3476,6 +4396,8 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
     $netKeys = runtimeBuildNetworkKeys((array) ($ctx['ports'] ?? []), $ethCount, $labId, $nodeId);
     $networks = [];
 
+    $bridgeHelperPath = runtimeQemuBridgeHelperPath();
+
     for ($i = 0; $i < $ethCount; $i++) {
         $key = $netKeys[$i] ?? ('isolated:' . $labId . ':' . $nodeId . ':' . $i);
         $portMeta = $indexedPorts[$i] ?? null;
@@ -3483,11 +4405,22 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
         $endpoint = runtimeMcastEndpoint($key);
         $mac = runtimeMacAddress($nodeId, $i, $ctx['first_mac'] ?? null);
         $netId = 'net' . $i;
+        $networkType = strtolower(trim((string) (is_array($portMeta) ? ($portMeta['network_type'] ?? '') : '')));
+        $isCloudPort = $networkType !== '' && preg_match('/^pnet[0-9]+$/', $networkType) === 1;
+        $cloudBridge = $isCloudPort ? $networkType : '';
 
         $args[] = '-device';
         $args[] = $nicDriver . ',id=nic' . $i . ',netdev=' . $netId . ',mac=' . $mac;
         $args[] = '-netdev';
-        if ($p2p !== null) {
+        if ($isCloudPort) {
+            if ($bridgeHelperPath === '') {
+                throw new RuntimeException('qemu-bridge-helper not found for cloud bridge: ' . $cloudBridge);
+            }
+            if (!runtimeQemuBridgeAclAllows($cloudBridge)) {
+                throw new RuntimeException('Bridge "' . $cloudBridge . '" is not allowed in /etc/qemu/bridge.conf');
+            }
+            $args[] = 'tap,id=' . $netId . ',br=' . $cloudBridge . ',helper=' . $bridgeHelperPath;
+        } elseif ($p2p !== null) {
             $args[] = 'socket,id=' . $netId
                 . ',localaddr=127.0.0.1:' . $p2p['local_port']
                 . ',udp=127.0.0.1:' . $p2p['remote_port'];
@@ -3500,7 +4433,10 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
             'key' => $key,
             'mac' => $mac,
         ];
-        if ($p2p !== null) {
+        if ($isCloudPort) {
+            $networkInfo['mode'] = 'cloud_bridge';
+            $networkInfo['bridge'] = $cloudBridge;
+        } elseif ($p2p !== null) {
             $networkInfo['mode'] = 'udp_p2p';
             $networkInfo['local_udp_port'] = (int) $p2p['local_port'];
             $networkInfo['remote_udp_port'] = (int) $p2p['remote_port'];
@@ -3533,6 +4469,7 @@ function runtimeBuildQemuLaunchSpec(array $ctx, string $labId, string $nodeId, s
         'binary' => $binary,
         'args' => $args,
         'console_port' => $consolePort,
+        'check_console_port' => $checkConsolePort,
         'networks' => $networks,
         'image' => $image,
         'image_files' => $files,
@@ -3828,6 +4765,8 @@ function runtimeBuildIolLaunchSpec(array $ctx, string $labId, string $nodeId, st
 
     $template = trim((string) ($ctx['template'] ?? ''));
     $tpl = runtimeLoadTemplateConfig($template);
+    $ram = max(256, (int) ($ctx['ram_mb'] ?? ($tpl['ram'] ?? 1024)));
+    $nvram = max(128, (int) ($ctx['nvram_mb'] ?? ($tpl['nvram'] ?? 256)));
     $ethGroups = max(0, (int) ($ctx['ethernet_count'] ?? ($tpl['ethernet'] ?? 1)));
     $serialGroups = max(0, (int) ($ctx['serial_count'] ?? ($tpl['serial'] ?? 0)));
     if ($ethGroups + $serialGroups > 16) {
@@ -3857,6 +4796,8 @@ function runtimeBuildIolLaunchSpec(array $ctx, string $labId, string $nodeId, st
         '-d', (string) $delaySec,
         '-e', (string) $ethGroups,
         '-s', (string) $serialGroups,
+        '-r', (string) $ram,
+        '-n', (string) $nvram,
     ];
 
     return [
@@ -4100,7 +5041,7 @@ function runtimeLaunchDaemonizedQemu(string $labId, string $nodeId, string $node
     return 0;
 }
 
-function setNodeRunningState(PDO $db, string $labId, string $nodeId, int $pid, ?int $consolePort): void
+function setNodeRunningState(PDO $db, string $labId, string $nodeId, int $pid, ?int $consolePort, ?int $checkConsolePort = null): void
 {
     $stmt = $db->prepare(
         "UPDATE lab_nodes
@@ -4110,6 +5051,7 @@ function setNodeRunningState(PDO $db, string $labId, string $nodeId, int $pid, ?
              power_updated_at = NOW(),
              runtime_pid = :runtime_pid,
              runtime_console_port = :runtime_console_port,
+             runtime_check_console_port = :runtime_check_console_port,
              runtime_started_at = NOW(),
              runtime_stopped_at = NULL,
              updated_at = NOW()
@@ -4121,6 +5063,11 @@ function setNodeRunningState(PDO $db, string $labId, string $nodeId, int $pid, ?
         $stmt->bindValue(':runtime_console_port', $consolePort, PDO::PARAM_INT);
     } else {
         $stmt->bindValue(':runtime_console_port', null, PDO::PARAM_NULL);
+    }
+    if ($checkConsolePort !== null) {
+        $stmt->bindValue(':runtime_check_console_port', $checkConsolePort, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':runtime_check_console_port', null, PDO::PARAM_NULL);
     }
     $stmt->bindValue(':node_id', $nodeId, PDO::PARAM_STR);
     $stmt->bindValue(':lab_id', $labId, PDO::PARAM_STR);
@@ -4145,6 +5092,7 @@ function setNodeStoppedState(PDO $db, string $labId, string $nodeId, ?string $er
              power_updated_at = NOW(),
              runtime_pid = NULL,
              runtime_console_port = NULL,
+             runtime_check_console_port = NULL,
              runtime_stopped_at = NOW(),
              updated_at = NOW()
          WHERE id = :node_id
@@ -4167,6 +5115,8 @@ function refreshLabNodeRuntimeState(PDO $db, string $labId, string $nodeId): voi
                 n.is_running,
                 n.power_state,
                 n.runtime_console_port,
+                n.runtime_check_console_port,
+                n.console,
                 n.node_type,
                 n.image,
                 l.author_user_id::text AS author_user_id
@@ -4188,6 +5138,8 @@ function refreshLabNodeRuntimeState(PDO $db, string $labId, string $nodeId): voi
     $running = !empty($row['is_running']);
     $powerState = strtolower((string) ($row['power_state'] ?? ''));
     $consolePort = isset($row['runtime_console_port']) ? ((int) $row['runtime_console_port'] ?: null) : null;
+    $checkConsolePort = isset($row['runtime_check_console_port']) ? ((int) $row['runtime_check_console_port'] ?: null) : null;
+    $consoleType = strtolower(trim((string) ($row['console'] ?? '')));
     $nodeType = strtolower(trim((string) ($row['node_type'] ?? '')));
     $image = trim((string) ($row['image'] ?? ''));
     $ownerUserId = (string) ($row['author_user_id'] ?? '');
@@ -4222,7 +5174,10 @@ function refreshLabNodeRuntimeState(PDO $db, string $labId, string $nodeId): voi
 
     if ($belongsToNode) {
         if (!$running || $powerState !== 'running') {
-            setNodeRunningState($db, $labId, $nodeId, $pid, $consolePort);
+            if ($checkConsolePort === null && $nodeType === 'qemu' && in_array($consoleType, ['vnc', 'rdp'], true)) {
+                $checkConsolePort = $consolePort;
+            }
+            setNodeRunningState($db, $labId, $nodeId, $pid, $consolePort, $checkConsolePort);
         }
         return;
     }
@@ -4232,7 +5187,11 @@ function refreshLabNodeRuntimeState(PDO $db, string $labId, string $nodeId): voi
         $resolvedPid = (int) ($resolved['pid'] ?? 0);
         if ($resolvedPid > 1) {
             $resolvedConsole = isset($resolved['console_port']) ? ((int) $resolved['console_port'] ?: null) : null;
-            setNodeRunningState($db, $labId, $nodeId, $resolvedPid, $resolvedConsole);
+            $resolvedCheckConsole = null;
+            if ($nodeType === 'qemu' && in_array($consoleType, ['vnc', 'rdp'], true)) {
+                $resolvedCheckConsole = $resolvedConsole;
+            }
+            setNodeRunningState($db, $labId, $nodeId, $resolvedPid, $resolvedConsole, $resolvedCheckConsole);
             return;
         }
     }
@@ -4276,8 +5235,11 @@ function startLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
     $nodeType = strtolower(trim((string) ($ctx['node_type'] ?? '')));
     $ownerUserId = isset($ctx['author_user_id']) ? (string) $ctx['author_user_id'] : '';
     $existingPid = (int) ($ctx['runtime_pid'] ?? 0);
-    $useLegacyRuntime = runtimeShouldUseLegacyRuntime($db, $ctx, $labId, $nodeId);
     $isLegacyNodeType = runtimeLegacyNodeTypeSupported($nodeType);
+    $isQemuLinuxNode = $nodeType === 'qemu' && runtimeQemuLooksLikeLinuxNode($ctx);
+    $isQemuCloudNode = $nodeType === 'qemu' && runtimeNodeHasCloudPorts($ctx);
+    $preferLegacyQemuStart = $isQemuCloudNode && !$isQemuLinuxNode;
+    $disableLegacyFallback = $isQemuCloudNode && $isQemuLinuxNode;
     if ($existingPid > 1) {
         $alreadyRunning = runtimePidBelongsToNode($existingPid, $labId, $nodeId);
         if (!$alreadyRunning && $isLegacyNodeType) {
@@ -4299,81 +5261,117 @@ function startLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
         }
     }
 
-    if ($useLegacyRuntime) {
-        return runtimeLegacyStartNodeRuntime($db, $ctx, $labId, $nodeId);
-    }
-
-    if ($nodeType === 'iol') {
-        $staleIolPids = runtimeListIolWrapperPidsBySignature($labId, $nodeId, $ctx);
-        if (!empty($staleIolPids)) {
-            runtimeTerminateNodePids($staleIolPids, 4.0);
+    if ($preferLegacyQemuStart && $isLegacyNodeType) {
+        try {
+            $legacyResult = runtimeLegacyStartNodeRuntime($db, $ctx, $labId, $nodeId);
+            if (is_array($legacyResult)) {
+                $legacyResult['runtime_fallback'] = 'legacy_cloud';
+            }
+            return $legacyResult;
+        } catch (Throwable $e) {
+            // Continue into native start path as last resort.
         }
     }
 
-    $nodeDir = resolveLabNodeRuntimeDir($labId, $nodeId, $ownerUserId);
-    $logPath = runtimeNodeLogPathForType($nodeDir, $nodeType);
-    $pidPath = runtimeNodePidPathForType($nodeDir, $nodeType);
+    try {
+        if ($nodeType === 'iol') {
+            $staleIolPids = runtimeListIolWrapperPidsBySignature($labId, $nodeId, $ctx);
+            if (!empty($staleIolPids)) {
+                runtimeTerminateNodePids($staleIolPids, 4.0);
+            }
+        }
 
-    $spec = runtimeBuildLaunchSpec($ctx, $labId, $nodeId, $nodeDir, $pidPath);
-    $binary = (string) $spec['binary'];
-    $args = (array) $spec['args'];
-    $launchMode = strtolower(trim((string) ($spec['launch_mode'] ?? '')));
-    if ($launchMode === '') {
-        $launchMode = 'background';
-    }
-    $processHints = is_array($spec['process_hints'] ?? null) ? (array) $spec['process_hints'] : [];
+        $nodeDir = resolveLabNodeRuntimeDir($labId, $nodeId, $ownerUserId);
+        $logPath = runtimeNodeLogPathForType($nodeDir, $nodeType);
+        $pidPath = runtimeNodePidPathForType($nodeDir, $nodeType);
 
-    $pid = 0;
-    if ($launchMode === 'qemu_daemonize') {
-        $pid = runtimeLaunchDaemonizedQemu($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $args);
-        if ($pid <= 1) {
-            $tail = runtimeTailText($logPath, 40);
-            if (runtimeLooksLikeKvmError($tail)) {
-                $fallbackArgs = runtimeBuildSoftwareFallbackArgs($args);
-                if ($fallbackArgs !== $args) {
-                    $pid = runtimeLaunchDaemonizedQemu($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $fallbackArgs);
-                    if ($pid > 1) {
-                        $args = $fallbackArgs;
-                        $spec['fallback_mode'] = 'tcg';
+        $spec = runtimeBuildLaunchSpec($ctx, $labId, $nodeId, $nodeDir, $pidPath);
+        $binary = (string) $spec['binary'];
+        $args = (array) $spec['args'];
+        $launchMode = strtolower(trim((string) ($spec['launch_mode'] ?? '')));
+        if ($launchMode === '') {
+            $launchMode = 'background';
+        }
+        $processHints = is_array($spec['process_hints'] ?? null) ? (array) $spec['process_hints'] : [];
+
+        $pid = 0;
+        if ($launchMode === 'qemu_daemonize') {
+            $pid = runtimeLaunchDaemonizedQemu($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $args);
+            if ($pid <= 1) {
+                $tail = runtimeTailText($logPath, 40);
+                if (runtimeLooksLikeKvmError($tail)) {
+                    $fallbackArgs = runtimeBuildSoftwareFallbackArgs($args);
+                    if ($fallbackArgs !== $args) {
+                        $pid = runtimeLaunchDaemonizedQemu($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $fallbackArgs);
+                        if ($pid > 1) {
+                            $args = $fallbackArgs;
+                            $spec['fallback_mode'] = 'tcg';
+                        }
                     }
                 }
             }
+        } else {
+            $extraEnv = is_array($spec['env'] ?? null) ? (array) $spec['env'] : [];
+            $pid = runtimeLaunchBackgroundProcess($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $args, $extraEnv);
         }
-    } else {
-        $extraEnv = is_array($spec['env'] ?? null) ? (array) $spec['env'] : [];
-        $pid = runtimeLaunchBackgroundProcess($labId, $nodeId, $nodeDir, $logPath, $pidPath, $binary, $args, $extraEnv);
-    }
 
-    $pid = runtimeResolveNodePid($pid, $labId, $nodeId, $processHints, 50);
-    if ($pid <= 1) {
-        $tail = runtimeTailText($logPath, 40);
-        throw new RuntimeException('Failed to read runtime pid' . ($tail !== '' ? (': ' . $tail) : ''));
-    }
+        $pid = runtimeResolveNodePid($pid, $labId, $nodeId, $processHints, 50);
+        if ($pid <= 1) {
+            $tail = runtimeTailText($logPath, 40);
+            throw new RuntimeException('Failed to read runtime pid' . ($tail !== '' ? (': ' . $tail) : ''));
+        }
 
-    usleep(300000);
-    if (!runtimePidBelongsToNode($pid, $labId, $nodeId)) {
-        $pid = runtimeResolveNodePid($pid, $labId, $nodeId, $processHints, 10);
-    }
-    if (!runtimePidBelongsToNode($pid, $labId, $nodeId)) {
-        $tail = runtimeTailText($logPath, 40);
-        throw new RuntimeException('Node process exited immediately' . ($tail !== '' ? (': ' . $tail) : ''));
-    }
+        usleep(300000);
+        if (!runtimePidBelongsToNode($pid, $labId, $nodeId)) {
+            $pid = runtimeResolveNodePid($pid, $labId, $nodeId, $processHints, 10);
+        }
+        if (!runtimePidBelongsToNode($pid, $labId, $nodeId)) {
+            $tail = runtimeTailText($logPath, 40);
+            throw new RuntimeException('Node process exited immediately' . ($tail !== '' ? (': ' . $tail) : ''));
+        }
 
-    setNodeRunningState(
-        $db,
-        $labId,
-        $nodeId,
-        $pid,
-        isset($spec['console_port']) ? (is_numeric($spec['console_port']) ? (int) $spec['console_port'] : null) : null
-    );
+        setNodeRunningState(
+            $db,
+            $labId,
+            $nodeId,
+            $pid,
+            isset($spec['console_port']) ? (is_numeric($spec['console_port']) ? (int) $spec['console_port'] : null) : null,
+            isset($spec['check_console_port']) ? (is_numeric($spec['check_console_port']) ? (int) $spec['check_console_port'] : null) : null
+        );
 
-    return [
-        'already_running' => false,
-        'pid' => $pid,
-        'console_port' => $spec['console_port'] ?? null,
-        'networks' => $spec['networks'] ?? [],
-        'image' => $spec['image'] ?? null,
-    ];
+        return [
+            'already_running' => false,
+            'pid' => $pid,
+            'console_port' => $spec['console_port'] ?? null,
+            'networks' => $spec['networks'] ?? [],
+            'image' => $spec['image'] ?? null,
+        ];
+    } catch (Throwable $nativeError) {
+        if (!$isLegacyNodeType || $disableLegacyFallback) {
+            throw $nativeError;
+        }
+        try {
+            $legacyResult = runtimeLegacyStartNodeRuntime($db, $ctx, $labId, $nodeId);
+            if (is_array($legacyResult)) {
+                $legacyResult['runtime_fallback'] = 'legacy';
+            }
+            return $legacyResult;
+        } catch (Throwable $legacyError) {
+            $nativeMsg = trim($nativeError->getMessage());
+            if ($nativeMsg === '') {
+                $nativeMsg = 'unknown native start error';
+            }
+            $legacyMsg = trim($legacyError->getMessage());
+            if ($legacyMsg === '') {
+                $legacyMsg = 'unknown legacy fallback error';
+            }
+            throw new RuntimeException(
+                'Native runtime start failed: ' . $nativeMsg . '; legacy fallback failed: ' . $legacyMsg,
+                0,
+                $nativeError
+            );
+        }
+    }
 }
 
 function stopLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
@@ -4383,7 +5381,8 @@ function stopLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
     $ctx = runtimeLoadNodeContext($db, $labId, $nodeId);
     $pid = (int) ($ctx['runtime_pid'] ?? 0);
     $nodeType = strtolower(trim((string) ($ctx['node_type'] ?? '')));
-    if (runtimeLegacyNodeTypeSupported($nodeType)) {
+    $useLegacyRuntime = runtimeShouldUseLegacyRuntime($db, $ctx, $labId, $nodeId);
+    if ($useLegacyRuntime && runtimeLegacyNodeTypeSupported($nodeType)) {
         return runtimeLegacyStopNodeRuntime($db, $ctx, $labId, $nodeId);
     }
 
@@ -4412,6 +5411,7 @@ function stopLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
         setNodeStoppedState($db, $labId, $nodeId, null);
         if ($nodeType === 'qemu') {
             runtimeCleanupQmpSocket($nodeId);
+            runtimeCleanupQgaSocket($nodeId);
         }
         return [
             'already_stopped' => true,
@@ -4424,13 +5424,18 @@ function stopLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
 
     $graceful = false;
     if ($nodeType === 'qemu') {
-        $graceful = runtimeRequestQemuSystemPowerdown($nodeId);
+        $powerdownMode = null;
+        $graceful = runtimeRequestQemuSystemPowerdown($nodeId, $powerdownMode);
         if ($graceful) {
-            $wait = runtimeWaitPidsExit($targetPids, 35.0);
+            // ACPI from QMP can trigger GUI power dialogs and hang for a long time.
+            // Keep long grace for guest-agent shutdown, but shorten pure ACPI wait.
+            $graceTimeout = ($powerdownMode === 'guest_agent') ? 35.0 : 10.0;
+            $wait = runtimeWaitPidsExit($targetPids, $graceTimeout);
             $aliveAfterGrace = is_array($wait) ? (array) ($wait['alive'] ?? []) : [];
             if (empty($aliveAfterGrace)) {
                 setNodeStoppedState($db, $labId, $nodeId, null);
                 runtimeCleanupQmpSocket($nodeId);
+                runtimeCleanupQgaSocket($nodeId);
                 return [
                     'already_stopped' => false,
                     'pid' => $targetPids[0],
@@ -4451,6 +5456,7 @@ function stopLabNodeRuntime(PDO $db, string $labId, string $nodeId): array
     setNodeStoppedState($db, $labId, $nodeId, null);
     if ($nodeType === 'qemu') {
         runtimeCleanupQmpSocket($nodeId);
+        runtimeCleanupQgaSocket($nodeId);
     }
 
     return [

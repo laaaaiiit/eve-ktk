@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console | EVE</title>
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
+  <link rel="stylesheet" href="/assets/css/main.output.css">
+  <link rel="stylesheet" href="/assets/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/assets/v2-scrollbar.css">
+  <link rel="stylesheet" href="/assets/vendor/xterm/xterm.css">
+  <style>
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { overscroll-behavior: none; }
+    .console-shell { height: 100dvh; min-height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+    .console-terminal-wrap { flex: 1 1 auto; min-height: 0; padding: 0.5rem; overflow: hidden; }
+    .console-terminal { width: 100%; height: 100%; min-height: 0; border-radius: 0.75rem; overflow: hidden; }
+    .console-terminal .xterm { height: 100%; }
+    .console-terminal .xterm-viewport { overflow-y: hidden !important; }
+    .console-vnc { width: 100%; height: 100%; min-height: 0; border-radius: 0.75rem; overflow: hidden; border: 0; }
+    .console-hidden { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen transition-colors duration-300">
+  <div id="app" class="console-shell min-h-screen transition-colors duration-300">
+    <div id="toastRoot" class="fixed right-4 bottom-4 z-[80] flex w-[min(92vw,420px)] flex-col items-end gap-2 sm:right-6 sm:bottom-6"></div>
+
+    <header id="topBar" class="border-b px-3 py-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <i class="fa fa-terminal"></i>
+            <h1 id="titleNode" class="truncate text-sm font-semibold">Console</h1>
+          </div>
+          <div class="mt-0.5 flex items-center gap-2 text-xs opacity-85">
+            <span id="titleLab" class="truncate"></span>
+            <span id="statusDot" class="inline-block h-2 w-2 rounded-full bg-slate-400"></span>
+            <span id="statusText"></span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnReconnect" type="button" class="rounded-lg border px-3 py-1.5 text-xs font-semibold">
+            <i class="fa fa-refresh mr-1"></i><span data-i18n="reconnect">Переподключить</span>
+          </button>
+          <button id="btnClose" type="button" class="rounded-lg border px-3 py-1.5 text-xs font-semibold">
+            <i class="fa fa-times mr-1"></i><span data-i18n="close">Закрыть</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <section class="console-terminal-wrap">
+      <div id="terminalWrap" class="h-full">
+        <div id="terminal" class="console-terminal border"></div>
+      </div>
+      <iframe id="vncFrame" class="console-vnc console-hidden" title="VNC Console" referrerpolicy="no-referrer"></iframe>
+    </section>
+  </div>
+
+  <script src="/assets/vendor/xterm/xterm.js"></script>
+  <script src="/assets/v2-heartbeat.js"></script>
+  <script src="/assets/v2-toast.js"></script>
+  <script>
+    const i18n = {
+      ru: {
+        reconnect: 'Переподключить',
+        close: 'Закрыть',
+        statusConnecting: 'Подключение...',
+        statusConnected: 'Подключено',
+        statusClosed: 'Сессия завершена',
+        statusError: 'Ошибка',
+        errParams: 'Некорректные параметры lab_id/node_id.',
+        errAuth: 'Требуется авторизация.',
+        errOpen: 'Не удалось открыть консоль.',
+        errRead: 'Ошибка чтения консоли.',
+        popupClosed: 'Окно будет закрыто.',
+      },
+      en: {
+        reconnect: 'Reconnect',
+        close: 'Close',
+        statusConnecting: 'Connecting...',
+        statusConnected: 'Connected',
+        statusClosed: 'Session closed',
+        statusError: 'Error',
+        errParams: 'Invalid lab_id/node_id parameters.',
+        errAuth: 'Authorization is required.',
+        errOpen: 'Failed to open console.',
+        errRead: 'Failed to read console stream.',
+        popupClosed: 'Window will be closed.',
+      }
+    };
+
+    const api = {
+      auth: '/api/auth',
+      ping: '/api/auth/ping',
+      open: (labId, nodeId) => `/api/labs/${encodeURIComponent(labId)}/nodes/${encodeURIComponent(nodeId)}/console/session`,
+      read: (sid, offset) => `/api/console/sessions/${encodeURIComponent(sid)}/read?offset=${offset}&wait_ms=900&max_bytes=65536`,
+      write: (sid) => `/api/console/sessions/${encodeURIComponent(sid)}/write`,
+      close: (sid) => `/api/console/sessions/${encodeURIComponent(sid)}`
+    };
+
+    let me = null;
+    let lang = localStorage.getItem('eve_v2_lang') || 'ru';
+    let theme = localStorage.getItem('eve_v2_theme') || 'dark';
+    let labId = '';
+    let nodeId = '';
+
+    let term = null;
+    let sessionId = '';
+    let readOffset = 0;
+    let readLoopToken = 0;
+    let writeBusy = false;
+    let writeQueue = '';
+    let closing = false;
+    let closeIssued = false;
+    let fitObserver = null;
+    let currentConsole = 'telnet';
+    let vncFrameUrl = '';
+    let vncLastHiddenAt = 0;
+    let vncLastResumeAt = 0;
+
+    const toaster = window.createV2ToastManager ? window.createV2ToastManager({
+      rootId: 'toastRoot',
+      getTheme: () => theme,
+      getLabel: () => 'Notifications',
+      durationMs: 5000
+    }) : null;
+
+    function tr(key) {
+      return (i18n[lang] || i18n.ru)[key] || key;
+    }
+
+    function toast(message, kind = 'error') {
+      if (toaster) toaster.toast(message, kind);
+    }
+
+    function statusSet(kind, text) {
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('statusText');
+      if (label) label.textContent = text;
+      if (!dot) return;
+      dot.className = 'inline-block h-2 w-2 rounded-full';
+      if (kind === 'ok') {
+        dot.classList.add('bg-emerald-400');
+      } else if (kind === 'warn') {
+        dot.classList.add('bg-amber-400');
+      } else if (kind === 'error') {
+        dot.classList.add('bg-rose-400');
+      } else {
+        dot.classList.add('bg-slate-400');
+      }
+    }
+
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = tr(key);
+      });
+    }
+
+    function applyTheme() {
+      const body = document.body;
+      const app = document.getElementById('app');
+      const topBar = document.getElementById('topBar');
+      const terminal = document.getElementById('terminal');
+      const vncFrame = document.getElementById('vncFrame');
+      const btnReconnect = document.getElementById('btnReconnect');
+      const btnClose = document.getElementById('btnClose');
+
+      if (theme === 'light') {
+        body.className = 'min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300';
+        app.className = 'console-shell min-h-screen transition-colors duration-300 bg-[radial-gradient(circle_at_0%_0%,#dbeafe_0%,#f1f5f9_45%,#f8fafc_100%)]';
+        topBar.className = 'border-b border-slate-300 bg-white/95 px-3 py-2';
+        terminal.className = 'console-terminal border border-slate-300 bg-white';
+        vncFrame.className = 'console-vnc border border-slate-300 bg-white' + (currentConsole === 'vnc' ? '' : ' console-hidden');
+        btnReconnect.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-50';
+        btnClose.className = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-50';
+      } else {
+        body.className = 'min-h-screen bg-slate-950 text-slate-100 transition-colors duration-300';
+        app.className = 'console-shell min-h-screen transition-colors duration-300 bg-[radial-gradient(circle_at_0%_0%,#0f172a_0%,#111827_45%,#020617_100%)]';
+        topBar.className = 'border-b border-white/20 bg-slate-900/80 px-3 py-2';
+        terminal.className = 'console-terminal border border-white/20 bg-slate-950';
+        vncFrame.className = 'console-vnc border border-white/20 bg-slate-950' + (currentConsole === 'vnc' ? '' : ' console-hidden');
+        btnReconnect.className = 'rounded-lg border border-white/20 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold hover:bg-slate-700';
+        btnClose.className = 'rounded-lg border border-white/20 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold hover:bg-slate-700';
+      }
+
+      if (term) {
+        term.options.theme = theme === 'light'
+          ? { background: '#f8fafc', foreground: '#0f172a', cursor: '#0f172a', selectionBackground: '#bfdbfe' }
+          : { background: '#020617', foreground: '#e2e8f0', cursor: '#22d3ee', selectionBackground: '#1e3a8a' };
+      }
+    }
+
+    function parseParams() {
+      const params = new URLSearchParams(window.location.search);
+      labId = String(params.get('lab_id') || '').trim();
+      nodeId = String(params.get('node_id') || '').trim();
+      const idRe = /^[a-f0-9-]{36}$/i;
+      return idRe.test(labId) && idRe.test(nodeId);
+    }
+
+    function setConsoleMode(mode) {
+      const normalized = String(mode || 'telnet').toLowerCase();
+      currentConsole = normalized === 'vnc' ? 'vnc' : 'telnet';
+      const terminalWrap = document.getElementById('terminalWrap');
+      const vncFrame = document.getElementById('vncFrame');
+      if (currentConsole === 'vnc') {
+        terminalWrap.classList.add('console-hidden');
+        vncFrame.classList.remove('console-hidden');
+      } else {
+        vncFrame.classList.add('console-hidden');
+        terminalWrap.classList.remove('console-hidden');
+      }
+      applyTheme();
+    }
+
+    function buildNoVncFrameUrl(vncPath) {
+      const rawPath = String(vncPath || '').trim();
+      if (!rawPath) return '';
+      const normalizedPath = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath;
+      const params = new URLSearchParams();
+      params.set('path', normalizedPath);
+      params.set('scale', 'true');
+      params.set('autoconnect', 'true');
+      params.set('view_only', 'false');
+      params.set('show_dot', 'true');
+      return `/assets/vendor/novnc/vnc_lite.html?${params.toString()}`;
+    }
+
+    function withResumeNonce(url, nonce) {
+      const source = String(url || '').trim();
+      if (!source) return '';
+      try {
+        const parsed = new URL(source, window.location.origin);
+        parsed.searchParams.set('_resume', String(nonce));
+        return parsed.pathname + parsed.search;
+      } catch (_) {
+        const sep = source.indexOf('?') >= 0 ? '&' : '?';
+        return `${source}${sep}_resume=${encodeURIComponent(String(nonce))}`;
+      }
+    }
+
+    function refreshVncFrameOnResume(force = false) {
+      if (currentConsole !== 'vnc') return;
+      if (!vncFrameUrl) return;
+      const vncFrame = document.getElementById('vncFrame');
+      if (!vncFrame) return;
+      const now = Date.now();
+      if (!force && (now - vncLastResumeAt) < 2500) return;
+      vncLastResumeAt = now;
+      statusSet('warn', tr('statusConnecting'));
+      vncFrame.src = withResumeNonce(vncFrameUrl, now);
+    }
+
+    function toBinaryBase64(str) {
+      let out = '';
+      for (let i = 0; i < str.length; i += 1) {
+        out += String.fromCharCode(str.charCodeAt(i) & 0xff);
+      }
+      return btoa(out);
+    }
+
+    async function jfetch(url, opts = {}) {
+      const response = await fetch(url, Object.assign({ credentials: 'include' }, opts));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const err = new Error(data.message || ('HTTP ' + response.status));
+        err.httpStatus = response.status;
+        throw err;
+      }
+      return data;
+    }
+
+    async function enqueueWrite(data) {
+      if (currentConsole === 'vnc') return;
+      if (!sessionId || closing || !data) return;
+      writeQueue += data;
+      if (writeBusy) return;
+      writeBusy = true;
+      while (!closing && sessionId && writeQueue.length > 0) {
+        const chunk = writeQueue.slice(0, 4096);
+        writeQueue = writeQueue.slice(4096);
+        try {
+          await jfetch(api.write(sessionId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_base64: toBinaryBase64(chunk) })
+          });
+        } catch (err) {
+          writeQueue = chunk + writeQueue;
+          if (err && err.httpStatus === 409) {
+            closing = true;
+            statusSet('warn', tr('statusClosed'));
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        }
+      }
+      writeBusy = false;
+    }
+
+    function createTerminal() {
+      if (currentConsole === 'vnc') return;
+      if (term) {
+        try { term.dispose(); } catch (_) {}
+      }
+      term = new window.Terminal({
+        cursorBlink: true,
+        convertEol: false,
+        scrollback: 6000,
+        fontFamily: 'Consolas, "Liberation Mono", Menlo, monospace',
+        fontSize: 14,
+        lineHeight: 1.2,
+      });
+      const terminalHost = document.getElementById('terminal');
+      term.open(terminalHost);
+      term.focus();
+      fitTerminalToContainer();
+      if (fitObserver) {
+        try { fitObserver.disconnect(); } catch (_) {}
+        fitObserver = null;
+      }
+      if (window.ResizeObserver && terminalHost) {
+        fitObserver = new ResizeObserver(() => fitTerminalToContainer());
+        fitObserver.observe(terminalHost);
+      }
+      applyTheme();
+      term.onData((data) => {
+        enqueueWrite(data);
+      });
+      window.requestAnimationFrame(() => {
+        fitTerminalToContainer();
+        window.requestAnimationFrame(() => fitTerminalToContainer());
+      });
+    }
+
+    function getTerminalCellSize() {
+      try {
+        const core = term && term._core ? term._core : null;
+        const dims = core && core._renderService && core._renderService.dimensions ? core._renderService.dimensions : null;
+        const cell = dims && dims.css && dims.css.cell ? dims.css.cell : null;
+        const width = cell && Number(cell.width) > 0 ? Number(cell.width) : 8.4;
+        const height = cell && Number(cell.height) > 0 ? Number(cell.height) : 17;
+        return { width, height };
+      } catch (_) {
+        return { width: 8.4, height: 17 };
+      }
+    }
+
+    function fitTerminalToContainer() {
+      if (currentConsole === 'vnc') return;
+      if (!term) return;
+      const host = document.getElementById('terminal');
+      if (!host) return;
+      const width = Math.max(0, host.clientWidth);
+      const height = Math.max(0, host.clientHeight);
+      if (width < 20 || height < 20) return;
+      const cell = getTerminalCellSize();
+      const cols = Math.max(20, Math.floor(width / Math.max(1, cell.width)));
+      const rows = Math.max(5, Math.floor(height / Math.max(1, cell.height)));
+      if (term.cols !== cols || term.rows !== rows) {
+        term.resize(cols, rows);
+      }
+    }
+
+    async function closeSessionFireAndForget() {
+      if (!sessionId || closeIssued) return;
+      closeIssued = true;
+      const sid = sessionId;
+      try {
+        await fetch(api.close(sid), { method: 'DELETE', credentials: 'include', keepalive: true });
+      } catch (_) {}
+    }
+
+    async function readLoop(localToken) {
+      if (currentConsole === 'vnc') return;
+      while (!closing && sessionId && localToken === readLoopToken) {
+        try {
+          const res = await jfetch(api.read(sessionId, readOffset));
+          const data = res && res.data ? res.data : {};
+          const chunk = String(data.chunk_base64 || '');
+          if (chunk && term) {
+            term.write(atob(chunk));
+          }
+          readOffset = Number(data.next_offset || readOffset);
+          const status = String(data.status || 'running').toLowerCase();
+          if (status === 'running' || status === 'starting' || status === 'closing') {
+            statusSet('ok', tr('statusConnected'));
+          }
+          if (status === 'closed' || status === 'error') {
+            closing = true;
+            statusSet(status === 'error' ? 'error' : 'warn', status === 'error' ? tr('statusError') : tr('statusClosed'));
+            break;
+          }
+        } catch (err) {
+          if (err && err.httpStatus === 401) {
+            location.href = '/login';
+            return;
+          }
+          statusSet('error', tr('statusError'));
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+      }
+    }
+
+    async function startConsole() {
+      closing = false;
+      closeIssued = false;
+      readOffset = 0;
+      writeQueue = '';
+      statusSet('warn', tr('statusConnecting'));
+
+      const openRes = await jfetch(api.open(labId, nodeId), { method: 'POST' });
+      const opened = openRes && openRes.data ? openRes.data : {};
+      sessionId = String(opened.session_id || '');
+      if (!sessionId) {
+        throw new Error(tr('errOpen'));
+      }
+
+      const nodeName = String(opened.node_name || 'Node');
+      const consoleTypeRaw = String(opened.console || 'telnet').toLowerCase();
+      const consoleType = consoleTypeRaw.toUpperCase();
+      setConsoleMode(consoleTypeRaw);
+      document.getElementById('titleNode').textContent = `${nodeName} [${consoleType}]`;
+      document.getElementById('titleLab').textContent = `LAB: ${labId}`;
+      document.title = `${nodeName} | Console`;
+
+      if (consoleTypeRaw === 'vnc') {
+        const vncPath = String(opened.vnc_path || '').trim();
+        const frameUrl = buildNoVncFrameUrl(vncPath);
+        if (!frameUrl) {
+          throw new Error(tr('errOpen'));
+        }
+        const vncFrame = document.getElementById('vncFrame');
+        vncFrameUrl = frameUrl;
+        vncLastResumeAt = Date.now();
+        vncFrame.src = withResumeNonce(vncFrameUrl, vncLastResumeAt);
+        statusSet('warn', tr('statusConnecting'));
+        return;
+      }
+
+      const vncFrame = document.getElementById('vncFrame');
+      vncFrame.src = 'about:blank';
+      vncFrameUrl = '';
+      vncLastResumeAt = 0;
+      if (!term) {
+        createTerminal();
+      }
+      readLoopToken += 1;
+      const token = readLoopToken;
+      statusSet('ok', tr('statusConnected'));
+      readLoop(token);
+    }
+
+    async function reconnectConsole() {
+      closing = true;
+      await closeSessionFireAndForget();
+      sessionId = '';
+      readOffset = 0;
+      writeQueue = '';
+      closing = false;
+      closeIssued = false;
+      const vncFrame = document.getElementById('vncFrame');
+      vncFrame.src = 'about:blank';
+      vncFrameUrl = '';
+      vncLastResumeAt = 0;
+      if (currentConsole !== 'vnc') {
+        createTerminal();
+      }
+      try {
+        await startConsole();
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errOpen'));
+        statusSet('error', tr('statusError'));
+      }
+    }
+
+    document.getElementById('btnReconnect').addEventListener('click', () => {
+      reconnectConsole();
+    });
+
+    document.getElementById('btnClose').addEventListener('click', async () => {
+      await closeSessionFireAndForget();
+      try {
+        window.close();
+      } catch (_) {}
+      toast(tr('popupClosed'), 'success');
+    });
+
+    window.addEventListener('pagehide', () => {
+      closeSessionFireAndForget();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      closeSessionFireAndForget();
+    });
+    window.addEventListener('resize', () => {
+      fitTerminalToContainer();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        vncLastHiddenAt = Date.now();
+        return;
+      }
+      if (currentConsole !== 'vnc') return;
+      const hiddenFor = vncLastHiddenAt > 0 ? (Date.now() - vncLastHiddenAt) : 0;
+      if (hiddenFor >= 1200) {
+        refreshVncFrameOnResume();
+      }
+    });
+    window.addEventListener('focus', () => {
+      if (currentConsole !== 'vnc') return;
+      if (document.visibilityState === 'hidden') return;
+      const hiddenFor = vncLastHiddenAt > 0 ? (Date.now() - vncLastHiddenAt) : 0;
+      if (hiddenFor >= 1200) {
+        refreshVncFrameOnResume();
+      }
+    });
+    window.addEventListener('pageshow', (event) => {
+      if (currentConsole !== 'vnc') return;
+      if (event && event.persisted) {
+        refreshVncFrameOnResume(true);
+      }
+    });
+    const vncFrameEl = document.getElementById('vncFrame');
+    if (vncFrameEl) {
+      vncFrameEl.addEventListener('load', () => {
+        if (currentConsole === 'vnc') {
+          statusSet('ok', tr('statusConnected'));
+        }
+      });
+    }
+
+    (async () => {
+      if (!parseParams()) {
+        toast(tr('errParams'));
+        statusSet('error', tr('statusError'));
+        return;
+      }
+
+      try {
+        const auth = await jfetch(api.auth);
+        me = auth && auth.data ? auth.data : null;
+      } catch (_) {
+        toast(tr('errAuth'));
+        location.href = '/login';
+        return;
+      }
+
+      lang = (me && me.lang) ? String(me.lang) : lang;
+      theme = (me && me.theme) ? String(me.theme) : theme;
+      localStorage.setItem('eve_v2_lang', lang);
+      localStorage.setItem('eve_v2_theme', theme);
+
+      applyI18n();
+      setConsoleMode('telnet');
+      createTerminal();
+      applyTheme();
+
+      try {
+        await startConsole();
+      } catch (err) {
+        const message = (err && err.message) ? err.message : tr('errOpen');
+        toast(message);
+        statusSet('error', tr('statusError'));
+      }
+
+      if (window.startV2Heartbeat) {
+        window.startV2Heartbeat({
+          pingUrl: api.ping,
+          onUnauthorized: () => {
+            location.href = '/login';
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

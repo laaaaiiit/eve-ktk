@@ -443,6 +443,12 @@ switch ($action) {
 		}
 		$tap_prefix = ($node->getNType() == 'docker') ? 'vnet' : 'vunl';
 		$tap_name = $tap_prefix . $lab->getTenant() . '_' . $node_id . '_' . $interface_id;
+		if ($tap_prefix !== 'vnet' && !isTap($tap_name)) {
+			$rc = addTap($tap_name, $username);
+			if ($rc !== 0) {
+				exit($rc);
+			}
+		}
 		if ($old_network_id > 0) {
 			if (isset($lab->getNetworks()[$old_network_id])) {
 				$old_network = $lab->getNetworks()[$old_network_id];

@@ -1157,16 +1157,7 @@ $app->get('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 			$app->response->setBody(json_encode($output));
 			return;
 		}
-		// Setting lab as last viewed
-		$rc = updatePodLab($db, $user['tenant'], $lab_file);
-		if ($rc !== 0) {
-			// Cannot update user lab
-			$output['code'] = 500;
-			$output['status'] = 'error';
-			$output['message'] = $GLOBALS['messages'][$rc];
-		} else {
-			$output = apiGetLabTopology($lab);
-		}
+		$output = apiGetLabTopology($lab);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects$/', $labFileRelative)) {
 		$output = apiGetLabTextObjects($lab, $id);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects\/[0-9]+$/', $labFileRelative)) {
@@ -1230,6 +1221,7 @@ $app->post('/api/labs/work/(:path+)', function ($path = array()) use ($app, $db)
 	$event = json_decode($app->request()->getBody());
 	$p = json_decode(json_encode($event), True);
 	$action = isset($p['action']) ? strtolower($p['action']) : 'start';
+	$async = !empty($p['async']);
 	if (!in_array($action, array('start', 'reset'))) {
 		$action = 'start';
 	}
@@ -1249,7 +1241,39 @@ $app->post('/api/labs/work/(:path+)', function ($path = array()) use ($app, $db)
 		return;
 	}
 
-	$output = apiCreateWorkLab($db, $user, $absolutePath, $relativePath, $action);
+	if ($async) {
+		$paths = buildWorkLabPaths($user, $relativePath, $absolutePath);
+		if ($action === 'start' && is_file($paths['absolute_work'])) {
+			$output = array(
+				'code' => 200,
+				'status' => 'success',
+				'message' => 'Work copy already exists',
+				'data' => array(
+					'work_path' => $paths['relative_work'],
+					'work_exists' => true
+				)
+			);
+		} else {
+			$jobPayload = array(
+				'action' => $action,
+				'relative_path' => $relativePath
+			);
+			$jobLabPath = buildUserLabAbsolutePath($user, $relativePath);
+			$jobId = enqueueJob($db, $jobLabPath, $user['tenant'], $user['username'], $user['role'], 'work_copy', $jobPayload);
+			$output = array(
+				'code' => 202,
+				'status' => 'accepted',
+				'message' => 'Work copy queued.',
+				'data' => array(
+					'job_id' => (int) $jobId,
+					'work_path' => $paths['relative_work'],
+					'work_exists' => false
+				)
+			);
+		}
+	} else {
+		$output = apiCreateWorkLab($db, $user, $absolutePath, $relativePath, $action);
+	}
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
@@ -1331,15 +1355,20 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
-	// Locking
-	if (!lockFile($lab_file_full)) {
-		// Failed to lockFile within the time
-		$output['code'] = 400;
-		$output['status'] = 'fail';
-		$output['message'] = $GLOBALS['messages'][60061];
-		$app->response->setStatus($output['code']);
-		$app->response->setBody(json_encode($output));
-		return;
+	$lockHeld = false;
+	$skipLock = preg_match('/\/operations$/', $s) === 1;
+	if (!$skipLock) {
+		// Locking
+		if (!lockFile($lab_file_full)) {
+			// Failed to lockFile within the time
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			$output['message'] = $GLOBALS['messages'][60061];
+			$app->response->setStatus($output['code']);
+			$app->response->setBody(json_encode($output));
+			return;
+		}
+		$lockHeld = true;
 	}
 
 	try {
@@ -1351,7 +1380,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile($lab_file_full);
+		if ($lockHeld) {
+			unlockFile($lab_file_full);
+		}
 		return;
 	}
 
@@ -1379,7 +1410,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = 'Permission denied to modify the lab.';
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile($lab_file_full);
+		if ($lockHeld) {
+			unlockFile($lab_file_full);
+		}
 		return;
 	}
 
@@ -1392,7 +1425,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if (strtolower(substr($relativeCheck, 0, 7)) === '/shared' && $p['name'] !== $currentName) {
 			$app->response->setStatus(403);
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Cannot rename labs inside Shared']));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 	}
@@ -1404,7 +1439,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 
@@ -1412,7 +1449,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 		unset($p['shared']);
@@ -1424,7 +1463,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 
@@ -1432,7 +1473,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 		unset($p['sharedWith']);
@@ -1444,7 +1487,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($lab->getAuthor() != $user['username'] && $user['role'] != 'admin') {
 			$app->response->setStatus(403); // Forbidden
 			$app->response->setBody(json_encode(['code' => 403, 'status' => 'fail', 'message' => 'Forbidden: You are not the author or an admin.']));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 
@@ -1452,7 +1497,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		if ($output['code'] !== 200) {
 			$app->response->setStatus($output['code']);
 			$app->response->setBody(json_encode($output));
-			unlockFile($lab_file_full);
+			if ($lockHeld) {
+				unlockFile($lab_file_full);
+			}
 			return;
 		}
 		unset($p['collaborateAllowed']);
@@ -1654,7 +1701,9 @@ $app->put('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 
 	$app->response->setStatus($output['code']);
 	$app->response->setBody(json_encode($output));
-	unlockFile($lab_file_full);
+	if ($lockHeld) {
+		unlockFile($lab_file_full);
+	}
 });
 
 // Add new lab
@@ -1814,19 +1863,24 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		return;
 	}
 
-	// Locking
-	if (!lockFile($lab_file_full)) {
-		// Failed to lockFile within the time
-		$output['code'] = 400;
-		$output['status'] = 'fail';
-		$output['message'] = $GLOBALS['messages'][60061];
-		$app->response->setStatus($output['code']);
-		$app->response->setBody(json_encode($output));
-		return;
+	$lockHeld = false;
+	$skipLock = preg_match('/\/nodes\/actions$/', $s) === 1;
+	if (!$skipLock) {
+		// Locking
+		if (!lockFile($lab_file_full)) {
+			// Failed to lockFile within the time
+			$output['code'] = 400;
+			$output['status'] = 'fail';
+			$output['message'] = $GLOBALS['messages'][60061];
+			$app->response->setStatus($output['code']);
+			$app->response->setBody(json_encode($output));
+			return;
+		}
+		$lockHeld = true;
 	}
 
 	try {
-		$lab = new Lab($lab_file_full, $user['tenant'], $user['username']);
+		$lab = new Lab($lab_file_full, $user['tenant'], $user['username'], false);
 	} catch (Exception $e) {
 		// Lab file is invalid
 		$output['code'] = 400;
@@ -1834,7 +1888,9 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = $GLOBALS['messages'][$e->getMessage()];
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile($lab_file_full);
+		if ($lockHeld) {
+			unlockFile($lab_file_full);
+		}
 		return;
 	}
 
@@ -1858,7 +1914,9 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		$output['message'] = 'Permission denied to add objects to the lab.';
 		$app->response->setStatus($output['code']);
 		$app->response->setBody(json_encode($output));
-		unlockFile($lab_file_full);
+		if ($lockHeld) {
+			unlockFile($lab_file_full);
+		}
 		return;
 	}
 
@@ -1893,7 +1951,9 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 					$output['message'] = $GLOBALS['messages']['60052'];
 					$app->response->setStatus($output['code']);
 					$app->response->setBody(json_encode($output));
-					unlockFile($lab_file_full);
+					if ($lockHeld) {
+						unlockFile($lab_file_full);
+					}
 					return;
 				}
 				if ($action === 'delete' && !$isOwner && !$isAdmin) {
@@ -1902,7 +1962,9 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 					$output['message'] = 'Permission denied to delete nodes.';
 					$app->response->setStatus($output['code']);
 					$app->response->setBody(json_encode($output));
-					unlockFile($lab_file_full);
+					if ($lockHeld) {
+						unlockFile($lab_file_full);
+					}
 					return;
 				}
 				$labTenant = $lab->getTenant() ?: $user['tenant'];
@@ -1955,7 +2017,9 @@ $app->post('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 		refreshSharedLabCopies($lab, $db, $user);
 	}
 
-	unlockFile($lab_file_full);
+	if ($lockHeld) {
+		unlockFile($lab_file_full);
+	}
 });
 
 // Close a lab
@@ -2060,7 +2124,7 @@ $app->delete('/api/labs/(:path+)', function ($path = array()) use ($app, $db) {
 	}
 
 	try {
-		$lab = new Lab($lab_file_full, $user['tenant'], $user['username']);
+		$lab = new Lab($lab_file_full, $user['tenant'], $user['username'], false);
 	} catch (Exception $e) {
 		// Lab file is invalid
 		if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl$/', $s)) {

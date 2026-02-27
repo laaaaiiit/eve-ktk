@@ -1,0 +1,3 @@
+ALTER TABLE IF EXISTS lab_nodes
+  DROP COLUMN IF EXISTS config,
+  DROP COLUMN IF EXISTS cpu_limit;

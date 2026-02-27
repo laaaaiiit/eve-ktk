@@ -1185,6 +1185,9 @@ function ensureNodeConsolePortFree($lab, $nodeIds)
 		if ($port <= 0) {
 			continue;
 		}
+		if ($nodes[$nodeId]->getNType() === 'vpcs') {
+			cleanupVpcsProcess($lab->getTenant(), $nodeId, $port);
+		}
 		$checkCmd = 'sudo fuser -n tcp ' . $port . ' 2>/dev/null';
 		$output = array();
 		exec($checkCmd, $output, $rc);
@@ -1192,6 +1195,32 @@ function ensureNodeConsolePortFree($lab, $nodeIds)
 			$killCmd = 'sudo fuser -k -n tcp ' . $port . ' > /dev/null 2>&1';
 			exec($killCmd);
 			usleep(250000);
+		}
+	}
+}
+
+function cleanupVpcsProcess($tenant, $nodeId, $port)
+{
+	$tenant = (int) $tenant;
+	$nodeId = (int) $nodeId;
+	$port = (int) $port;
+	if ($tenant <= 0 || $nodeId <= 0 || $port <= 0) {
+		return;
+	}
+	$pattern = '-d vunl' . $tenant . '_' . $nodeId . '_';
+	$cmd = 'ps ax -o pid=,command= | grep -F "vpcs"';
+	$lines = array();
+	exec($cmd, $lines);
+	foreach ($lines as $line) {
+		$line = trim($line);
+		if ($line === '' || strpos($line, $pattern) === false) {
+			continue;
+		}
+		$parts = preg_split('/\s+/', $line, 2);
+		$pid = isset($parts[0]) ? (int) $parts[0] : 0;
+		if ($pid > 0) {
+			exec('sudo kill -9 ' . $pid . ' >/dev/null 2>&1');
+			usleep(100000);
 		}
 	}
 }

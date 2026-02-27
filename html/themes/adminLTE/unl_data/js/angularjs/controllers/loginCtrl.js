@@ -1,4 +1,4 @@
-angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies, themeService) {
+angular.module("unlMainApp").controller('loginController', function loginController($scope, $http, $location, $rootScope, $cookies, themeService, $window) {
 		var translations = {
 			en: {
 				brandTitle: 'Welcome to EVE-NG Community',
@@ -88,6 +88,53 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 			return codeMatch ? fallback + ' ' + codeMatch[0] : fallback;
 		}
 
+		function getRedirectFromQuery() {
+			var redirect = $location.search().redirect;
+			if (typeof redirect !== 'string') {
+				return null;
+			}
+
+			redirect = redirect.trim();
+			if (!redirect) {
+				return null;
+			}
+
+			try {
+				redirect = decodeURIComponent(redirect);
+			} catch (e) {
+				// Keep raw value if it is not URI-encoded.
+			}
+
+			if (redirect.charAt(0) !== '/' || redirect.indexOf('//') === 0 || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(redirect)) {
+				return null;
+			}
+
+			return redirect;
+		}
+
+		function redirectAfterAuth() {
+			var redirect = getRedirectFromQuery();
+			if (redirect) {
+				$window.location.href = redirect;
+				return;
+			}
+			$scope.testAUTH("/main");
+		}
+
+		function redirectIfAlreadyAuthenticated() {
+			$http.get('/api/auth').then(
+				function successCallback(response) {
+					if (response.status !== 200 || !response.data || !response.data.data) {
+						return;
+					}
+					redirectAfterAuth();
+				},
+				function errorCallback() {
+					// Keep login page for anonymous users.
+				}
+			);
+		}
+
 		function applyLanguage(lang) {
 			var validLang = getValidLanguage(lang);
 			$scope.lang = validLang;
@@ -122,8 +169,7 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 
 		$scope.eveversion = $rootScope.EVE_VERSION + "-Community";
 		if ($scope.html5 == null) { $scope.html5 = '1'; }
-		// Always ask API about current session; cookie is scoped to /api/ and may be invisible to JS
-		$scope.testAUTH("/main");
+		redirectIfAlreadyAuthenticated();
 		$scope.theme = themeService.sync($rootScope.username);
 		$scope.themeClass = function (darkClasses, lightClasses) {
 			return ($scope.theme === 'light') ? (lightClasses || '') : (darkClasses || '');
@@ -149,15 +195,15 @@ angular.module("unlMainApp").controller('loginController', function loginControl
 				url: '/api/auth/login',
 				data: { "username": $scope.username, "password": $scope.password, "html5": $scope.html5 }
 			})
-				.then(
-					function successCallback(response) {
-						if (response.data && response.data.code === 200) {
-							blockUI();
-							$scope.testAUTH("/main");
-						} else {
-							var message = currentTranslation().errors.generic;
-							$scope.loginMessageInfo = formatServerMessage(message, response.data && response.data.message);
-						}
+					.then(
+						function successCallback(response) {
+							if (response.data && response.data.code === 200) {
+								blockUI();
+								redirectAfterAuth();
+							} else {
+								var message = currentTranslation().errors.generic;
+								$scope.loginMessageInfo = formatServerMessage(message, response.data && response.data.message);
+							}
 						$.unblockUI(); // Unblock UI after login attempt
 					},
 					function errorCallback(response) {

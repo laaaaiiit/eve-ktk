@@ -4136,9 +4136,13 @@ $(document).on('click', 'a.interfaces.serial', function (e) {
 })
 
 $(document).on('click', '#lab-viewport', function (e) {
-    var context = 0
-    {
-        try { if (e.target.className.search('action-') != -1) context = 1 } catch (ex) { }
+    var context = 0;
+    if ($(e.target).closest('#context-menu').length) {
+        context = 1;
+    } else {
+        try {
+            if (e.target.className && e.target.className.search('action-') != -1) context = 1;
+        } catch (ex) { }
     }
 	if (!e.metaKey && !e.ctrlKey && $(this).hasClass('freeSelectMode') && window.dragstop != 1 && context == 0) {
 		$('.free-selected').removeClass('free-selected')
@@ -4257,9 +4261,18 @@ $(document).on('submit', '#addConn', function (e) {
     e.preventDefault();  // Prevent default behaviour
     var lab_filename = $('#lab-viewport').attr('data-path');
     var form_data = form2Array('addConn');
-    //alert ( JSON.stringify( form_data) )
-    var srcType = (((form_data['srcConn'] + '').search("serial") != -1) ? 'serial' : 'ethernet')
-    var dstType = (((form_data['dstConn'] + '').search("serial") != -1) ? 'serial' : 'ethernet')
+    var srcNodeIsNode = form_data['srcNodeType'] === 'node';
+    var dstNodeIsNode = form_data['dstNodeType'] === 'node';
+
+    if ((srcNodeIsNode && !form_data['srcConn']) || (dstNodeIsNode && !form_data['dstConn'])) {
+        addModalError('Выберите свободные интерфейсы на обоих устройствах перед сохранением.');
+        return;
+    }
+
+    var srcConnValue = form_data['srcConn'] || '';
+    var dstConnValue = form_data['dstConn'] || '';
+    var srcType = (srcConnValue.indexOf('serial') !== -1) ? 'serial' : 'ethernet';
+    var dstType = (dstConnValue.indexOf('serial') !== -1) ? 'serial' : 'ethernet';
     // Get src dst type information and check compatibility
     if (srcType != dstType) {
         addModalError("Serial and Ethernet cannot be interconnected !!!!")
@@ -4292,9 +4305,12 @@ $(document).on('submit', '#addConn', function (e) {
 
     lockSubmit();
 
-    function closeAndRefresh() {
+    function closeModalOnly() {
         $(e.target).parents('.modal').attr('skipRedraw', true);
         $(e.target).parents('.modal').modal('hide');
+    }
+
+    function refreshTopology() {
         var refreshButton = $('.action-labtopologyrefresh').first();
         if (refreshButton.length) {
             refreshButton.click();
@@ -4309,24 +4325,30 @@ $(document).on('submit', '#addConn', function (e) {
         unlockSubmit();
     }
 
+    function cleanInterfaceValue(raw) {
+        return (raw || '').replace(',serial', '').replace(',ethernet', '');
+    }
+
+    closeModalOnly();
+
     if (form_data['srcNodeType'] == 'node' && form_data['dstNodeType'] == 'node') {
         if (srcType == 'serial') {
             /// create link S2S between nodes
             //alert ( ' Need to build S2S between Node' + form_data['srcNodeId'] + ' ' + form_data['srcConn'].replace(',serial','') +' and Node' + form_data['dstNodeId'] + ' ' + form_data['dstConn'].replace(',serial','') )
             var node1 = form_data['srcNodeId']
-            var iface1 = form_data['srcConn'].replace(',serial', '')
+            var iface1 = cleanInterfaceValue(form_data['srcConn'])
             var node2 = form_data['dstNodeId']
-            var iface2 = form_data['dstConn'].replace(',serial', '')
+            var iface2 = cleanInterfaceValue(form_data['dstConn'])
             $.when(connectNodesSerial(node1, iface1, node2, iface2)).done(function () {
-                closeAndRefresh();
+                refreshTopology();
             }).fail(handleJobFailure);
         } else {
-            var bridgename = $('#node' + form_data['srcNodeId']).attr('data-name') + 'iface_' + form_data['srcConn'].replace(',ethernet', '')
+            var bridgename = $('#node' + form_data['srcNodeId']).attr('data-name') + 'iface_' + cleanInterfaceValue(form_data['srcConn'])
             var offset = $('#node' + form_data['srcNodeId']).offset() || { left: 0, top: 0 }
             var node1 = form_data['srcNodeId']
-            var iface1 = form_data['srcConn'].replace(',ethernet', '')
+            var iface1 = cleanInterfaceValue(form_data['srcConn'])
             var node2 = form_data['dstNodeId']
-            var iface2 = form_data['dstConn'].replace(',ethernet', '')
+            var iface2 = cleanInterfaceValue(form_data['dstConn'])
             var bridgeMeta = {
                 name: 'Net-' + bridgename,
                 left: Math.round(offset.left + 20),
@@ -4334,7 +4356,7 @@ $(document).on('submit', '#addConn', function (e) {
                 visibility: 0
             };
             $.when(connectNodesBridge(node1, iface1, node2, iface2, bridgeMeta)).done(function () {
-                closeAndRefresh();
+                refreshTopology();
             }).fail(handleJobFailure);
 
         }
@@ -4342,15 +4364,15 @@ $(document).on('submit', '#addConn', function (e) {
     } else {
         if (form_data['srcNodeType'] == 'node') {
             var node = form_data['srcNodeId']
-            var iface = form_data['srcConn'].replace(',ethernet', '')
+            var iface = cleanInterfaceValue(form_data['srcConn'])
             var bridge = form_data['dstNodeId']
         } else {
             var node = form_data['dstNodeId']
-            var iface = form_data['dstConn'].replace(',ethernet', '')
+            var iface = cleanInterfaceValue(form_data['dstConn'])
             var bridge = form_data['srcNodeId']
         }
         $.when(setNodeInterface(node, bridge, iface)).done(function () {
-            closeAndRefresh();
+            refreshTopology();
         }).fail(handleJobFailure);
     }
 

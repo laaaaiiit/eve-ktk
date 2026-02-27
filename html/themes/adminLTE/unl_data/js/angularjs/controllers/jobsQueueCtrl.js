@@ -134,7 +134,8 @@ angular.module("unlMainApp").controller('jobsQueueController', function jobsQueu
 	var operationLabelDictionary = {
 		connect_nodes_bridge: { en: 'Connect', ru: 'Connect' },
 		connect_nodes_serial: { en: 'Connect', ru: 'Connect' },
-		connect_node_network: { en: 'Connect', ru: 'Connect' }
+		connect_node_network: { en: 'Connect', ru: 'Connect' },
+		work_copy: { en: 'Work copy', ru: 'Личная копия' }
 	};
 
 	function resolveLanguage() {

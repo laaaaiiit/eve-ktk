@@ -18,6 +18,8 @@ PHP follows the vim modeline already committed (tabs, no expandtab) and PSR-styl
 - Add project overrides directly inside `main.css` (or import extra files there). Avoid editing legacy CSS files in `html/themes/adminLTE/unl_data/css/`.
 - New templates should load only `main.output.css`. Remove bootstrap/AdminLTE dependencies when migrating old pages to Tailwind.
 - For `nodemgmt` (and upcoming admin pages) we are actively replacing every Bootstrap/AdminLTE modal with Tailwind-only dialogs. When touching these screens, **do not** introduce new Bootstrap markup/classes; reuse the Tailwind modal patterns established on usermgmt.
+- For all new authenticated `v2` pages, heartbeat is mandatory: connect the page to `/v2/api/v2/auth/ping` (reuse `public/assets/v2-heartbeat.js`) so forced session termination reliably redirects users to `/v2/login`.
+- Keep notifications visually and behaviorally identical across `v2` pages: reuse one shared toast pattern/component and do not create page-specific notification styles or timing logic.
 
 ## Testing Guidelines
 No dedicated test harness exists, so rely on reproducible labs. Create verification labs in `labs/<feature>/<case>.unl`, clear stale `.unl.lock` files, and document external images in a README. Lint PHP and Python as described above, then import the lab through the UI or `curl` against `html/api.php` to confirm nodes boot, wrappers attach NICs, and config scripts reach their prompts. Capture `bash scripts/eve-info.sh` output and sample REST data such as `curl -s http://127.0.0.1/api/status | jq '.'` when reporting results.

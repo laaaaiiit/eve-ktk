@@ -18,6 +18,14 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 	$scope.showTable = true;
 	$scope.labHasRunningNodes = false;
 	$scope.runningNodesCount = 0;
+	$scope.workCopyInProgress = false;
+	$scope.workCopyProgress = 0;
+	$scope.workCopyEta = '';
+	$scope.workCopyStatus = '';
+	$scope.workCopyJobId = null;
+	$scope.workCopyModal = null;
+	$scope.workCopyStartTs = null;
+	$scope.workCopyWorkPath = '';
 	//Default variables ///END
 
 	var translations = {
@@ -160,7 +168,16 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			startWorkButton: 'Personal work',
 			continueWorkButton: 'Continue',
 			restartWorkButton: 'Start over',
-			workBlockedTooltip: 'Stop all running nodes before editing lab settings.'
+			workBlockedTooltip: 'Stop all running nodes before editing lab settings.',
+			workCopyTitle: 'Personal work copy',
+			workCopySubtitle: 'Creating your personal lab copy. This can take a while.',
+			workCopyProgressLabel: 'Progress',
+			workCopyEtaLabel: 'Time left',
+			workCopyStatusQueued: 'Queued',
+			workCopyStatusRunning: 'Copying files',
+			workCopyStatusFinalizing: 'Finalizing',
+			workCopyEtaUnknown: 'Calculating...',
+			workCopyError: 'Error creating work copy'
 		},
 		ru: {
 			heroEyebrow: 'Рабочая зона',
@@ -301,7 +318,16 @@ angular.module("unlMainApp").controller('mainController', function mainControlle
 			startWorkButton: 'Личная работа',
 			continueWorkButton: 'Продолжить',
 			restartWorkButton: 'Начать сначала',
-			workBlockedTooltip: 'Остановите все запущенные устройства, чтобы изменить параметры лаборатории.'
+			workBlockedTooltip: 'Остановите все запущенные устройства, чтобы изменить параметры лаборатории.',
+			workCopyTitle: 'Личная копия лаборатории',
+			workCopySubtitle: 'Создаем вашу личную копию лаборатории. Это может занять время.',
+			workCopyProgressLabel: 'Прогресс',
+			workCopyEtaLabel: 'Осталось времени',
+			workCopyStatusQueued: 'В очереди',
+			workCopyStatusRunning: 'Копирование файлов',
+			workCopyStatusFinalizing: 'Завершение',
+			workCopyEtaUnknown: 'Расчет...',
+			workCopyError: 'Ошибка создания личной копии'
 		}
 	};
 
@@ -1355,13 +1381,150 @@ function performLabDelete(elementName, hide) {
 		}
 	}
 
+	function formatWorkCopyDuration(seconds) {
+		seconds = Math.max(0, Math.round(seconds || 0));
+		var mins = Math.floor(seconds / 60);
+		var secs = seconds % 60;
+		return mins + ':' + (secs < 10 ? '0' : '') + secs;
+	}
+
+	function updateWorkCopyEta(progress) {
+		var t = currentTranslations();
+		if (!progress || progress <= 0 || !$scope.workCopyStartTs) {
+			$scope.workCopyEta = t.workCopyEtaUnknown || 'Calculating...';
+			return;
+		}
+		if (progress >= 100) {
+			$scope.workCopyEta = '0:00';
+			return;
+		}
+		var elapsed = (Date.now() - $scope.workCopyStartTs) / 1000;
+		if (elapsed <= 0.5) {
+			$scope.workCopyEta = t.workCopyEtaUnknown || 'Calculating...';
+			return;
+		}
+		var remaining = Math.round((elapsed * (100 - progress)) / progress);
+		$scope.workCopyEta = formatWorkCopyDuration(remaining);
+	}
+
+	function setWorkCopyStatus(job) {
+		var t = currentTranslations();
+		var status = (job && job.status) ? job.status : '';
+		if (status === 'running') {
+			$scope.workCopyStatus = t.workCopyStatusRunning || 'Copying files';
+		} else if (status === 'pending') {
+			$scope.workCopyStatus = t.workCopyStatusQueued || 'Queued';
+		} else {
+			$scope.workCopyStatus = t.workCopyStatusFinalizing || 'Finalizing';
+		}
+	}
+
+	function openWorkCopyModal() {
+		if ($scope.workCopyModal) {
+			return;
+		}
+		var t = currentTranslations();
+		$scope.workCopyProgress = 0;
+		$scope.workCopyEta = t.workCopyEtaUnknown || 'Calculating...';
+		$scope.workCopyStatus = t.workCopyStatusQueued || 'Queued';
+		$scope.workCopyModal = $uibModal.open({
+			animation: true,
+			templateUrl: '/themes/adminLTE/unl_data/pages/modals/workCopyProgress.html',
+			scope: $scope,
+			backdrop: 'static',
+			keyboard: false,
+			windowTemplateUrl: '/themes/adminLTE/unl_data/pages/modals/tailwind-modal-window.html',
+			windowClass: 'tailwind-modal-window'
+		});
+		$scope.workCopyModal.result.finally(function () {
+			$scope.workCopyModal = null;
+		});
+	}
+
+	function closeWorkCopyModal() {
+		if ($scope.workCopyModal) {
+			$scope.workCopyModal.close();
+		}
+	}
+
+	function applyWorkCopyResult(result, fallbackPath) {
+		if (result && result.data && $scope.labInfo) {
+			$scope.labInfo.workExists = !!result.data.work_exists;
+			$scope.labInfo.workPath = result.data.work_path || '';
+		}
+		var targetPath = (result && result.data && result.data.work_path) ? result.data.work_path : fallbackPath;
+		redirectToWorkLab(targetPath);
+		var infoPromise = $scope.getLabInfo ? $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab) : null;
+		return infoPromise || null;
+	}
+
+	function pollWorkCopyJob(jobId, fallbackPath, action) {
+		if (!jobId) {
+			return;
+		}
+		$http.get('/api/jobs/' + jobId).then(function (response) {
+			var job = response.data && response.data.data ? response.data.data : null;
+			if (!job) {
+				throw new Error('Invalid job payload');
+			}
+			var progress = parseInt(job.progress || 0, 10);
+			if (isNaN(progress)) {
+				progress = 0;
+			}
+			$scope.workCopyProgress = progress;
+			if (!$scope.workCopyStartTs && progress > 0) {
+				$scope.workCopyStartTs = Date.now();
+			}
+			setWorkCopyStatus(job);
+			updateWorkCopyEta(progress);
+
+			if (job.status === 'success' || job.status === 'partial') {
+				var message = (action === 'reset') ? 'Lab restarted' : 'Work copy created';
+				closeWorkCopyModal();
+				$scope.blockButtons = false;
+				$scope.blockButtonsClass = '';
+				$scope.workCopyInProgress = false;
+				$scope.workCopyJobId = null;
+				toastr["success"](message, "Success");
+				applyWorkCopyResult(job.result || null, fallbackPath);
+				return;
+			}
+			if (job.status === 'failed' || job.status === 'cancelled') {
+				var failMessage = (job.result && job.result.message) ? job.result.message : (currentTranslations().workCopyError || 'Error creating work copy');
+				closeWorkCopyModal();
+				$scope.blockButtons = false;
+				$scope.blockButtonsClass = '';
+				$scope.workCopyInProgress = false;
+				$scope.workCopyJobId = null;
+				toastr["error"](failMessage, "Error");
+				return;
+			}
+			$timeout(function () { pollWorkCopyJob(jobId, fallbackPath, action); }, 1500);
+		}, function (error) {
+			var message = (error && error.data && error.data.message) ? error.data.message : (currentTranslations().workCopyError || 'Error creating work copy');
+			closeWorkCopyModal();
+			$scope.blockButtons = false;
+			$scope.blockButtonsClass = '';
+			$scope.workCopyInProgress = false;
+			$scope.workCopyJobId = null;
+			toastr["error"](message, "Error");
+		});
+	}
+
 	$scope.startLabWork = function (action) {
 		if (!$scope.fullPathToFile) { return; }
 		var act = action || 'start';
+		if ($scope.workCopyInProgress) {
+			return;
+		}
 		$scope.blockButtons = true;
 		$scope.blockButtonsClass = 'm-progress';
 		$scope.labViewMode = '';
-		$http.post('/api/labs/work' + $scope.fullPathToFile, { action: act }).then(function (response) {
+		$scope.workCopyInProgress = true;
+		$scope.workCopyStartTs = null;
+		$scope.workCopyWorkPath = '';
+		openWorkCopyModal();
+		$http.post('/api/labs/work' + $scope.fullPathToFile, { action: act, async: true }).then(function (response) {
 			var responseWorkPath = '';
 			if (response.data && response.data.data) {
 				$scope.labInfo.workExists = !!response.data.data.work_exists;
@@ -1371,16 +1534,25 @@ function performLabDelete(elementName, hide) {
 					console.log('Work copy paths:', response.data.data.copy_debug);
 				}
 			}
-			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
-			redirectToWorkLab(responseWorkPath);
-			var infoPromise = $scope.getLabInfo ? $scope.getLabInfo($scope.fullPathToFile, $scope.selectedLab) : null;
-			return infoPromise || null;
-		}, function (response) {
-			var message = (response.data && response.data.message) ? response.data.message : 'Error creating work copy';
-			toastr["error"](message, "Error");
-		}).finally(function () {
+			if (response.data && response.data.data && response.data.data.job_id) {
+				$scope.workCopyJobId = response.data.data.job_id;
+				$scope.workCopyWorkPath = responseWorkPath;
+				pollWorkCopyJob($scope.workCopyJobId, responseWorkPath, act);
+				return;
+			}
+			closeWorkCopyModal();
 			$scope.blockButtons = false;
 			$scope.blockButtonsClass = '';
+			$scope.workCopyInProgress = false;
+			toastr["success"](act === 'reset' ? 'Lab restarted' : 'Work copy created', "Success");
+			applyWorkCopyResult(response.data || null, responseWorkPath);
+		}, function (response) {
+			var message = (response.data && response.data.message) ? response.data.message : (currentTranslations().workCopyError || 'Error creating work copy');
+			closeWorkCopyModal();
+			$scope.blockButtons = false;
+			$scope.blockButtonsClass = '';
+			$scope.workCopyInProgress = false;
+			toastr["error"](message, "Error");
 		});
 	};
 
