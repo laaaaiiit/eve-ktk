@@ -1581,6 +1581,7 @@
     let powerPollTimer = 0;
     let powerPollAttempts = 0;
     const powerProgressStartedAt = new Map();
+    const powerPollTargets = new Map();
     let powerOverlayTicker = 0;
     let labActionEventSeq = 0;
     let labActionEvents = [];
@@ -5473,7 +5474,7 @@
       const state = String((node && (node.power_state || (node.is_running ? 'running' : 'stopped'))) || 'stopped').toLowerCase();
       const canStop = state === 'running' || state === 'starting' || state === 'stopping';
       const canStart = !canStop;
-      const canInfo = state === 'running';
+      const canInfo = !!node;
       const canConsole = state === 'running' && Number(node && node.runtime_console_port ? node.runtime_console_port : 0) > 0;
       const btnStart = document.getElementById('nodeCtxStart');
       const btnStop = document.getElementById('nodeCtxStop');
@@ -5885,6 +5886,84 @@
         if (!silent) hideLoading();
       }
     }
+    function setNodePowerPollTarget(nodeId, targetState) {
+      const id = String(nodeId || '').trim();
+      const target = String(targetState || '').toLowerCase();
+      if (!id || (target !== 'running' && target !== 'stopped')) return;
+      const current = powerPollTargets.get(id);
+      powerPollTargets.set(id, {
+        target,
+        startedAt: current && Number(current.startedAt) > 0 ? Number(current.startedAt) : Date.now(),
+        attempts: current ? (Number(current.attempts) || 0) : 0
+      });
+    }
+    function clearNodePowerPollTarget(nodeId) {
+      const id = String(nodeId || '').trim();
+      if (!id) return;
+      powerPollTargets.delete(id);
+    }
+    function syncNodePowerPollTargetsWithCurrentLabData() {
+      if (powerPollTargets.size === 0) return;
+      const nodes = Array.isArray(labData && labData.nodes) ? labData.nodes : [];
+      const nodeMap = new Map(nodes.map((n) => [String(n && n.id ? n.id : ''), n]));
+      Array.from(powerPollTargets.entries()).forEach(([nodeId, meta]) => {
+        const node = nodeMap.get(String(nodeId));
+        if (!node) {
+          powerPollTargets.delete(nodeId);
+          return;
+        }
+        const target = String(meta && meta.target ? meta.target : '').toLowerCase();
+        const state = nodePowerState(node);
+        if (state === target || state === 'error') {
+          powerPollTargets.delete(nodeId);
+        }
+      });
+    }
+    async function refreshTrackedNodePowerTargets() {
+      if (powerPollTargets.size === 0) return;
+      syncNodePowerPollTargetsWithCurrentLabData();
+      if (powerPollTargets.size === 0) return;
+      let rendered = false;
+      const now = Date.now();
+      const entries = Array.from(powerPollTargets.entries());
+      for (const [nodeId, meta] of entries) {
+        const target = String(meta && meta.target ? meta.target : '').toLowerCase();
+        const startedAt = Number(meta && meta.startedAt ? meta.startedAt : now);
+        const attempts = Number(meta && meta.attempts ? meta.attempts : 0);
+        if (!target || (now - startedAt) > 180000 || attempts >= 120) {
+          powerPollTargets.delete(nodeId);
+          continue;
+        }
+        try {
+          const node = await fetchLabNodeState(nodeId, { skipRender: true });
+          if (node) rendered = true;
+          const state = nodePowerState(node);
+          if (state === target || state === 'error') {
+            powerPollTargets.delete(nodeId);
+          } else {
+            powerPollTargets.set(nodeId, {
+              target,
+              startedAt,
+              attempts: attempts + 1
+            });
+          }
+        } catch (_) {
+          const nextAttempts = attempts + 1;
+          if (nextAttempts >= 120) {
+            powerPollTargets.delete(nodeId);
+          } else {
+            powerPollTargets.set(nodeId, {
+              target,
+              startedAt,
+              attempts: nextAttempts
+            });
+          }
+        }
+      }
+      if (rendered) {
+        renderLab();
+      }
+    }
     function hasPendingNodePowerState() {
       const nodes = Array.isArray(labData && labData.nodes) ? labData.nodes : [];
       return nodes.some((n) => {
@@ -5892,21 +5971,25 @@
         return state === 'starting' || state === 'stopping';
       });
     }
+    function hasTrackedNodePowerTargets() {
+      return powerPollTargets.size > 0;
+    }
     function scheduleNodePowerPolling(force = false) {
       if (powerPollTimer) {
         clearTimeout(powerPollTimer);
         powerPollTimer = 0;
       }
-      if (!force && !hasPendingNodePowerState()) {
+      if (!force && !hasPendingNodePowerState() && !hasTrackedNodePowerTargets()) {
         powerPollAttempts = 0;
         return;
       }
       powerPollTimer = setTimeout(async () => {
         try {
           await loadLab({ silent: true });
+          await refreshTrackedNodePowerTargets();
         } catch (_) {}
         powerPollAttempts += 1;
-        if (hasPendingNodePowerState() && powerPollAttempts < 20) {
+        if ((hasPendingNodePowerState() || hasTrackedNodePowerTargets()) && powerPollAttempts < 80) {
           scheduleNodePowerPolling(true);
           return;
         }
@@ -5920,18 +6003,28 @@
       labData.nodes[idx] = Object.assign({}, labData.nodes[idx], patch || {});
     }
     async function requestNodePowerAction(nodeId, action, opts = {}) {
+      const id = String(nodeId || '').trim();
       const silent = !!(opts && opts.silent);
       const normalized = action === 'start' ? 'start' : 'stop';
-      const res = await jget(`/api/labs/${encodeURIComponent(labId)}/nodes/${encodeURIComponent(nodeId)}/power/${normalized}`, {
+      const targetState = normalized === 'start' ? 'running' : 'stopped';
+      const res = await jget(`/api/labs/${encodeURIComponent(labId)}/nodes/${encodeURIComponent(id)}/power/${normalized}`, {
         method: 'POST'
       });
       const data = res && res.data ? res.data : {};
       if (data && data.node) {
-        updateLocalNodeState(nodeId, data.node);
+        updateLocalNodeState(id, data.node);
       } else {
-        updateLocalNodeState(nodeId, {
+        updateLocalNodeState(id, {
           power_state: normalized === 'start' ? 'starting' : 'stopping'
         });
+      }
+      const immediateState = data && data.node ? nodePowerState(data.node) : '';
+      if (data && data.reason === 'already_in_target_state') {
+        clearNodePowerPollTarget(id);
+      } else if (immediateState === targetState) {
+        clearNodePowerPollTarget(id);
+      } else {
+        setNodePowerPollTarget(id, targetState);
       }
       renderLab();
       if (!silent) {
@@ -5962,38 +6055,48 @@
         btn.classList.toggle('cursor-not-allowed', !!disabled);
       });
     }
-    async function fetchLabNodeState(nodeId) {
+    async function fetchLabNodeState(nodeId, opts = {}) {
       const id = String(nodeId || '');
       if (!id) return null;
+      const skipRender = !!(opts && opts.skipRender);
       const res = await jget(`/api/labs/${encodeURIComponent(labId)}/nodes/${encodeURIComponent(id)}`);
       const node = (res && res.data) ? res.data : null;
       if (node) {
         updateLocalNodeState(id, node);
-        renderLab();
+        if (!skipRender) {
+          renderLab();
+        }
       }
       return node;
     }
     async function waitForNodeTargetState(nodeId, targetState, timeoutMs = 90000, pollMs = 1200) {
+      const id = String(nodeId || '').trim();
       const target = String(targetState || '').toLowerCase();
       const deadline = Date.now() + Math.max(5000, Number(timeoutMs) || 90000);
       let lastState = '';
       let lastError = '';
+      if (id && (target === 'running' || target === 'stopped')) {
+        setNodePowerPollTarget(id, target);
+      }
 
       while (Date.now() < deadline) {
         try {
-          const node = await fetchLabNodeState(nodeId);
+          const node = await fetchLabNodeState(id);
           const state = nodePowerState(node);
           lastState = state;
           lastError = String(node && node.last_error ? node.last_error : '');
           if (state === target) {
+            clearNodePowerPollTarget(id);
             return { ok: true, state, error: '' };
           }
           if (state === 'error') {
+            clearNodePowerPollTarget(id);
             return { ok: false, state, error: lastError };
           }
         } catch (_) {}
         await sleep(pollMs);
       }
+      clearNodePowerPollTarget(id);
       return { ok: false, state: lastState, error: lastError || 'timeout' };
     }
     async function runBulkNodePowerAction(action) {
