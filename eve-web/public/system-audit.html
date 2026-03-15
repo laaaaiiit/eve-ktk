@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Audit</title>
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
+  <link rel="stylesheet" href="/assets/css/main.output.css">
+  <link rel="stylesheet" href="/assets/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/assets/v2-scrollbar.css">
+</head>
+<body class="min-h-screen">
+  <div id="toastRoot" class="fixed right-4 bottom-4 z-[80] flex w-[min(92vw,420px)] flex-col items-end gap-2 sm:right-6 sm:bottom-6"></div>
+  <div id="headerHost"></div>
+  <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <section id="pageCard" class="rounded-3xl border p-5 shadow-2xl transition-colors duration-300">
+      <div class="mb-5 flex flex-wrap items-start gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight" data-i18n="title">Аудит действий пользователей</h1>
+          <p class="mt-1 text-sm opacity-85" data-i18n="subTitle">Просмотр действий пользователей: вход, открытие страниц, действия API и консоли.</p>
+        </div>
+        <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
+          <div class="text-xs opacity-75">
+            <span data-i18n="lastUpdate">Последнее обновление</span>:
+            <span id="lastUpdateValue">-</span>
+          </div>
+          <button id="autoRefreshBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+            <i id="autoRefreshIcon" class="fa fa-pause" aria-hidden="true"></i>
+            <span data-i18n="autoRefresh">Автообновление</span>
+            <span id="autoRefreshState" class="text-xs opacity-80"></span>
+          </button>
+          <button id="refreshBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+            <i class="fa fa-refresh" aria-hidden="true"></i>
+            <span data-i18n="refresh">Обновить</span>
+          </button>
+          <button id="exportBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+            <i class="fa fa-download" aria-hidden="true"></i>
+            <span data-i18n="export">Экспорт CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div data-dd="source"></div>
+        <div data-dd="lines"></div>
+        <div data-dd="status"></div>
+        <div data-dd="action"></div>
+        <div data-dd="method"></div>
+        <div data-dd="event"></div>
+      </div>
+
+      <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <label class="relative block lg:col-span-2">
+          <i class="fa fa-user pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-70"></i>
+          <input id="userInput" type="text" class="w-full rounded-2xl border px-10 py-2.5 text-sm outline-none transition duration-200" placeholder="Пользователь">
+        </label>
+        <label class="relative block lg:col-span-1">
+          <i class="fa fa-map-marker pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-70"></i>
+          <input id="ipInput" type="text" class="w-full rounded-2xl border px-10 py-2.5 text-sm outline-none transition duration-200" placeholder="IP">
+        </label>
+        <label class="relative block lg:col-span-3">
+          <i class="fa fa-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-70"></i>
+          <input id="searchInput" type="text" class="w-full rounded-2xl border px-10 py-2.5 text-sm outline-none transition duration-200" placeholder="Поиск по строкам">
+        </label>
+      </div>
+
+      <div class="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="block text-xs opacity-80">
+          <span data-i18n="dateFrom">С даты</span>
+          <input id="dateFromInput" type="datetime-local" class="mt-1 w-full rounded-2xl border px-4 py-2.5 text-sm outline-none transition duration-200">
+        </label>
+        <label class="block text-xs opacity-80">
+          <span data-i18n="dateTo">По дату</span>
+          <input id="dateToInput" type="datetime-local" class="mt-1 w-full rounded-2xl border px-4 py-2.5 text-sm outline-none transition duration-200">
+        </label>
+        <div class="sm:col-span-2 flex items-end justify-end">
+          <button id="clearFiltersBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+            <i class="fa fa-eraser" aria-hidden="true"></i>
+            <span data-i18n="clearFilters">Очистить фильтры</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-3 flex flex-wrap items-center gap-4 text-xs opacity-80">
+        <span><strong data-i18n="metaShown">Показано</strong>: <span id="metaShown">0</span></span>
+        <span><strong data-i18n="metaFiltered">Отфильтровано</strong>: <span id="metaFiltered">0</span></span>
+        <span><strong data-i18n="metaScanned">Сканировано</strong>: <span id="metaScanned">0</span></span>
+      </div>
+
+      <div id="tableWrap" class="rounded-2xl border overflow-auto">
+        <table class="min-w-full text-left text-xs">
+          <thead id="auditHead" class="sticky top-0 z-10">
+            <tr>
+              <th class="px-3 py-2 font-semibold" data-i18n="colTime">Время</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colUser">Пользователь</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colAction">Действие</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colObject">Объект</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colSource">Источник</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colStatus">Статус</th>
+              <th class="px-3 py-2 font-semibold" data-i18n="colDetails">Детали</th>
+            </tr>
+          </thead>
+          <tbody id="auditRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/v2-shared-header.js"></script>
+  <script src="/assets/v2-heartbeat.js"></script>
+  <script src="/assets/v2-toast.js"></script>
+  <script>
+    renderV2Header('headerHost');
+
+    const api = {
+      auth: '/api/auth',
+      ping: '/api/auth/ping',
+      logout: '/api/auth/logout',
+      prefs: '/api/preferences',
+      audit: '/api/system/audit',
+      export: '/api/system/audit/export'
+    };
+
+    const i18n = {
+      ru: {
+        title: 'Аудит действий пользователей',
+        subTitle: 'Просмотр действий пользователей: вход, открытие страниц, действия API и консоли.',
+        refresh: 'Обновить',
+        autoRefresh: 'Автообновление',
+        autoRefreshOn: 'Вкл',
+        autoRefreshOff: 'Выкл',
+        export: 'Экспорт CSV',
+        clearFilters: 'Очистить фильтры',
+        source: 'Источник',
+        lines: 'Строк',
+        status: 'Статус',
+        action: 'Действие',
+        method: 'Метод',
+        event: 'Событие',
+        user: 'Пользователь',
+        ip: 'IP',
+        search: 'Поиск по строкам',
+        dateFrom: 'С даты',
+        dateTo: 'По дату',
+        colTime: 'Время',
+        colUser: 'Пользователь',
+        colAction: 'Действие',
+        colObject: 'Объект',
+        colSource: 'Источник',
+        colStatus: 'Статус',
+        colDetails: 'Детали',
+        metaShown: 'Показано',
+        metaFiltered: 'Отфильтровано',
+        metaScanned: 'Сканировано',
+        lastUpdate: 'Последнее обновление',
+        unknown: '-',
+        any: 'Все',
+        statusOk: 'OK',
+        statusError: 'Ошибка',
+        empty: 'Нет записей по текущим фильтрам.',
+        errLoad: 'Не удалось загрузить аудит.',
+        errExport: 'Не удалось выгрузить аудит.',
+        errAuth: 'Ошибка авторизации.',
+        errForbiddenAction: 'Это действие запрещено для вашей учетной записи.',
+        filtersCleared: 'Фильтры очищены.',
+        exportReady: 'Файл подготовлен.',
+        sourceAll: 'Все источники',
+        sourceUserActivity: 'Действия пользователей',
+        sourceSecurity: 'Безопасность',
+        sourceAccess: 'HTTP доступ',
+        action_auth_login: 'Вход в систему',
+        action_auth_logout: 'Выход из системы',
+        action_request: 'HTTP запрос',
+        action_page_open: 'Открытие страницы',
+        action_access_denied: 'Отказ в доступе',
+        action_console_open: 'Открытие консоли',
+        action_console_close: 'Закрытие консоли',
+        action_main_folder_create: 'Создание папки',
+        action_main_folder_rename: 'Переименование папки',
+        action_main_folder_delete: 'Удаление папки',
+        action_main_lab_create: 'Создание лаборатории',
+        action_main_lab_update: 'Изменение лаборатории',
+        action_main_lab_rename: 'Переименование лаборатории',
+        action_main_lab_move: 'Перемещение лаборатории',
+        action_main_lab_stop: 'Остановка лаборатории',
+        action_main_lab_export: 'Экспорт лаборатории',
+        action_main_lab_import: 'Импорт лаборатории',
+        action_main_lab_delete: 'Удаление лаборатории',
+        action_main_shared_local_open: 'Открытие локальной копии',
+        action_main_shared_local_restart: 'Сброс локальной копии',
+        action_main_shared_collaborate_open: 'Открытие совместной работы',
+        action_main_shared_local_stop: 'Остановка локальной копии',
+        action_node_create: 'Добавление ноды',
+        action_node_delete: 'Удаление ноды',
+        action_profile_update: 'Изменение профиля',
+        action_profile_password_update: 'Смена пароля',
+        action_cloud_manage: 'Управление облаками',
+        action_power_start: 'Включение ноды',
+        action_power_stop: 'Остановка ноды',
+        action_power_reload: 'Перезагрузка ноды',
+        action_power_wipe: 'Сброс ноды (wipe)',
+        action_lab_check: 'Проверка лаборатории',
+        action_lab_checks_update: 'Настройка проверки лаборатории',
+        action_lab_checks_sync: 'Синхронизация проверки в копии',
+        action_lab_checks_run: 'Запуск проверки лаборатории',
+        action_lab_tasks_update: 'Настройка задач лаборатории',
+        action_lab_tasks_sync: 'Синхронизация задач в копии',
+        action_lab_tasks_mark: 'Отметка задач выполненными',
+        action_topology_change: 'Изменение топологии',
+        action_main_change: 'Изменение в проводнике Main',
+        action_api_action: 'Действие API',
+        action_service_progress: 'Сервисный прогресс',
+        action_service_console_io: 'Сервисный ввод/вывод консоли',
+        action_other: 'Другое',
+        event_auth_login: 'Авторизация',
+        event_auth_logout: 'Выход',
+        event_page_open: 'Открытие страницы',
+        event_access_denied: 'Доступ запрещен',
+        event_page_open_denied: 'Запрет открытия страницы',
+        event_api_action: 'API запрос',
+        event_request: 'HTTP запрос',
+        event_lab_checks_saved: 'Сохранены условия проверки',
+        event_lab_check_tasks_saved: 'Сохранены задачи лаборатории',
+        event_lab_check_tasks_marks_saved: 'Сохранены отметки задач',
+        event_lab_checks_run: 'Запущена проверка лаборатории',
+        httpCode: 'HTTP код',
+        duration: 'Время',
+        objectType: 'Тип',
+        objectInLab: 'Лаба',
+        objectId: 'ID',
+        object_node: 'Нода',
+        object_lab: 'Лаборатория',
+        object_cloud: 'Облако',
+        object_folder: 'Папка',
+        object_task: 'Задача',
+        object_console_session: 'Сессия консоли',
+        object_page: 'Страница',
+        object_system: 'Система',
+        navHome: 'Главная',
+        navManagement: 'Управление',
+        navSystem: 'Система',
+        navLabs: 'Лаборатории',
+        navUsers: 'Пользователи',
+        navClouds: 'Облака',
+        navRoles: 'Роли',
+        navSysStatus: 'Статус системы',
+        navTaskQueue: 'Очередь задач',
+        navSysConsole: 'Консоль VM',
+        navSysLogs: 'Системные логи',
+        navSysAudit: 'Аудит действий',
+        navSoon: 'Раздел пока в разработке',
+        profileRole: 'Роль',
+        logout: 'Выход'
+      },
+      en: {
+        title: 'User Activity Audit',
+        subTitle: 'Track user actions: login, page openings, API actions and console operations.',
+        refresh: 'Refresh',
+        autoRefresh: 'Auto refresh',
+        autoRefreshOn: 'On',
+        autoRefreshOff: 'Off',
+        export: 'Export CSV',
+        clearFilters: 'Clear filters',
+        source: 'Source',
+        lines: 'Lines',
+        status: 'Status',
+        action: 'Action',
+        method: 'Method',
+        event: 'Event',
+        user: 'User',
+        ip: 'IP',
+        search: 'Search lines',
+        dateFrom: 'From date',
+        dateTo: 'To date',
+        colTime: 'Time',
+        colUser: 'User',
+        colAction: 'Action',
+        colObject: 'Object',
+        colSource: 'Source',
+        colStatus: 'Status',
+        colDetails: 'Details',
+        metaShown: 'Shown',
+        metaFiltered: 'Filtered',
+        metaScanned: 'Scanned',
+        lastUpdate: 'Last update',
+        unknown: '-',
+        any: 'All',
+        statusOk: 'OK',
+        statusError: 'Error',
+        empty: 'No records for current filters.',
+        errLoad: 'Failed to load audit.',
+        errExport: 'Failed to export audit.',
+        errAuth: 'Authorization error.',
+        errForbiddenAction: 'This action is not allowed for your account.',
+        filtersCleared: 'Filters were cleared.',
+        exportReady: 'Export is ready.',
+        sourceAll: 'All sources',
+        sourceUserActivity: 'User activity',
+        sourceSecurity: 'Security',
+        sourceAccess: 'HTTP access',
+        action_auth_login: 'Sign in',
+        action_auth_logout: 'Sign out',
+        action_request: 'HTTP request',
+        action_page_open: 'Page open',
+        action_access_denied: 'Access denied',
+        action_console_open: 'Console open',
+        action_console_close: 'Console close',
+        action_main_folder_create: 'Create folder',
+        action_main_folder_rename: 'Rename folder',
+        action_main_folder_delete: 'Delete folder',
+        action_main_lab_create: 'Create lab',
+        action_main_lab_update: 'Update lab',
+        action_main_lab_rename: 'Rename lab',
+        action_main_lab_move: 'Move lab',
+        action_main_lab_stop: 'Stop lab',
+        action_main_lab_export: 'Export lab',
+        action_main_lab_import: 'Import lab',
+        action_main_lab_delete: 'Delete lab',
+        action_main_shared_local_open: 'Open local copy',
+        action_main_shared_local_restart: 'Reset local copy',
+        action_main_shared_collaborate_open: 'Open collaboration',
+        action_main_shared_local_stop: 'Stop local copy',
+        action_node_create: 'Add node',
+        action_node_delete: 'Delete node',
+        action_profile_update: 'Update profile',
+        action_profile_password_update: 'Change password',
+        action_cloud_manage: 'Manage clouds',
+        action_power_start: 'Node start',
+        action_power_stop: 'Node stop',
+        action_power_reload: 'Node reload',
+        action_power_wipe: 'Node wipe',
+        action_lab_check: 'Lab check',
+        action_lab_checks_update: 'Update lab checks',
+        action_lab_checks_sync: 'Sync checks to copies',
+        action_lab_checks_run: 'Run lab checks',
+        action_lab_tasks_update: 'Update lab tasks',
+        action_lab_tasks_sync: 'Sync tasks to copies',
+        action_lab_tasks_mark: 'Mark tasks as done',
+        action_topology_change: 'Topology change',
+        action_main_change: 'Main explorer change',
+        action_api_action: 'API action',
+        action_service_progress: 'Service progress',
+        action_service_console_io: 'Service console I/O',
+        action_other: 'Other',
+        event_auth_login: 'Authentication',
+        event_auth_logout: 'Logout',
+        event_page_open: 'Page open',
+        event_access_denied: 'Access denied',
+        event_page_open_denied: 'Page open denied',
+        event_api_action: 'API request',
+        event_request: 'HTTP request',
+        event_lab_checks_saved: 'Lab checks saved',
+        event_lab_check_tasks_saved: 'Lab tasks saved',
+        event_lab_check_tasks_marks_saved: 'Lab task marks saved',
+        event_lab_checks_run: 'Lab checks run',
+        httpCode: 'HTTP code',
+        duration: 'Duration',
+        objectType: 'Type',
+        objectInLab: 'Lab',
+        objectId: 'ID',
+        object_node: 'Node',
+        object_lab: 'Lab',
+        object_cloud: 'Cloud',
+        object_folder: 'Folder',
+        object_task: 'Task',
+        object_console_session: 'Console session',
+        object_page: 'Page',
+        object_system: 'System',
+        navHome: 'Home',
+        navManagement: 'Management',
+        navSystem: 'System',
+        navLabs: 'Labs',
+        navUsers: 'Users',
+        navClouds: 'Clouds',
+        navRoles: 'Roles',
+        navSysStatus: 'System status',
+        navTaskQueue: 'Task queue',
+        navSysConsole: 'VM Console',
+        navSysLogs: 'System logs',
+        navSysAudit: 'User audit',
+        navSoon: 'This section is not implemented yet',
+        profileRole: 'Role',
+        logout: 'Logout'
+      }
+    };
+
+    const lineOptions = [
+      { value: '100', label: '100' },
+      { value: '300', label: '300' },
+      { value: '500', label: '500' },
+      { value: '1000', label: '1000' },
+      { value: '2000', label: '2000' },
+      { value: '5000', label: '5000' }
+    ];
+
+    let me = null;
+    let lang = localStorage.getItem('eve_v2_lang') || 'ru';
+    let theme = localStorage.getItem('eve_v2_theme') || 'dark';
+
+    let sourceFilter = 'all';
+    let linesFilter = '100';
+    let statusFilter = 'all';
+    let actionFilter = 'all';
+    let methodFilter = 'all';
+    let eventFilter = 'all';
+
+    let sourceOptions = [];
+    let actionOptions = [];
+    let eventOptions = [];
+    let methodOptions = [];
+
+    let pollTimer = 0;
+    const autoRefreshIntervalMs = 8000;
+    let autoRefreshEnabled = localStorage.getItem('eve_v2_system_audit_auto_refresh') !== '0';
+
+    let refreshLangDd = () => {};
+    let refreshThemeDd = () => {};
+    let refreshNavManagement = () => {};
+    let refreshNavSystem = () => {};
+    let refreshSourceDd = () => {};
+    let refreshLinesDd = () => {};
+    let refreshStatusDd = () => {};
+    let refreshActionDd = () => {};
+    let refreshMethodDd = () => {};
+    let refreshEventDd = () => {};
+
+    function tr(k){ return (i18n[lang] || i18n.ru)[k] || k; }
+    function byId(id){ return document.getElementById(id); }
+    function hasPerm(code){ return !!(me && Array.isArray(me.permissions) && me.permissions.includes(code)); }
+    function esc(v){
+      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+    }
+
+    async function jget(url, opts = {}) {
+      const r = await fetch(url, Object.assign({ credentials: 'include' }, opts));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const msg = String(d && d.message ? d.message : '');
+        if (r.status === 403 || msg.toLowerCase() === 'forbidden') {
+          throw new Error(tr('errForbiddenAction'));
+        }
+        throw new Error(msg || ('HTTP ' + r.status));
+      }
+      return d;
+    }
+
+    function closeAllDropdownPanels() {
+      document.querySelectorAll('.v2-dd-panel').forEach((el) => el.classList.add('hidden'));
+    }
+
+    function makeDropdown(root, options, getValue, setValue, getLabel) {
+      if (!root) return () => {};
+      root.classList.add('relative', 'min-w-0');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const panel = document.createElement('div');
+      panel.className = 'v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl';
+      root.innerHTML = '';
+      root.appendChild(btn);
+      root.appendChild(panel);
+
+      function repaint() {
+        const optionList = (typeof options === 'function') ? options() : options;
+        const isLight = theme === 'light';
+        btn.className = isLight
+          ? 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between'
+          : 'w-full rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 text-left text-sm text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between';
+        panel.className = `v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl ${
+          isLight ? 'border-slate-200 bg-white' : 'border-white/15 bg-slate-900/95'
+        }`;
+
+        const val = String(getValue());
+        const active = optionList.find((o) => String(o.value) === val) || optionList[0] || { value: '', label: '' };
+        const activeLabel = active.label ? active.label : tr(active.labelKey || '');
+        const prefix = getLabel ? `${getLabel()}: ` : '';
+        btn.innerHTML = `<span>${esc(prefix)}${esc(activeLabel)}</span><i class="fa fa-chevron-down text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}"></i>`;
+
+        panel.innerHTML = '';
+        optionList.forEach((opt) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          const isActive = String(opt.value) === val;
+          const label = opt.label ? opt.label : tr(opt.labelKey || '');
+          item.className = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm cursor-pointer transition ${
+            isLight ? 'text-slate-800 hover:bg-slate-100' : 'text-slate-100 hover:bg-white/10'
+          } ${isActive ? (isLight ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-200') : ''}`;
+          item.innerHTML = `<span>${esc(label)}</span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', async () => {
+            closeAllDropdownPanels();
+            await setValue(String(opt.value));
+            repaint();
+          });
+          panel.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hidden = panel.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (hidden) panel.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!root.contains(e.target)) panel.classList.add('hidden');
+      });
+      repaint();
+      return repaint;
+    }
+
+    function navIcon(key) {
+      const map = {
+        navManagement: '<i class="fa fa-cogs" aria-hidden="true"></i>',
+        navSystem: '<i class="fa fa-desktop" aria-hidden="true"></i>',
+        navLabs: '<i class="fa fa-flask" aria-hidden="true"></i>',
+        navUsers: '<i class="fa fa-users" aria-hidden="true"></i>',
+        navClouds: '<i class="fa fa-cloud" aria-hidden="true"></i>',
+        navRoles: '<i class="fa fa-id-badge" aria-hidden="true"></i>',
+        navSysStatus: '<i class="fa fa-heartbeat" aria-hidden="true"></i>',
+        navTaskQueue:'<i class="fa fa-tasks" aria-hidden="true"></i>',
+        navSysConsole:'<i class="fa fa-terminal" aria-hidden="true"></i>',
+        navSysLogs: '<i class="fa fa-file-text-o" aria-hidden="true"></i>',
+        navSysAudit: '<i class="fa fa-history" aria-hidden="true"></i>'
+      };
+      return map[key] || '<i class="fa fa-circle-o" aria-hidden="true"></i>';
+    }
+
+    function makeNavDropdown(root, labelKey, items) {
+      if (!root) return () => {};
+      root.classList.add('relative', 'min-w-0');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const panel = document.createElement('div');
+      root.innerHTML = '';
+      root.appendChild(btn);
+      root.appendChild(panel);
+
+      function repaint() {
+        const isLight = theme === 'light';
+        btn.className = isLight
+          ? 'w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-900 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between'
+          : 'w-full rounded-xl border border-white/15 bg-slate-900/70 px-4 py-2 text-left text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between';
+        panel.className = `v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl ${
+          isLight ? 'border-slate-200 bg-white' : 'border-white/15 bg-slate-900/95'
+        }`;
+        btn.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(labelKey)}<span>${esc(tr(labelKey))}</span></span><i class="fa fa-chevron-down text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}"></i>`;
+
+        panel.innerHTML = '';
+        const current = location.pathname;
+        items.forEach((it) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          const isActive = !!it.href && current === it.href;
+          item.className = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm cursor-pointer transition ${
+            isLight ? 'text-slate-800 hover:bg-slate-100' : 'text-slate-100 hover:bg-white/10'
+          } ${isActive ? (isLight ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-200') : ''}`;
+          item.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(it.key)}<span>${esc(tr(it.key))}</span></span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', () => {
+            closeAllDropdownPanels();
+            if (it.href) {
+              location.href = it.href;
+              return;
+            }
+            toast(tr('navSoon'));
+          });
+          panel.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hidden = panel.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (hidden) panel.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!root.contains(e.target)) panel.classList.add('hidden');
+      });
+      repaint();
+      return repaint;
+    }
+
+    function renderAutoRefreshState() {
+      const icon = byId('autoRefreshIcon');
+      const state = byId('autoRefreshState');
+      const btn = byId('autoRefreshBtn');
+      if (icon) icon.className = autoRefreshEnabled ? 'fa fa-pause' : 'fa fa-play';
+      if (state) state.textContent = autoRefreshEnabled ? tr('autoRefreshOn') : tr('autoRefreshOff');
+      if (btn) btn.setAttribute('aria-pressed', autoRefreshEnabled ? 'true' : 'false');
+    }
+
+    function formatDate(value) {
+      if (!value) return tr('unknown');
+      const dt = new Date(String(value));
+      if (Number.isNaN(dt.getTime())) return String(value);
+      return dt.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
+    }
+
+    function formatAuditDateTime(rec) {
+      if (rec && rec.timestamp_iso) {
+        const dt = new Date(String(rec.timestamp_iso));
+        if (!Number.isNaN(dt.getTime())) {
+          return {
+            date: dt.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US'),
+            time: dt.toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US')
+          };
+        }
+      }
+      const raw = String(rec && rec.timestamp_raw ? rec.timestamp_raw : '').trim();
+      const m = raw.match(/^(\d{2}:\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{2})/);
+      if (m) {
+        return { date: m[2], time: m[1] };
+      }
+      return { date: raw || tr('unknown'), time: '' };
+    }
+
+    function actionLabel(value) {
+      const key = String(value || '').toLowerCase();
+      if (!key) return tr('unknown');
+      const localized = tr(`action_${key}`);
+      if (localized !== `action_${key}`) return localized;
+      const hit = actionOptions.find((it) => String(it.value || '').toLowerCase() === key);
+      return hit && hit.label ? String(hit.label) : key;
+    }
+
+    function eventLabel(value) {
+      const key = String(value || '').toLowerCase();
+      if (!key) return '';
+      const localized = tr(`event_${key}`);
+      return localized !== `event_${key}` ? localized : key;
+    }
+
+    function eventCode(value) {
+      const raw = String(value || '').trim();
+      return raw !== '' ? raw : '-';
+    }
+
+    function objectTypeLabel(value) {
+      const key = String(value || '').toLowerCase();
+      if (!key) return tr('object_system');
+      const localized = tr(`object_${key}`);
+      return localized !== `object_${key}` ? localized : key;
+    }
+
+    function formatObject(row) {
+      const type = String(row && row.object_type ? row.object_type : '').toLowerCase() || 'system';
+      const nodeName = String(row && row.node_name ? row.node_name : '').trim();
+      const labName = String(row && row.lab_name ? row.lab_name : '').trim();
+      const cloudName = String(row && row.cloud_name ? row.cloud_name : '').trim();
+      const folderName = String(row && row.folder_name ? row.folder_name : '').trim();
+      const objectName = String(row && row.object_name ? row.object_name : '').trim();
+      const objectId = String(row && row.object_id ? row.object_id : '').trim();
+      const taskId = String(row && row.task_id ? row.task_id : '').trim();
+
+      let title = objectName || tr('unknown');
+      if (type === 'node') {
+        title = nodeName || objectName || tr('object_node');
+      } else if (type === 'lab') {
+        title = labName || objectName || tr('object_lab');
+      } else if (type === 'cloud') {
+        title = cloudName || objectName || tr('object_cloud');
+      } else if (type === 'folder') {
+        title = folderName || objectName || tr('object_folder');
+      } else if (type === 'console_session') {
+        title = nodeName || objectName || tr('object_console_session');
+      } else if (type === 'task') {
+        title = nodeName || labName || objectName || tr('object_task');
+      } else if (objectName) {
+        title = objectName;
+      } else if (row && row.path) {
+        title = String(row.path);
+      }
+
+      const details = [objectTypeLabel(type)];
+      if (labName && type !== 'lab') {
+        details.push(`${tr('objectInLab')}: ${labName}`);
+      }
+      if (objectId && (!title || title === tr('unknown'))) {
+        details.push(`${tr('objectId')}: ${objectId}`);
+      }
+      return { title, subtitle: details.join(' • ') };
+    }
+
+    function summarizeRequest(row) {
+      const method = String(row && row.method ? row.method : '').trim().toUpperCase();
+      let path = String(row && row.path ? row.path : '').trim();
+      if (!method && !path) return '';
+
+      const pairs = [
+        [String(row && row.lab_id ? row.lab_id : '').trim(), String(row && row.lab_name ? row.lab_name : tr('object_lab')).trim()],
+        [String(row && row.node_id ? row.node_id : '').trim(), String(row && row.node_name ? row.node_name : tr('object_node')).trim()],
+        [String(row && row.cloud_id ? row.cloud_id : '').trim(), String(row && row.cloud_name ? row.cloud_name : tr('object_cloud')).trim()],
+        [String(row && row.folder_id ? row.folder_id : '').trim(), String(row && row.folder_name ? row.folder_name : tr('object_folder')).trim()],
+        [String(row && row.session_id ? row.session_id : '').trim(), tr('object_console_session')],
+        [String(row && row.task_id ? row.task_id : '').trim(), tr('object_task')]
+      ];
+      pairs.forEach(([id, label]) => {
+        if (!id || !label) return;
+        path = path.split(id).join(label);
+      });
+
+      // Hide remaining raw UUIDs from UI-oriented view.
+      path = path.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}/gi, '{id}');
+      return [method, path].filter(Boolean).join(' ');
+    }
+
+    function sourceLabel(value) {
+      const key = String(value || '').toLowerCase();
+      if (!key) return tr('unknown');
+      const hit = sourceOptions.find((it) => String(it.value || '').toLowerCase() === key);
+      return hit && hit.label ? String(hit.label) : key;
+    }
+
+    function buildAuditQuery() {
+      const qs = new URLSearchParams();
+      qs.set('source', sourceFilter);
+      qs.set('lines', String(linesFilter));
+      qs.set('status', statusFilter);
+      qs.set('action', actionFilter);
+      qs.set('method', methodFilter);
+      qs.set('event', eventFilter);
+
+      const user = String(byId('userInput').value || '').trim();
+      const ip = String(byId('ipInput').value || '').trim();
+      const search = String(byId('searchInput').value || '').trim();
+      const dateFrom = String(byId('dateFromInput').value || '').trim();
+      const dateTo = String(byId('dateToInput').value || '').trim();
+
+      if (user) qs.set('user', user);
+      if (ip) qs.set('ip', ip);
+      if (search) qs.set('search', search);
+      if (dateFrom) qs.set('date_from', dateFrom);
+      if (dateTo) qs.set('date_to', dateTo);
+      return qs;
+    }
+
+    function renderRows(records) {
+      const tbody = byId('auditRows');
+      if (!Array.isArray(records) || records.length < 1) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-3 py-5 text-center opacity-75">${esc(tr('empty'))}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map((row) => {
+        const dateTime = formatAuditDateTime(row);
+        const status = String(row.status || 'OK').toUpperCase() === 'ERROR' ? 'ERROR' : 'OK';
+        const statusClass = status === 'ERROR'
+          ? (theme === 'light' ? 'text-rose-700' : 'text-rose-300')
+          : (theme === 'light' ? 'text-emerald-700' : 'text-emerald-300');
+        const dateClass = theme === 'light' ? 'text-slate-900' : 'text-slate-100';
+        const timeClass = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
+        const userText = row.user ? String(row.user) : tr('unknown');
+        const roleText = row.role ? String(row.role) : '';
+        const code = row.code !== null && row.code !== undefined && row.code !== '' ? String(row.code) : '';
+        const duration = row.duration_ms !== null && row.duration_ms !== undefined && row.duration_ms !== '' ? `${String(row.duration_ms)}ms` : '';
+        const objectInfo = formatObject(row);
+        const detailBits = [];
+        if (duration) detailBits.push(`${tr('duration')}: ${duration}`);
+        if (code) detailBits.push(`${tr('httpCode')}: ${code}`);
+        const eventText = eventLabel(row.event || '');
+        const eventCodeText = eventCode(row.event || '');
+        const requestText = summarizeRequest(row);
+
+        return `<tr class="border-t ${theme === 'light' ? 'border-slate-200 hover:bg-slate-50/70' : 'border-white/10 hover:bg-white/5'}">
+          <td class="px-3 py-2 align-top whitespace-nowrap">
+            <div class="${dateClass} font-semibold">${esc(dateTime.date)}</div>
+            <div class="${timeClass}">${esc(dateTime.time)}</div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            <div class="font-semibold">${esc(userText)}</div>
+            <div class="opacity-70">${esc(roleText)}</div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            <div class="font-semibold">${esc(actionLabel(row.action || ''))}</div>
+            <div class="opacity-70"><code class="text-[11px]">${esc(eventCodeText)}</code></div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            <div class="font-semibold">${esc(objectInfo.title)}</div>
+            <div class="opacity-70 break-all">${esc(objectInfo.subtitle)}</div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            <div>${esc(sourceLabel(row.source || ''))}</div>
+            <div class="opacity-70">${esc(row.ip || tr('unknown'))}</div>
+          </td>
+          <td class="px-3 py-2 align-top font-semibold ${statusClass}">${esc(status)}</td>
+          <td class="px-3 py-2 align-top break-all">
+            <div>${esc(detailBits.join(' | '))}</div>
+            <div class="opacity-70">${esc(eventText)}</div>
+            <div class="opacity-60">${esc(requestText)}</div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadAudit(showToastOnError = true) {
+      try {
+        const qs = buildAuditQuery();
+        const res = await jget(`${api.audit}?${qs.toString()}`);
+        const data = res && res.data ? res.data : {};
+
+        const sourceLabelById = {
+          all: tr('sourceAll'),
+          user_activity: tr('sourceUserActivity'),
+          security: tr('sourceSecurity'),
+          access_http: tr('sourceAccess')
+        };
+        sourceOptions = Array.isArray(data.sources) ? data.sources.map((s) => ({
+          value: String(s.id || ''),
+          label: sourceLabelById[String(s.id || '')] || String(s.label || s.id || '')
+        })) : [];
+        actionOptions = Array.isArray(data.actions) ? data.actions.map((a) => ({
+          value: String(a.id || '').toLowerCase(),
+          label: tr(`action_${String(a.id || '').toLowerCase()}`) !== `action_${String(a.id || '').toLowerCase()}`
+            ? tr(`action_${String(a.id || '').toLowerCase()}`)
+            : String(a.label || a.id || '')
+        })) : [];
+        eventOptions = Array.isArray(data.events) ? data.events.map((v) => {
+          const key = String(v || '').toLowerCase();
+          const localized = tr(`event_${key}`);
+          return { value: key, label: localized !== `event_${key}` ? localized : key };
+        }) : [];
+        methodOptions = Array.isArray(data.methods) ? data.methods.map((v) => ({ value: String(v).toUpperCase(), label: String(v).toUpperCase() })) : [];
+
+        const content = data.content || {};
+        const records = Array.isArray(content.records) ? content.records : [];
+
+        renderRows(records);
+        byId('metaShown').textContent = String(content.record_count || records.length || 0);
+        byId('metaFiltered').textContent = String(content.records_filtered || records.length || 0);
+        byId('metaScanned').textContent = String(content.records_total || 0);
+        byId('lastUpdateValue').textContent = formatDate(new Date().toISOString());
+
+        refreshSourceDd();
+        refreshActionDd();
+        refreshEventDd();
+        refreshMethodDd();
+      } catch (e) {
+        if (showToastOnError) toast((e && e.message) ? e.message : tr('errLoad'));
+      }
+    }
+
+    async function exportAuditCsv() {
+      try {
+        const qs = buildAuditQuery();
+        const response = await fetch(`${api.export}?${qs.toString()}`, { credentials: 'include' });
+        if (!response.ok) {
+          let message = tr('errExport');
+          try {
+            const data = await response.json();
+            if (data && data.message) message = String(data.message);
+          } catch (_e) {}
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        const cd = String(response.headers.get('content-disposition') || '');
+        const nameMatch = cd.match(/filename="?([^";]+)"?/i);
+        const filename = nameMatch && nameMatch[1] ? nameMatch[1] : `system-audit-${Date.now()}.csv`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast(tr('exportReady'), 'success');
+      } catch (e) {
+        toast((e && e.message) ? e.message : tr('errExport'));
+      }
+    }
+
+    async function persistPrefs() {
+      await jget(api.prefs, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang, theme })
+      });
+    }
+
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = tr(key);
+      });
+      byId('userInput').placeholder = tr('user');
+      byId('ipInput').placeholder = tr('ip');
+      byId('searchInput').placeholder = tr('search');
+      const home = byId('navHome');
+      if (home) home.querySelector('span').textContent = tr('navHome');
+      const role = byId('profileRole');
+      if (role) role.textContent = `${tr('profileRole')}: ${me && me.role ? me.role : tr('unknown')}`;
+      const logoutBtn = byId('logoutBtn');
+      if (logoutBtn) logoutBtn.textContent = tr('logout');
+      refreshLangDd();
+      refreshThemeDd();
+      refreshNavManagement();
+      refreshNavSystem();
+      refreshSourceDd();
+      refreshLinesDd();
+      refreshStatusDd();
+      refreshActionDd();
+      refreshMethodDd();
+      refreshEventDd();
+      renderAutoRefreshState();
+    }
+
+    function applyTheme() {
+      const light = theme === 'light';
+      document.body.className = light
+        ? 'min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300'
+        : 'min-h-screen bg-slate-950 text-slate-100 transition-colors duration-300';
+
+      const topbar = byId('topbar');
+      if (topbar) {
+        topbar.className = light
+          ? 'relative z-40 w-full border-b border-slate-200 bg-white/90 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-colors duration-300'
+          : 'relative z-40 w-full border-b border-white/20 bg-slate-800/85 px-4 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.6)] backdrop-blur-xl transition-colors duration-300';
+      }
+
+      const pageCard = byId('pageCard');
+      pageCard.className = light
+        ? 'rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-2xl transition-colors duration-300'
+        : 'rounded-3xl border border-white/20 bg-slate-900/65 p-5 shadow-2xl transition-colors duration-300';
+
+      byId('refreshBtn').className = light
+        ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      byId('autoRefreshBtn').className = light
+        ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      byId('exportBtn').className = light
+        ? 'inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition duration-200 hover:bg-amber-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-200 transition duration-200 hover:bg-amber-500/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      byId('clearFiltersBtn').className = light
+        ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+
+      ['userInput', 'ipInput', 'searchInput', 'dateFromInput', 'dateToInput'].forEach((id) => {
+        const el = byId(id);
+        if (!el) return;
+        el.className = light
+          ? (id === 'userInput' || id === 'ipInput' || id === 'searchInput')
+            ? 'w-full rounded-2xl border border-slate-300 bg-white px-10 py-2.5 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/70'
+            : 'mt-1 w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/70'
+          : (id === 'userInput' || id === 'ipInput' || id === 'searchInput')
+            ? 'w-full rounded-2xl border border-white/15 bg-slate-950/60 px-10 py-2.5 text-sm text-slate-100 outline-none transition duration-200 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-300/30'
+            : 'mt-1 w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-100 outline-none transition duration-200 focus:border-sky-400/70 focus:ring-2 focus:ring-sky-300/30';
+      });
+
+      const tableWrap = byId('tableWrap');
+      tableWrap.className = light ? 'rounded-2xl border border-slate-200 overflow-auto' : 'rounded-2xl border border-white/15 overflow-auto';
+      const head = byId('auditHead');
+      head.className = light ? 'sticky top-0 z-10 bg-slate-50' : 'sticky top-0 z-10 bg-slate-900';
+
+      const profileBtn = byId('profileBtn');
+      if (profileBtn) {
+        profileBtn.className = light
+          ? 'rounded-2xl border border-slate-300 bg-white px-4 py-2 text-left transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'rounded-2xl border border-white/20 bg-slate-900/50 px-4 py-2 text-left transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const logoutBtn = byId('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.className = light
+          ? 'rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const navHome = byId('navHome');
+      if (navHome) {
+        navHome.className = light
+          ? 'rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none inline-flex items-center gap-2'
+          : 'rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none inline-flex items-center gap-2';
+      }
+
+      refreshLangDd();
+      refreshThemeDd();
+      refreshNavManagement();
+      refreshNavSystem();
+      refreshSourceDd();
+      refreshLinesDd();
+      refreshStatusDd();
+      refreshActionDd();
+      refreshMethodDd();
+      refreshEventDd();
+      renderAutoRefreshState();
+    }
+
+    function bindInputs() {
+      ['userInput', 'ipInput', 'searchInput', 'dateFromInput', 'dateToInput'].forEach((id) => {
+        const el = byId(id);
+        if (!el) return;
+        el.addEventListener('keydown', async (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            await loadAudit(true);
+          }
+        });
+        el.addEventListener('change', async () => {
+          await loadAudit(false);
+        });
+      });
+
+      byId('refreshBtn').addEventListener('click', async () => {
+        await loadAudit(true);
+        toast(tr('refresh'), 'success');
+      });
+      byId('exportBtn').addEventListener('click', exportAuditCsv);
+      byId('clearFiltersBtn').addEventListener('click', async () => {
+        sourceFilter = 'all';
+        linesFilter = '100';
+        statusFilter = 'all';
+        actionFilter = 'all';
+        methodFilter = 'all';
+        eventFilter = 'all';
+        byId('userInput').value = '';
+        byId('ipInput').value = '';
+        byId('searchInput').value = '';
+        byId('dateFromInput').value = '';
+        byId('dateToInput').value = '';
+        refreshSourceDd();
+        refreshLinesDd();
+        refreshStatusDd();
+        refreshActionDd();
+        refreshMethodDd();
+        refreshEventDd();
+        await loadAudit(false);
+        toast(tr('filtersCleared'), 'success');
+      });
+      byId('autoRefreshBtn').addEventListener('click', () => {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        localStorage.setItem('eve_v2_system_audit_auto_refresh', autoRefreshEnabled ? '1' : '0');
+        renderAutoRefreshState();
+      });
+      byId('logoutBtn').addEventListener('click', async () => {
+        try {
+          await jget(api.logout, { method: 'POST' });
+          location.href = '/login';
+        } catch (e) {
+          toast((e && e.message) ? e.message : tr('errAuth'));
+        }
+      });
+      byId('profileBtn').addEventListener('click', () => {
+        if (typeof window.openV2ProfileSettingsModal === 'function') {
+          window.openV2ProfileSettingsModal();
+        }
+      });
+    }
+
+    (async () => {
+      try {
+        const auth = await jget(api.auth);
+        me = auth.data || null;
+        if (!me || !hasPerm('page.system.audit.view')) {
+          toast(tr('errForbiddenAction'));
+          setTimeout(() => { location.href = '/main'; }, 900);
+          return;
+        }
+
+        lang = (me && me.lang) || lang;
+        theme = (me && me.theme) || theme;
+        localStorage.setItem('eve_v2_lang', lang);
+        localStorage.setItem('eve_v2_theme', theme);
+
+        refreshLangDd = makeDropdown(
+          document.querySelector('[data-dd="lang"]'),
+          [
+            { value: 'ru', label: 'Русский' },
+            { value: 'en', label: 'English' }
+          ],
+          () => lang,
+          async (v) => {
+            lang = v;
+            localStorage.setItem('eve_v2_lang', v);
+            applyI18n();
+            await persistPrefs();
+          },
+          null
+        );
+
+        refreshThemeDd = makeDropdown(
+          document.querySelector('[data-dd="theme"]'),
+          [
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' }
+          ],
+          () => theme,
+          async (v) => {
+            theme = v;
+            localStorage.setItem('eve_v2_theme', v);
+            applyTheme();
+            await persistPrefs();
+          },
+          null
+        );
+
+        refreshNavManagement = makeNavDropdown(
+          document.getElementById('navManagement'),
+          'navManagement',
+          [
+            { key: 'navLabs', href: '/labmgmt' },
+            { key: 'navUsers', href: '/usermgmt' },
+            { key: 'navClouds', href: '/cloudmgmt' },
+            { key: 'navRoles', href: '/roles' }
+          ]
+        );
+
+        refreshNavSystem = makeNavDropdown(
+          document.getElementById('navSystem'),
+          'navSystem',
+          [
+            { key: 'navSysStatus', href: '/system-status' },
+            { key: 'navTaskQueue', href: '/taskqueue' },
+            { key: 'navSysConsole', href: '/system-console' },
+            { key: 'navSysLogs', href: '/system-logs' },
+            { key: 'navSysAudit', href: '/system-audit' }
+          ]
+        );
+
+        refreshSourceDd = makeDropdown(
+          document.querySelector('[data-dd="source"]'),
+          () => {
+            const base = [
+              { value: 'all', label: tr('sourceAll') },
+              { value: 'user_activity', label: tr('sourceUserActivity') },
+              { value: 'security', label: tr('sourceSecurity') },
+              { value: 'access_http', label: tr('sourceAccess') }
+            ];
+            return sourceOptions.length > 0 ? sourceOptions : base;
+          },
+          () => sourceFilter,
+          async (v) => {
+            sourceFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('source')
+        );
+
+        refreshLinesDd = makeDropdown(
+          document.querySelector('[data-dd="lines"]'),
+          lineOptions,
+          () => linesFilter,
+          async (v) => {
+            linesFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('lines')
+        );
+
+        refreshStatusDd = makeDropdown(
+          document.querySelector('[data-dd="status"]'),
+          () => [
+            { value: 'all', label: tr('any') },
+            { value: 'ok', label: tr('statusOk') },
+            { value: 'error', label: tr('statusError') }
+          ],
+          () => statusFilter,
+          async (v) => {
+            statusFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('status')
+        );
+
+        refreshActionDd = makeDropdown(
+          document.querySelector('[data-dd="action"]'),
+          () => [{ value: 'all', label: tr('any') }].concat(actionOptions.length ? actionOptions : []),
+          () => actionFilter,
+          async (v) => {
+            actionFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('action')
+        );
+
+        refreshMethodDd = makeDropdown(
+          document.querySelector('[data-dd="method"]'),
+          () => {
+            const opts = [{ value: 'all', label: tr('any') }];
+            (methodOptions.length ? methodOptions : [{ value: 'GET', label: 'GET' }, { value: 'POST', label: 'POST' }, { value: 'PUT', label: 'PUT' }, { value: 'DELETE', label: 'DELETE' }])
+              .forEach((m) => opts.push({ value: String(m.value || m).toLowerCase(), label: String(m.label || m.value || m).toUpperCase() }));
+            return opts;
+          },
+          () => methodFilter,
+          async (v) => {
+            methodFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('method')
+        );
+
+        refreshEventDd = makeDropdown(
+          document.querySelector('[data-dd="event"]'),
+          () => [{ value: 'all', label: tr('any') }].concat((eventOptions.length ? eventOptions : []).map((e) => ({ value: String(e.value || e).toLowerCase(), label: String(e.label || e.value || e) }))),
+          () => eventFilter,
+          async (v) => {
+            eventFilter = v;
+            await loadAudit(false);
+          },
+          () => tr('event')
+        );
+
+        bindInputs();
+        applyI18n();
+        applyTheme();
+        await loadAudit(false);
+
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          if (!autoRefreshEnabled) return;
+          if (document.visibilityState === 'hidden') return;
+          await loadAudit(false);
+        }, autoRefreshIntervalMs);
+
+        if (window.startV2Heartbeat) {
+          window.startV2Heartbeat({
+            pingUrl: api.ping,
+            intervalMs: 30000,
+            onUnauthorized: () => { location.href = '/login'; }
+          });
+        }
+      } catch (e) {
+        toast((e && e.message) ? e.message : tr('errAuth'));
+        setTimeout(() => { location.href = '/login'; }, 900);
+      }
+    })();
+  </script>
+</body>
+</html>

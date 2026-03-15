@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User Management</title>
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
+  <link rel="stylesheet" href="/assets/css/main.output.css">
+  <link rel="stylesheet" href="/assets/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/assets/v2-scrollbar.css">
+</head>
+<body class="min-h-screen transition-colors duration-300">
+  <div id="app" class="min-h-screen transition-colors duration-300">
+    <div id="toastRoot" class="fixed right-4 bottom-4 z-[70] flex w-[min(92vw,420px)] flex-col items-end gap-2 sm:right-6 sm:bottom-6"></div>
+    <div id="topbarHost"></div>
+    <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+      <section id="pageCard" class="rounded-3xl border p-5 shadow-2xl transition-colors duration-300">
+      <div class="mb-5">
+        <h1 id="title" class="text-2xl font-black tracking-tight">User management</h1>
+        <p id="pageSub" class="mt-1 text-sm opacity-85">Manage users by role, theme, and language only.</p>
+      </div>
+      <section id="panel" class="relative overflow-hidden rounded-2xl border transition-colors duration-300">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+          <input id="search" class="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 sm:w-96" placeholder="Search by username, role, language, theme, IP">
+          <button id="newBtn" class="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition">+ New user</button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead id="thead" class="text-xs uppercase tracking-[0.2em] text-center">
+              <tr>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="username" data-sort="username">Username</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="role" data-sort="role">Role</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="lang" data-sort="lang">Lang</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="theme" data-sort="theme">Theme</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="updatedAt" data-sort="updated_at">Updated</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="status" data-sort="is_blocked">Status</th>
+                <th class="px-4 py-3 text-center cursor-pointer select-none" data-i18n="actions" data-sort="actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="hidden p-6 text-center text-sm">No users found.</div>
+      </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="editDlg" class="fixed inset-0 m-auto rounded-3xl p-0 shadow-2xl backdrop:bg-slate-900/60">
+    <form method="dialog" id="editForm" class="w-[min(560px,92vw)] rounded-3xl p-6">
+      <h3 id="dlgTitle" class="text-2xl font-bold">Edit user</h3>
+      <p id="dlgSub" class="mt-1 text-sm">Update role, language, theme and status.</p>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        <label class="sm:col-span-2">
+          <span class="mb-1 block text-xs uppercase" data-i18n="username">Username</span>
+          <input id="f_username" class="w-full rounded-2xl border px-4 py-3" disabled>
+        </label>
+
+        <label>
+          <span class="mb-1 block text-xs uppercase" data-i18n="role">Role</span>
+          <div id="f_role_dd" class="w-full"></div>
+          <input id="f_role" type="hidden">
+        </label>
+
+        <label>
+          <span class="mb-1 block text-xs uppercase" data-i18n="status">Status</span>
+          <div id="f_blocked_dd" class="w-full"></div>
+          <input id="f_blocked" type="hidden" value="false">
+        </label>
+
+        <label>
+          <span class="mb-1 block text-xs uppercase" data-i18n="lang">Lang</span>
+          <div id="f_lang_dd" class="w-full"></div>
+          <input id="f_lang" type="hidden" value="en">
+        </label>
+
+        <label>
+          <span class="mb-1 block text-xs uppercase" data-i18n="theme">Theme</span>
+          <div id="f_theme_dd" class="w-full"></div>
+          <input id="f_theme" type="hidden" value="dark">
+        </label>
+
+        <label class="sm:col-span-2">
+          <span class="mb-1 block text-xs uppercase" data-i18n="newPassword">Set password</span>
+          <input id="f_password" class="w-full rounded-2xl border px-4 py-3" type="password" required>
+        </label>
+      </div>
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="cancelBtn" type="button" class="rounded-xl border px-4 py-2 text-sm font-semibold" data-i18n="cancel">Cancel</button>
+        <button class="rounded-xl px-4 py-2 text-sm font-semibold text-white" value="default" id="saveBtn" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="sessionsDlg" class="fixed inset-0 m-auto rounded-3xl p-0 shadow-2xl overflow-visible backdrop:bg-slate-900/60">
+    <div id="sessionsCard" class="w-[min(1120px,98vw)] h-[min(95vh,1000px)] rounded-3xl p-6 overflow-hidden flex flex-col">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 id="sessionsTitle" class="text-2xl font-bold">Сессии пользователя</h3>
+          <p id="sessionsSub" class="mt-1 text-sm">-</p>
+        </div>
+        <button id="closeSessionsBtn" type="button" class="rounded-xl border px-3 py-2 text-sm font-semibold">×</button>
+      </div>
+      <div id="sessionsFilters" class="mt-4 rounded-2xl border p-3">
+        <p id="sessionsFiltersTitle" class="mb-2 text-xs uppercase tracking-[0.2em]" data-i18n="sessionsFiltersTitle">Фильтры</p>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <label>
+            <span class="mb-1 block text-xs uppercase" data-i18n="sessionFilterFrom">От</span>
+            <input id="sf_from" type="datetime-local" class="w-full rounded-xl border px-3 py-2 text-sm outline-none">
+          </label>
+          <label>
+            <span class="mb-1 block text-xs uppercase" data-i18n="sessionFilterTo">До</span>
+            <input id="sf_to" type="datetime-local" class="w-full rounded-xl border px-3 py-2 text-sm outline-none">
+          </label>
+          <label>
+            <span class="mb-1 block text-xs uppercase" data-i18n="sessionFilterIp">IP</span>
+            <input id="sf_ip" type="text" class="w-full rounded-xl border px-3 py-2 text-sm outline-none" placeholder="127.0.0.1">
+          </label>
+          <label>
+            <span class="mb-1 block text-xs uppercase" data-i18n="sessionFilterStatus">Статус</span>
+            <select id="sf_status" class="w-full rounded-xl border px-3 py-2 text-sm outline-none">
+              <option value="all" data-i18n="sessionStatusAll">Все</option>
+              <option value="active" data-i18n="sessionActive">Активна</option>
+              <option value="idle" data-i18n="sessionIdle">Открыта, но неактивна</option>
+              <option value="ended" data-i18n="sessionEnded">Завершена</option>
+            </select>
+          </label>
+          <div class="flex items-end gap-2">
+            <button id="sessionsResetBtn" type="button" class="rounded-xl border px-3 py-2 text-sm font-semibold" data-i18n="sessionsFiltersReset">Сбросить</button>
+            <button id="sessionsExportBtn" type="button" class="rounded-xl px-3 py-2 text-sm font-semibold text-white" data-i18n="sessionsExport">Выгрузить</button>
+          </div>
+        </div>
+      </div>
+      <div id="sessionsTableWrap" class="mt-4 flex-1 overflow-auto">
+        <table class="min-w-full text-sm">
+          <thead id="sessionsHead" class="text-xs uppercase tracking-[0.2em] text-center">
+            <tr>
+              <th class="px-3 py-2" data-i18n="sessionCreated">Создана</th>
+              <th class="px-3 py-2" data-i18n="sessionDuration">Время работы</th>
+              <th class="px-3 py-2" data-i18n="sessionState">Статус</th>
+              <th class="px-3 py-2" data-i18n="sessionIp">IP</th>
+              <th class="px-3 py-2" data-i18n="sessionUserAgent">User-Agent</th>
+              <th class="px-3 py-2" data-i18n="actions">Действия</th>
+            </tr>
+          </thead>
+          <tbody id="sessionsBody" class="divide-y"></tbody>
+        </table>
+      </div>
+      <div id="sessionsEmpty" class="hidden p-4 text-center text-sm">Активных сессий нет.</div>
+    </div>
+  </dialog>
+
+  <dialog id="confirmDlg" class="fixed inset-0 m-auto rounded-3xl p-0 shadow-2xl backdrop:bg-slate-900/60">
+    <form id="confirmForm" class="w-[min(460px,92vw)] rounded-3xl p-6">
+      <h3 id="confirmTitle" class="text-xl font-bold" data-i18n="confirmTitle">Подтверждение</h3>
+      <p id="confirmText" class="mt-2 text-sm">Вы уверены?</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="confirmCancelBtn" type="button" class="rounded-xl border px-4 py-2 text-sm font-semibold" data-i18n="cancel">Отмена</button>
+        <button id="confirmOkBtn" type="submit" class="rounded-xl px-4 py-2 text-sm font-semibold text-white" data-i18n="confirmOk">Подтвердить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/assets/v2-shared-header.js"></script>
+  <script src="/assets/v2-heartbeat.js"></script>
+  <script src="/assets/v2-toast.js"></script>
+  <script>
+    if (window.renderV2Header) window.renderV2Header('topbarHost');
+  </script>
+  <script>
+    const api = {
+      auth: '/api/auth',
+      ping: '/api/auth/ping',
+      logout: '/api/auth/logout',
+      users: '/api/users',
+      roles: '/api/roles',
+      prefs: '/api/preferences',
+      onlineUsers: '/api/online-users'
+    };
+
+    const i18n = {
+      en: {
+        title:'User management', subtitle:'Manage users by role, theme, and language only.', hint:'No POD. No Lab binding.', search:'Search by username, role, language, theme, IP',
+        id:'ID', username:'Username', role:'Role', lang:'Lang', theme:'Theme', updatedAt:'Updated', status:'Status', actions:'Actions',
+        uuidHint:'UUID',
+        active:'Active', blocked:'Blocked', edit:'Edit', del:'Delete', empty:'No users found.',
+        dlgTitleEdit:'Edit user', dlgTitleNew:'Create user', dlgSub:'Update role, language, theme and status.', newPassword:'Set password',
+        cancel:'Cancel', save:'Save', logout:'Logout', newUser:'+ New user', management:'Management',
+        confirmTitle:'Confirm action', confirmOk:'Confirm', confirmDelete:'Delete user ', confirmBlock:'Block user ', confirmUnblock:'Unblock user ', errAdmin:'Insufficient permissions', errAuth:'Unauthorized',
+        themeDark:'Dark', themeLight:'Light', profileRole:'Role', done:'Done', toastsLabel:'Notifications',
+        userCreated:'User created', userUpdated:'User updated', userDeleted:'User deleted', userBlocked:'User blocked', userUnblocked:'User unblocked', selfBlockDenied:'You cannot block your own account', opFailed:'Operation failed', errForbiddenAction:'This action is not allowed for your account.',
+        sessions:'Sessions', sessionsTitle:'User sessions', sessionCreated:'Created', sessionDuration:'Duration', sessionState:'Status', sessionIp:'IP', sessionUserAgent:'User-Agent', sessionsEmpty:'No active sessions.',
+        sessionActive:'Active', sessionIdle:'Open, but inactive', sessionEnded:'Ended', terminateSession:'End session', sessionTerminated:'Session terminated',
+        sessionsFiltersTitle:'Filters', sessionFilterFrom:'From', sessionFilterTo:'To', sessionFilterIp:'IP', sessionFilterStatus:'Status', sessionStatusAll:'All', sessionsFiltersReset:'Reset', sessionsExport:'Export', sessionsNoMatch:'No sessions match current filters.',
+        navHome:'Home', navManagement:'Management', navSystem:'System',
+        navLabs:'Labs', navUsers:'Users', navClouds:'Clouds', navRoles:'Roles',
+        navSysStatus:'System status', navTaskQueue:'Task queue', navSysConsole:'VM Console', navSysLogs:'System logs', navSysAudit:'User audit',
+        navSoon:'This section is not implemented yet'
+      },
+      ru: {
+        title:'Управление пользователями', subtitle:'Управляйте пользователями, ролями, темами и языками интерфейса. А также сессиями пользователей.', hint:'Без POD и привязки к лаборатории.', search:'Поиск по логину, роли, языку, теме, IP',
+        id:'ID', username:'Логин', role:'Роль', lang:'Язык', theme:'Тема', updatedAt:'Изменен', status:'Статус', actions:'Действия',
+        uuidHint:'UUID',
+        active:'Активен', blocked:'Заблокирован', edit:'Изменить', del:'Удалить', empty:'Пользователи не найдены.',
+        dlgTitleEdit:'Редактирование пользователя', dlgTitleNew:'Создание пользователя', dlgSub:'Изменяйте роль, язык, тему и статус.', newPassword:'Укажите пароль',
+        cancel:'Отмена', save:'Сохранить', logout:'Выход', newUser:'+ Новый пользователь', management:'Управление',
+        confirmTitle:'Подтверждение действия', confirmOk:'Подтвердить', confirmDelete:'Удалить пользователя ', confirmBlock:'Заблокировать пользователя ', confirmUnblock:'Разблокировать пользователя ', errAdmin:'Недостаточно прав', errAuth:'Нет авторизации',
+        themeDark:'Тёмная', themeLight:'Светлая', profileRole:'Роль', done:'Готово', toastsLabel:'Уведомления',
+        userCreated:'Пользователь создан', userUpdated:'Пользователь обновлен', userDeleted:'Пользователь удален', userBlocked:'Пользователь заблокирован', userUnblocked:'Пользователь разблокирован', selfBlockDenied:'Нельзя заблокировать свою учетную запись', opFailed:'Ошибка операции', errForbiddenAction:'Это действие запрещено для вашей учетной записи.',
+        sessions:'Сессии', sessionsTitle:'Сессии пользователя', sessionCreated:'Создана', sessionDuration:'Время работы', sessionState:'Статус', sessionIp:'IP', sessionUserAgent:'User-Agent', sessionsEmpty:'Активных сессий нет.',
+        sessionActive:'Активна', sessionIdle:'Открыта, но неактивна', sessionEnded:'Завершена', terminateSession:'Завершить', sessionTerminated:'Сессия завершена',
+        sessionsFiltersTitle:'Фильтры', sessionFilterFrom:'От', sessionFilterTo:'До', sessionFilterIp:'IP', sessionFilterStatus:'Статус', sessionStatusAll:'Все', sessionsFiltersReset:'Сбросить', sessionsExport:'Выгрузить', sessionsNoMatch:'По текущим фильтрам сессии не найдены.',
+        navHome:'Главная', navManagement:'Управление', navSystem:'Система',
+        navLabs:'Лаборатории', navUsers:'Пользователи', navClouds:'Облака', navRoles:'Роли',
+        navSysStatus:'Статус системы', navTaskQueue:'Очередь задач', navSysConsole:'Консоль VM', navSysLogs:'Системные логи', navSysAudit:'Аудит действий',
+        navSoon:'Раздел пока в разработке'
+      }
+    };
+
+    const langOptions = [
+      { value: 'en', label: 'English' },
+      { value: 'ru', label: 'Русский' }
+    ];
+    const themeOptions = [
+      { value: 'dark', label: 'Dark' },
+      { value: 'light', label: 'Light' }
+    ];
+    const modalRoleOptions = [];
+    const modalStatusOptions = [
+      { value: 'false', label: 'Active' },
+      { value: 'true', label: 'Blocked' }
+    ];
+    const modalLangOptions = [
+      { value: 'en', label: 'English' },
+      { value: 'ru', label: 'Русский' }
+    ];
+    const modalThemeOptions = [
+      { value: 'dark', label: 'Dark' },
+      { value: 'light', label: 'Light' }
+    ];
+
+    let users = [];
+    let roles = [];
+    let editingId = null;
+    let me = null;
+    let lang = localStorage.getItem('eve_v2_lang') || 'ru';
+    let theme = localStorage.getItem('eve_v2_theme') || 'dark';
+    let sortKey = 'username';
+    let sortDir = 'asc';
+    let sessionCountMap = {};
+    let sessionsModalUser = null;
+    let sessionsRows = [];
+    let stopHeartbeat = null;
+    let onlinePollTimer = null;
+    let refreshNavManagement = () => {};
+    let refreshNavSystem = () => {};
+
+    function tr(k){ return (i18n[lang]||i18n.ru)[k] || k; }
+    function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
+    function hasPerm(code){ return !!(me && Array.isArray(me.permissions) && me.permissions.includes(code)); }
+    function canManageUsers(){ return hasPerm('users.manage') || hasPerm('users.manage.non_admin'); }
+    function fmtTs(v){ if(!v) return 'N/A'; return new Date(v).toLocaleString(); }
+    function themeText(v){ return v === 'light' ? tr('themeLight') : tr('themeDark'); }
+    function localizeThemeOptions(){
+      themeOptions[0].label = tr('themeDark');
+      themeOptions[1].label = tr('themeLight');
+      modalThemeOptions[0].label = tr('themeDark');
+      modalThemeOptions[1].label = tr('themeLight');
+      modalStatusOptions[0].label = tr('active');
+      modalStatusOptions[1].label = tr('blocked');
+    }
+
+    function applyI18n(){
+      localizeThemeOptions();
+      document.getElementById('title').textContent = tr('title');
+      document.getElementById('pageSub').textContent = tr('subtitle');
+      document.getElementById('navHome').innerHTML = `<i class="fa fa-home" aria-hidden="true"></i><span>${tr('navHome')}</span>`;
+      document.getElementById('search').placeholder = tr('search');
+      document.getElementById('logoutBtn').textContent = tr('logout');
+      document.getElementById('newBtn').textContent = tr('newUser');
+      document.getElementById('empty').textContent = tr('empty');
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (tr(key)) el.textContent = tr(key);
+      });
+      refreshNavManagement();
+      refreshNavSystem();
+      document.querySelectorAll('#thead th[data-sort]').forEach(th => {
+        th.dataset.baseLabel = th.textContent.trim();
+      });
+      refreshSortHeaders();
+      refreshModalStatusDd();
+      refreshModalLangDd();
+      refreshModalThemeDd();
+      renderProfileCard();
+      applySessionsTheme();
+      renderToasts();
+    }
+
+    function renderProfileCard(){
+      if (!me) return;
+      document.getElementById('profileName').textContent = me.username || 'user';
+      document.getElementById('profileRole').textContent = `${tr('profileRole')}: ${me.role || '—'}`;
+    }
+
+    function applyTheme(){
+      const body = document.body;
+      const app = document.getElementById('app');
+      const topbar = document.getElementById('topbar');
+      const pageCard = document.getElementById('pageCard');
+      const panel = document.getElementById('panel');
+      const thead = document.getElementById('thead');
+      const dialog = document.getElementById('editDlg').firstElementChild;
+      const confirmCard = document.getElementById('confirmForm');
+      const search = document.getElementById('search');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const newBtn = document.getElementById('newBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+      const confirmOkBtn = document.getElementById('confirmOkBtn');
+      const profileBtn = document.getElementById('profileBtn');
+      const navHome = document.getElementById('navHome');
+      const profileName = document.getElementById('profileName');
+      const profileRole = document.getElementById('profileRole');
+
+      if (theme === 'light') {
+        body.className = 'min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300';
+        app.className = 'min-h-screen transition-colors duration-300';
+        topbar.className = 'relative z-40 w-full border-b border-slate-200 bg-white/90 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-colors duration-300';
+        if (pageCard) pageCard.className = 'rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-2xl transition-colors duration-300';
+        panel.className = 'relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-300';
+        thead.className = 'text-xs uppercase tracking-[0.2em] text-slate-600 bg-slate-50';
+        search.className = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-300 sm:w-96';
+        logoutBtn.className = btnClass('neutral', 'sm');
+        newBtn.className = btnClass('primary', 'sm');
+        saveBtn.className = btnClass('primary', 'sm');
+        confirmCancelBtn.className = btnClass('neutral', 'sm');
+        confirmOkBtn.className = btnClass('primary', 'sm');
+        navHome.className = `${btnClass('neutral', 'sm')} inline-flex items-center gap-2`;
+        dialog.className = 'w-[min(560px,92vw)] rounded-3xl p-6 bg-white text-slate-900';
+        confirmCard.className = 'w-[min(460px,92vw)] rounded-3xl p-6 bg-white text-slate-900';
+        profileBtn.className = 'rounded-2xl border border-slate-300 bg-white px-4 py-2 text-left transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+        profileName.className = 'text-sm font-semibold text-slate-900';
+        profileRole.className = 'text-xs text-slate-500';
+      } else {
+        body.className = 'min-h-screen bg-slate-950 text-slate-100 transition-colors duration-300';
+        app.className = 'min-h-screen transition-colors duration-300';
+        topbar.className = 'relative z-40 w-full border-b border-white/20 bg-slate-800/85 px-4 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.6)] backdrop-blur-xl transition-colors duration-300';
+        if (pageCard) pageCard.className = 'rounded-3xl border border-white/20 bg-slate-900/65 p-5 shadow-2xl transition-colors duration-300';
+        panel.className = 'relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950/35 transition-colors duration-300';
+        thead.className = 'text-xs uppercase tracking-[0.2em] text-slate-300 bg-white/5';
+        search.className = 'w-full rounded-xl border border-white/15 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-300/50 sm:w-96';
+        logoutBtn.className = btnClass('neutral', 'sm');
+        newBtn.className = btnClass('primary', 'sm');
+        saveBtn.className = btnClass('primary', 'sm');
+        confirmCancelBtn.className = btnClass('neutral', 'sm');
+        confirmOkBtn.className = btnClass('primary', 'sm');
+        navHome.className = `${btnClass('neutral', 'sm')} inline-flex items-center gap-2`;
+        dialog.className = 'w-[min(560px,92vw)] rounded-3xl p-6 bg-slate-900 text-slate-100 border border-white/10';
+        confirmCard.className = 'w-[min(460px,92vw)] rounded-3xl p-6 bg-slate-900 text-slate-100 border border-white/10';
+        profileBtn.className = 'rounded-2xl border border-white/20 bg-slate-900/50 px-4 py-2 text-left transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+        profileName.className = 'text-sm font-semibold text-slate-100';
+        profileRole.className = 'text-xs text-slate-400';
+      }
+      refreshModalRoleDd();
+      refreshModalStatusDd();
+      refreshModalLangDd();
+      refreshModalThemeDd();
+      applySessionsTheme();
+      renderToasts();
+    }
+
+    function btnClass(variant = 'neutral', size = 'sm'){
+      const sizeMap = {
+        xs: 'px-3 py-1 text-xs',
+        sm: 'px-4 py-2 text-sm'
+      };
+      const base = `rounded-xl ${sizeMap[size] || sizeMap.sm} font-semibold cursor-pointer transition duration-200 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none`;
+      if (variant === 'primary') {
+        return `${base} text-white shadow-lg bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700`;
+      }
+      if (variant === 'danger') {
+        return `${base} text-white shadow-lg bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700`;
+      }
+      return theme === 'light'
+        ? `${base} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`
+        : `${base} border border-white/20 bg-slate-900/50 text-slate-100 hover:bg-white/10`;
+    }
+
+    function dropdownUi(kind = 'input') {
+      const isNav = kind === 'nav';
+      const pad = isNav ? 'px-4 py-2' : 'px-3 py-2';
+      const weight = isNav ? 'font-semibold' : 'font-normal';
+      const btnBase = `w-full rounded-xl ${pad} text-left text-sm ${weight} flex items-center justify-between cursor-pointer transition duration-200 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none`;
+      const itemBase = `w-full rounded-lg px-3 py-2 text-left text-sm cursor-pointer flex items-center justify-between`;
+      return theme === 'light'
+        ? {
+            btn: `${btnBase} border border-slate-300 bg-white text-slate-900 hover:bg-slate-50`,
+            panel: 'absolute z-50 mt-2 hidden w-full rounded-xl border border-slate-200 bg-white p-1 shadow-2xl',
+            item: `${itemBase} text-slate-900 hover:bg-slate-100`,
+            chevron: 'text-slate-500'
+          }
+        : {
+            btn: `${btnBase} border border-white/15 bg-slate-900/70 text-slate-100 hover:bg-white/10`,
+            panel: 'absolute z-50 mt-2 hidden w-full rounded-xl border border-white/15 bg-slate-900/95 p-1 shadow-2xl',
+            item: `${itemBase} text-slate-100 hover:bg-white/10`,
+            chevron: 'text-slate-400'
+          };
+    }
+
+    function closeAllDropdownPanels(){ document.querySelectorAll('.v2-dd-panel').forEach(el => el.classList.add('hidden')); }
+
+    function makeDropdown(root, options, getValue, setValue, getLabel) {
+      if (!root) return () => {};
+      root.classList.add('relative', 'min-w-0');
+      root.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const list = document.createElement('div');
+
+      function refreshTheme(){
+        const c = dropdownUi('input');
+        btn.className = c.btn;
+        list.className = c.panel;
+        list.style.left = '0';
+        list.style.right = '0';
+        list.classList.add('v2-dd-panel');
+      }
+
+      function renderButtonLabel() {
+        const active = options.find(o => o.value === getValue());
+        const prefix = getLabel ? `${getLabel()}: ` : '';
+        const c = dropdownUi('input');
+        btn.innerHTML = `<span>${prefix}${active ? active.label : ''}</span><i class="fa fa-chevron-down text-xs ${c.chevron}"></i>`;
+      }
+
+      function renderOptions() {
+        const c = dropdownUi('input');
+        list.innerHTML = '';
+        options.forEach(opt => {
+          const isActive = String(opt.value) === String(getValue());
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = `${c.item} flex items-center justify-between ${isActive ? (theme==='light' ? 'bg-emerald-50' : 'bg-emerald-500/10') : ''}`;
+          item.innerHTML = `<span>${opt.label}</span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', async () => {
+            await setValue(opt.value);
+            renderButtonLabel();
+            refreshTheme();
+            renderOptions();
+            list.classList.add('hidden');
+          });
+          list.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const wasHidden = list.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (wasHidden) list.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => { if (!root.contains(e.target)) list.classList.add('hidden'); });
+
+      root.appendChild(btn);
+      root.appendChild(list);
+      refreshTheme();
+      renderButtonLabel();
+      renderOptions();
+
+      return () => { refreshTheme(); renderButtonLabel(); renderOptions(); };
+    }
+
+    function makeNavDropdown(root, labelKey, items){
+      root.classList.add('relative', 'min-w-0');
+      root.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const panel = document.createElement('div');
+
+      function repaint(){
+        const c = dropdownUi('nav');
+        btn.className = c.btn;
+        panel.className = c.panel;
+        panel.style.left = '0';
+        panel.style.right = '0';
+        panel.classList.add('v2-dd-panel');
+        btn.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(labelKey)}<span>${tr(labelKey)}</span></span><i class="fa fa-chevron-down text-xs ${c.chevron}"></i>`;
+        panel.innerHTML = '';
+        items.forEach(it => {
+          const isActive = !!it.href && it.href === location.pathname;
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = `${c.item} flex items-center justify-between ${isActive ? (theme==='light' ? 'bg-emerald-50' : 'bg-emerald-500/10') : ''}`;
+          item.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(it.key)}<span>${tr(it.key)}</span></span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', () => {
+            panel.classList.add('hidden');
+            if (it.href) {
+              location.href = it.href;
+              return;
+            }
+            toast(tr('navSoon'));
+          });
+          panel.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const wasHidden = panel.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (wasHidden) panel.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => { if (!root.contains(e.target)) panel.classList.add('hidden'); });
+      root.appendChild(btn);
+      root.appendChild(panel);
+      repaint();
+      return repaint;
+    }
+
+    function navIcon(key){
+      const map = {
+        navManagement: '<i class="fa fa-cogs" aria-hidden="true"></i>',
+        navSystem: '<i class="fa fa-desktop" aria-hidden="true"></i>',
+        navLabs: '<i class="fa fa-flask" aria-hidden="true"></i>',
+        navUsers: '<i class="fa fa-users" aria-hidden="true"></i>',
+        navClouds: '<i class="fa fa-cloud" aria-hidden="true"></i>',
+        navRoles: '<i class="fa fa-id-badge" aria-hidden="true"></i>',
+        navSysStatus: '<i class="fa fa-heartbeat" aria-hidden="true"></i>',
+        navTaskQueue:'<i class="fa fa-tasks" aria-hidden="true"></i>',
+        navSysConsole:'<i class="fa fa-terminal" aria-hidden="true"></i>',
+        navSysLogs: '<i class="fa fa-file-text-o" aria-hidden="true"></i>',
+        navSysAudit:'<i class="fa fa-history" aria-hidden="true"></i>'
+      };
+      return map[key] || '<i class="fa fa-circle-o" aria-hidden="true"></i>';
+    }
+
+    async function jget(url, opts={}){
+      const r = await fetch(url, Object.assign({credentials:'include'}, opts));
+      const d = await r.json().catch(()=>({}));
+      if(!r.ok) {
+        const msg = String(d && d.message ? d.message : '').trim();
+        if (r.status === 403 || msg.toLowerCase() === 'forbidden') {
+          throw new Error(tr('errForbiddenAction'));
+        }
+        throw new Error(msg || ('HTTP '+r.status));
+      }
+      return d;
+    }
+
+    const toaster = window.createV2ToastManager ? window.createV2ToastManager({
+      rootId: 'toastRoot',
+      getTheme: () => theme,
+      getLabel: () => tr('toastsLabel'),
+      durationMs: 5000
+    }) : null;
+
+    function renderToasts(){ if (toaster) toaster.render(); }
+    function toast(message, kind = 'error'){ if (toaster) toaster.toast(message, kind); }
+
+    function roleChip(role){
+      const r = (role || '—').toLowerCase();
+      const isAdmin = r === 'admin';
+      if (theme === 'light') {
+        return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-bold ${isAdmin?'bg-emerald-100 text-emerald-700':'bg-sky-100 text-sky-700'}">${esc(role || '—')}</span>`;
+      }
+      return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-bold ${isAdmin?'bg-emerald-500/20 text-emerald-300':'bg-sky-500/20 text-sky-300'}">${esc(role || '—')}</span>`;
+    }
+
+    function statusChip(blocked){
+      if (theme === 'light') {
+        return blocked
+          ? `<button class="inline-flex rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-700 cursor-pointer" data-toggle-block="false">${tr('blocked')}</button>`
+          : `<button class="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 cursor-pointer" data-toggle-block="true">${tr('active')}</button>`;
+      }
+      return blocked
+        ? `<button class="inline-flex rounded-full bg-red-500/20 px-2 py-1 text-xs font-bold text-red-300 cursor-pointer" data-toggle-block="false">${tr('blocked')}</button>`
+        : `<button class="inline-flex rounded-full bg-slate-500/20 px-2 py-1 text-xs font-bold text-slate-200 cursor-pointer" data-toggle-block="true">${tr('active')}</button>`;
+    }
+
+    function sessionsChip(userId){
+      const count = Number(sessionCountMap[String(userId)] || 0);
+      if (theme === 'light') {
+        return `<button class="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-bold text-indigo-700 cursor-pointer" data-sessions="${userId}">${tr('sessions')}: ${count}</button>`;
+      }
+      return `<button class="inline-flex rounded-full bg-indigo-500/20 px-2 py-1 text-xs font-bold text-indigo-300 cursor-pointer" data-sessions="${userId}">${tr('sessions')}: ${count}</button>`;
+    }
+
+    function getSortValue(u, key){
+      if (key === 'id' || key === 'actions') return String(u.id || '');
+      if (key === 'username') return String(u.username || '').toLowerCase();
+      if (key === 'role') return String(u.role || '').toLowerCase();
+      if (key === 'lang') return String(u.lang || '').toLowerCase();
+      if (key === 'theme') return String(themeText(u.theme || 'dark')).toLowerCase();
+      if (key === 'updated_at') return u.updated_at ? new Date(u.updated_at).getTime() : 0;
+      if (key === 'is_blocked') return u.is_blocked ? 1 : 0;
+      return '';
+    }
+
+    function sortUsers(list){
+      const dir = sortDir === 'asc' ? 1 : -1;
+      return [...list].sort((a, b) => {
+        const av = getSortValue(a, sortKey);
+        const bv = getSortValue(b, sortKey);
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av).localeCompare(String(bv), lang, { numeric: true, sensitivity: 'base' }) * dir;
+      });
+    }
+
+    function refreshSortHeaders(){
+      document.querySelectorAll('#thead th[data-sort]').forEach(th => {
+        const base = th.dataset.baseLabel || th.textContent.replace(/\s[▲▼]$/, '').trim();
+        const marker = th.dataset.sort === sortKey ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+        th.textContent = base + marker;
+      });
+    }
+
+    function render(){
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const tbody = document.getElementById('tbody');
+      const filtered = users.filter(u => `${u.username} ${u.role||''} ${u.lang||''} ${u.theme||''} ${u.updated_at||''}`.toLowerCase().includes(q));
+      const sorted = sortUsers(filtered);
+      const rowBase = theme === 'light' ? 'hover:bg-slate-50/60 text-slate-900' : 'hover:bg-white/5 text-slate-100';
+      const dividerClass = theme === 'light' ? 'divide-slate-100' : 'divide-white/10';
+      tbody.className = `divide-y ${dividerClass}`;
+
+      tbody.innerHTML = sorted.map(u => `
+        <tr class="${rowBase}">
+          <td class="px-4 py-3 text-center font-semibold">
+            <div class="inline-flex items-center gap-2">
+              <span>${esc(u.username)}</span>
+              <span
+                class="${theme === 'light' ? 'bg-slate-200 text-slate-700' : 'bg-white/20 text-slate-100'} inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold cursor-help"
+                title="${esc(`${tr('uuidHint')}: ${String(u.id || '')}`)}"
+                aria-label="${esc(`${tr('uuidHint')}: ${String(u.id || '')}`)}"
+              >?</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-center">${roleChip(u.role)}</td>
+          <td class="px-4 py-3 text-center">${esc(u.lang || 'en')}</td>
+          <td class="px-4 py-3 text-center">${esc(themeText(u.theme || 'dark'))}</td>
+          <td class="px-4 py-3 text-center">${fmtTs(u.updated_at)}</td>
+          <td class="px-4 py-3 text-center"><span data-user-id="${u.id}">${statusChip(!!u.is_blocked)}</span></td>
+          <td class="px-4 py-3">
+            <div class="flex justify-center gap-2">
+              <button class="${btnClass('neutral', 'xs')}" data-edit="${u.id}">${tr('edit')}</button>
+              <button class="${btnClass('danger', 'xs')}" data-del="${u.id}">${tr('del')}</button>
+              ${sessionsChip(u.id)}
+            </div>
+          </td>
+        </tr>`).join('');
+
+      document.getElementById('empty').classList.toggle('hidden', filtered.length > 0);
+    }
+
+    function fillRoleSelect(selected){
+      modalRoleOptions.splice(0, modalRoleOptions.length, ...roles.map(r => ({ value: String(r.id), label: r.name })));
+      const hidden = document.getElementById('f_role');
+      hidden.value = String(selected || (roles[0] ? roles[0].id : ''));
+      refreshModalRoleDd();
+    }
+
+    function defaultUserRoleId(){
+      const userRole = roles.find(r => String(r.name || '').toLowerCase() === 'user');
+      return userRole ? userRole.id : (roles[0] ? roles[0].id : '');
+    }
+
+    function styleModalControls(){
+      const cancelBtn = document.getElementById('cancelBtn');
+      const username = document.getElementById('f_username');
+      const password = document.getElementById('f_password');
+      const selects = [
+        document.getElementById('f_role_dd').querySelector('button'),
+        document.getElementById('f_blocked_dd').querySelector('button'),
+        document.getElementById('f_lang_dd').querySelector('button'),
+        document.getElementById('f_theme_dd').querySelector('button')
+      ].filter(Boolean);
+
+      if (theme === 'light') {
+        cancelBtn.className = btnClass('neutral', 'sm');
+        username.className = username.disabled
+          ? 'w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-slate-500 outline-none'
+          : 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none ring-sky-300 focus:ring-2';
+        password.className = 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none ring-sky-300 focus:ring-2';
+        selects.forEach(el => {
+          el.className = 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-left text-slate-900 outline-none ring-sky-300 focus:ring-2 flex items-center justify-between';
+        });
+      } else {
+        cancelBtn.className = btnClass('neutral', 'sm');
+        username.className = username.disabled
+          ? 'w-full rounded-2xl border border-white/15 bg-slate-900/40 px-4 py-3 text-slate-400 outline-none'
+          : 'w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none ring-sky-300/40 focus:ring-2';
+        password.className = 'w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-slate-100 outline-none ring-sky-300/40 focus:ring-2';
+        selects.forEach(el => {
+          el.className = 'w-full rounded-2xl border border-white/15 bg-slate-950/60 px-4 py-3 text-left text-slate-100 outline-none ring-sky-300/40 focus:ring-2 flex items-center justify-between';
+        });
+      }
+
+      document.querySelectorAll('#editForm span[data-i18n]').forEach(el => {
+        el.className = theme==='light' ? 'mb-1 block text-xs uppercase text-slate-500' : 'mb-1 block text-xs uppercase text-slate-400';
+      });
+      document.getElementById('dlgSub').className = theme==='light' ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-400';
+    }
+
+    function openEdit(user){
+      editingId = user ? user.id : null;
+      document.getElementById('dlgTitle').textContent = user ? tr('dlgTitleEdit') : tr('dlgTitleNew');
+      document.getElementById('dlgSub').textContent = tr('dlgSub');
+      document.getElementById('f_username').disabled = !!user;
+      document.getElementById('f_username').value = user ? user.username : '';
+      fillRoleSelect(user ? user.role_id : defaultUserRoleId());
+      document.getElementById('f_blocked').value = user && user.is_blocked ? 'true' : 'false';
+      document.getElementById('f_lang').value = (user && user.lang) ? user.lang : 'ru';
+      document.getElementById('f_theme').value = (user && user.theme) ? user.theme : 'light';
+      refreshModalStatusDd();
+      refreshModalLangDd();
+      refreshModalThemeDd();
+      document.getElementById('f_password').value = '';
+      document.getElementById('f_password').required = !user;
+      styleModalControls();
+      const dlg = document.getElementById('editDlg');
+      dlg.style.inset = '0';
+      dlg.style.margin = 'auto';
+      dlg.showModal();
+    }
+
+    async function loadAll(){
+      const [rRoles, rUsers] = await Promise.all([jget(api.roles), jget(api.users)]);
+      roles = rRoles.data || [];
+      users = (rUsers.data || []).map(u => ({ ...u, role: u.role || u.role_name || '—', lang: u.lang || 'en', theme: u.theme || 'dark', is_blocked: !!u.is_blocked }));
+      await loadOnlineUsers();
+      render();
+    }
+
+    async function loadOnlineUsers(){
+      const res = await jget(api.onlineUsers);
+      const rows = res.data || [];
+      const counts = {};
+      rows.forEach(r => {
+        const id = String(r.user_id);
+        counts[id] = Number(r.online_sessions || 0);
+      });
+      sessionCountMap = counts;
+    }
+
+    function fmtDuration(fromIso){
+      if (!fromIso) return '0s';
+      const sec = Math.max(0, Math.floor((Date.now() - new Date(fromIso).getTime()) / 1000));
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    let confirmResolver = null;
+    function closeConfirm(result){
+      const dlg = document.getElementById('confirmDlg');
+      if (dlg.open) dlg.close();
+      if (confirmResolver) {
+        const resolve = confirmResolver;
+        confirmResolver = null;
+        resolve(!!result);
+      }
+    }
+
+    function showConfirm(message){
+      const dlg = document.getElementById('confirmDlg');
+      document.getElementById('confirmText').textContent = message;
+      dlg.style.inset = '0';
+      dlg.style.margin = 'auto';
+      dlg.showModal();
+      return new Promise((resolve) => {
+        confirmResolver = resolve;
+      });
+    }
+
+    function sessionStateChip(row){
+      const isAlive = !!row.is_alive;
+      const isActiveNow = !!row.is_active_now;
+      if (theme === 'light') {
+        if (isActiveNow) {
+          return `<span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">${tr('sessionActive')}</span>`;
+        }
+        if (isAlive) {
+          return `<span class="inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">${tr('sessionIdle')}</span>`;
+        }
+        return `<span class="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">${tr('sessionEnded')}</span>`;
+      }
+      if (isActiveNow) {
+        return `<span class="inline-flex rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-300">${tr('sessionActive')}</span>`;
+      }
+      if (isAlive) {
+        return `<span class="inline-flex rounded-full bg-amber-500/20 px-2 py-1 text-xs font-bold text-amber-300">${tr('sessionIdle')}</span>`;
+      }
+      return `<span class="inline-flex rounded-full bg-slate-500/20 px-2 py-1 text-xs font-bold text-slate-200">${tr('sessionEnded')}</span>`;
+    }
+
+    function sessionStateCode(row){
+      if (!!row.is_active_now) return 'active';
+      if (!!row.is_alive) return 'idle';
+      return 'ended';
+    }
+
+    function sessionStateLabel(row){
+      const code = sessionStateCode(row);
+      if (code === 'active') return tr('sessionActive');
+      if (code === 'idle') return tr('sessionIdle');
+      return tr('sessionEnded');
+    }
+
+    function parseFilterDate(value){
+      if (!value) return null;
+      const dt = new Date(value);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function csvEscape(v){
+      const s = String(v ?? '');
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function exportSessionsCsv(rows){
+      if (!sessionsModalUser) return;
+      const headers = ['created_at', 'duration', 'status', 'ip', 'user_agent', 'last_activity', 'expires_at', 'ended_at', 'ended_reason'];
+      const lines = [headers.join(',')];
+      rows.forEach(r => {
+        lines.push([
+          r.created_at || '',
+          fmtDuration(r.created_at),
+          sessionStateLabel(r),
+          r.ip || '',
+          r.user_agent || '',
+          r.last_activity || '',
+          r.expires_at || '',
+          r.ended_at || '',
+          r.ended_reason || ''
+        ].map(csvEscape).join(','));
+      });
+      const csv = '\uFEFF' + lines.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const safeUser = String(sessionsModalUser.username || 'user').replace(/[^a-zA-Z0-9_-]+/g, '_');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `sessions-${safeUser}-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function renderSessionsRows(rows){
+      const body = document.getElementById('sessionsBody');
+      const empty = document.getElementById('sessionsEmpty');
+      body.className = `divide-y ${theme === 'light' ? 'divide-slate-100' : 'divide-white/10'}`;
+      body.innerHTML = rows.map(r => {
+        const canTerminate = !!r.is_alive;
+        const actionHtml = canTerminate
+          ? `<button class="${btnClass('danger', 'xs')}" data-end-session="${esc(r.token)}">${tr('terminateSession')}</button>`
+          : '<span class="opacity-60">—</span>';
+        return `
+        <tr>
+          <td class="px-3 py-2 text-center">${fmtTs(r.created_at)}</td>
+          <td class="px-3 py-2 text-center">${fmtDuration(r.created_at)}</td>
+          <td class="px-3 py-2 text-center">${sessionStateChip(r)}</td>
+          <td class="px-3 py-2 text-center">${esc(r.ip || '-')}</td>
+          <td class="px-3 py-2">${esc(r.user_agent || '-')}</td>
+          <td class="px-3 py-2 text-center">
+            ${actionHtml}
+          </td>
+        </tr>
+      `;
+      }).join('');
+      empty.textContent = rows.length > 0 ? tr('sessionsEmpty') : (sessionsRows.length > 0 ? tr('sessionsNoMatch') : tr('sessionsEmpty'));
+      empty.classList.toggle('hidden', rows.length > 0);
+    }
+
+    function applySessionsFilters(){
+      const from = parseFilterDate(document.getElementById('sf_from').value);
+      const to = parseFilterDate(document.getElementById('sf_to').value);
+      const ipQuery = String(document.getElementById('sf_ip').value || '').trim().toLowerCase();
+      const status = String(document.getElementById('sf_status').value || 'all');
+
+      const filtered = sessionsRows.filter(r => {
+        const created = r.created_at ? new Date(r.created_at) : null;
+        if (from && (!created || created < from)) return false;
+        if (to && (!created || created > to)) return false;
+        if (ipQuery && !String(r.ip || '').toLowerCase().includes(ipQuery)) return false;
+        if (status !== 'all' && sessionStateCode(r) !== status) return false;
+        return true;
+      });
+
+      renderSessionsRows(filtered);
+      return filtered;
+    }
+
+    function applySessionsTheme(){
+      const card = document.getElementById('sessionsCard');
+      const head = document.getElementById('sessionsHead');
+      const wrap = document.getElementById('sessionsTableWrap');
+      const closeBtn = document.getElementById('closeSessionsBtn');
+      const sub = document.getElementById('sessionsSub');
+      const empty = document.getElementById('sessionsEmpty');
+      const filters = document.getElementById('sessionsFilters');
+      const from = document.getElementById('sf_from');
+      const to = document.getElementById('sf_to');
+      const ip = document.getElementById('sf_ip');
+      const status = document.getElementById('sf_status');
+      const resetBtn = document.getElementById('sessionsResetBtn');
+      const exportBtn = document.getElementById('sessionsExportBtn');
+      if (theme === 'light') {
+        card.className = 'w-[min(1120px,98vw)] h-[min(95vh,1000px)] rounded-3xl p-6 overflow-hidden flex flex-col bg-white text-slate-900';
+        head.className = 'sticky top-0 z-10 text-xs uppercase tracking-[0.2em] text-slate-600 bg-slate-50/95 backdrop-blur text-center';
+        wrap.className = 'mt-4 flex-1 overflow-auto rounded-2xl border border-slate-200';
+        closeBtn.className = btnClass('neutral', 'sm');
+        sub.className = 'mt-1 text-sm text-slate-500';
+        empty.className = 'hidden p-4 text-center text-sm text-slate-500';
+        filters.className = 'mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3';
+        from.className = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none';
+        to.className = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none';
+        ip.className = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none';
+        status.className = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none';
+        resetBtn.className = btnClass('neutral', 'sm');
+        exportBtn.className = btnClass('primary', 'sm');
+      } else {
+        card.className = 'w-[min(1120px,98vw)] h-[min(95vh,1000px)] rounded-3xl p-6 overflow-hidden flex flex-col bg-slate-900 text-slate-100 border border-white/10';
+        head.className = 'sticky top-0 z-10 text-xs uppercase tracking-[0.2em] text-slate-300 bg-slate-900/95 backdrop-blur text-center';
+        wrap.className = 'mt-4 flex-1 overflow-auto rounded-2xl border border-white/10';
+        closeBtn.className = btnClass('neutral', 'sm');
+        sub.className = 'mt-1 text-sm text-slate-400';
+        empty.className = 'hidden p-4 text-center text-sm text-slate-400';
+        filters.className = 'mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-3';
+        from.className = 'w-full rounded-xl border border-white/15 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none';
+        to.className = 'w-full rounded-xl border border-white/15 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none';
+        ip.className = 'w-full rounded-xl border border-white/15 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none';
+        status.className = 'w-full rounded-xl border border-white/15 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none';
+        resetBtn.className = btnClass('neutral', 'sm');
+        exportBtn.className = btnClass('primary', 'sm');
+      }
+    }
+
+    async function loadSessionsModal(user){
+      const body = document.getElementById('sessionsBody');
+      const empty = document.getElementById('sessionsEmpty');
+      document.getElementById('sessionsTitle').textContent = `${tr('sessionsTitle')}: ${user.username || '-'}`;
+      document.getElementById('sessionsSub').textContent = '';
+      body.innerHTML = '';
+      empty.classList.add('hidden');
+      applySessionsTheme();
+
+      try {
+        const res = await jget(api.users + '/' + user.id + '/sessions');
+        sessionsRows = Array.isArray(res.data) ? res.data : [];
+        document.getElementById('sf_from').value = '';
+        document.getElementById('sf_to').value = '';
+        document.getElementById('sf_ip').value = '';
+        document.getElementById('sf_status').value = 'all';
+        applySessionsFilters();
+      } catch (e) {
+        toast(e.message || tr('opFailed'));
+      }
+    }
+
+    async function openSessionsModal(user){
+      sessionsModalUser = user;
+      const dlg = document.getElementById('sessionsDlg');
+      await loadSessionsModal(user);
+      dlg.style.inset = '0';
+      dlg.style.margin = 'auto';
+      dlg.showModal();
+    }
+
+    async function persistPrefs(){
+      await jget(api.prefs, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ lang, theme }) });
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('thead').addEventListener('click', (e) => {
+      const th = e.target.closest('th[data-sort]');
+      if (!th) return;
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = 'asc';
+      }
+      refreshSortHeaders();
+      render();
+    });
+    document.getElementById('newBtn').addEventListener('click', () => openEdit(null));
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try {
+        await jget(api.logout, { method: 'POST' });
+        location.href='/login';
+      } catch (e) {
+        toast(e.message || tr('errAuth'));
+      }
+    });
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      document.getElementById('editDlg').close();
+    });
+    document.getElementById('closeSessionsBtn').addEventListener('click', () => {
+      document.getElementById('sessionsDlg').close();
+    });
+    document.getElementById('sf_from').addEventListener('change', () => applySessionsFilters());
+    document.getElementById('sf_to').addEventListener('change', () => applySessionsFilters());
+    document.getElementById('sf_ip').addEventListener('input', () => applySessionsFilters());
+    document.getElementById('sf_status').addEventListener('change', () => applySessionsFilters());
+    document.getElementById('sessionsResetBtn').addEventListener('click', () => {
+      document.getElementById('sf_from').value = '';
+      document.getElementById('sf_to').value = '';
+      document.getElementById('sf_ip').value = '';
+      document.getElementById('sf_status').value = 'all';
+      applySessionsFilters();
+    });
+    document.getElementById('sessionsExportBtn').addEventListener('click', () => {
+      const rows = applySessionsFilters();
+      exportSessionsCsv(rows);
+    });
+    document.getElementById('confirmCancelBtn').addEventListener('click', () => closeConfirm(false));
+    document.getElementById('confirmForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      closeConfirm(true);
+    });
+    document.getElementById('confirmDlg').addEventListener('cancel', (e) => {
+      e.preventDefault();
+      closeConfirm(false);
+    });
+    document.getElementById('confirmDlg').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        closeConfirm(true);
+      }
+    });
+    document.getElementById('sessionsBody').addEventListener('click', async (e) => {
+      const token = e.target.getAttribute('data-end-session');
+      if (!token) return;
+      try {
+        await jget('/api/sessions/' + token, { method:'DELETE' });
+        toast(tr('sessionTerminated'), 'success');
+        if (sessionsModalUser) {
+          await loadSessionsModal(sessionsModalUser);
+        }
+        await loadOnlineUsers();
+        render();
+      } catch (e1) {
+        toast(e1.message || tr('opFailed'));
+      }
+    });
+    document.getElementById('profileBtn').addEventListener('click', () => {
+      if (typeof window.openV2ProfileSettingsModal === 'function') {
+        window.openV2ProfileSettingsModal();
+      }
+    });
+
+    document.getElementById('tbody').addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('[data-edit]');
+      const delBtn = e.target.closest('[data-del]');
+      const sessionsBtn = e.target.closest('[data-sessions]');
+      const toggleBtn = e.target.closest('[data-toggle-block]');
+      const editId = editBtn ? editBtn.getAttribute('data-edit') : null;
+      const delId = delBtn ? delBtn.getAttribute('data-del') : null;
+      const sessionsId = sessionsBtn ? sessionsBtn.getAttribute('data-sessions') : null;
+      try {
+        if (toggleBtn) {
+          const wrapper = toggleBtn.closest('[data-user-id]');
+          const toggleId = wrapper ? wrapper.getAttribute('data-user-id') : null;
+          const nextBlocked = toggleBtn.getAttribute('data-toggle-block') === 'true';
+          const user = users.find(u => String(u.id) === String(toggleId));
+          if (user) {
+            const q = nextBlocked ? tr('confirmBlock') : tr('confirmUnblock');
+            if (!(await showConfirm(q + (user.username || user.id) + '?'))) return;
+            if (me && String(me.id) === String(user.id) && nextBlocked) {
+              toast(tr('selfBlockDenied'));
+              return;
+            }
+            await jget(api.users + '/' + user.id, {
+              method: 'PUT',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({
+                role_id: user.role_id,
+                is_blocked: nextBlocked,
+                lang: user.lang || 'en',
+                theme: user.theme || 'dark',
+                password: null
+              })
+            });
+            await loadAll();
+            toast(nextBlocked ? tr('userBlocked') : tr('userUnblocked'), 'success');
+          }
+          return;
+        }
+        if(editId){
+          const user = users.find(u => String(u.id)===String(editId));
+          if(user) openEdit(user);
+        }
+        if(delId){
+          const user = users.find(u => String(u.id)===String(delId));
+          const username = user ? (user.username || user.id) : delId;
+          if(!(await showConfirm(tr('confirmDelete') + username + '?'))) return;
+          await jget(api.users + '/' + delId, { method:'DELETE' });
+          await loadAll();
+          toast(tr('userDeleted'), 'success');
+        }
+        if(sessionsId){
+          const user = users.find(u => String(u.id)===String(sessionsId));
+          if (user) await openSessionsModal(user);
+        }
+      } catch (e1) {
+        toast(e1.message || tr('opFailed'));
+      }
+    });
+
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('f_username').value.trim();
+      const role_id = String(document.getElementById('f_role').value || '').trim();
+      const is_blocked = document.getElementById('f_blocked').value === 'true';
+      const userLang = document.getElementById('f_lang').value;
+      const userTheme = document.getElementById('f_theme').value;
+      const password = document.getElementById('f_password').value;
+
+      if(!editingId && (!username || !password)) return;
+      try {
+        if(editingId){
+          await jget(api.users + '/' + editingId, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ role_id, is_blocked, lang: userLang, theme: userTheme, password: password || null })
+          });
+          toast(tr('userUpdated'), 'success');
+        } else {
+          await jget(api.users, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ username, password, role_id, is_blocked, lang: userLang, theme: userTheme })
+          });
+          toast(tr('userCreated'), 'success');
+        }
+
+        document.getElementById('editDlg').close();
+        await loadAll();
+
+        if (me && editingId === me.id) {
+          lang = userLang;
+          theme = userTheme;
+          localStorage.setItem('eve_v2_lang', lang);
+          localStorage.setItem('eve_v2_theme', theme);
+          applyI18n();
+          applyTheme();
+          refreshLangDd();
+          refreshThemeDd();
+        }
+      } catch (e1) {
+        toast(e1.message || tr('opFailed'));
+      }
+    });
+
+    let refreshLangDd = () => {};
+    let refreshThemeDd = () => {};
+    let refreshModalRoleDd = () => {};
+    let refreshModalStatusDd = () => {};
+    let refreshModalLangDd = () => {};
+    let refreshModalThemeDd = () => {};
+
+    (async () => {
+      try {
+        const auth = await jget(api.auth);
+        me = auth.data;
+        if (!me || !hasPerm('page.management.usermgmt.view') || !canManageUsers()) throw new Error(tr('errAdmin'));
+
+        lang = me.lang || lang;
+        theme = me.theme || theme;
+        localStorage.setItem('eve_v2_lang', lang);
+        localStorage.setItem('eve_v2_theme', theme);
+        renderProfileCard();
+
+        refreshLangDd = makeDropdown(
+          document.querySelector('[data-dd="lang"]'),
+          langOptions,
+          () => lang,
+          async (v) => { lang = v; localStorage.setItem('eve_v2_lang', v); applyI18n(); render(); refreshLangDd(); refreshThemeDd(); await persistPrefs(); },
+          null
+        );
+
+        refreshThemeDd = makeDropdown(
+          document.querySelector('[data-dd="theme"]'),
+          themeOptions,
+          () => theme,
+          async (v) => { theme = v; localStorage.setItem('eve_v2_theme', v); applyTheme(); render(); refreshLangDd(); refreshThemeDd(); await persistPrefs(); },
+          null
+        );
+
+        refreshNavManagement = makeNavDropdown(
+          document.getElementById('navManagement'),
+          'navManagement',
+          [
+            { key: 'navLabs', href: '/labmgmt' },
+            { key: 'navUsers', href: '/usermgmt' },
+            { key: 'navClouds', href: '/cloudmgmt' },
+            { key: 'navRoles', href: '/roles' }
+          ]
+        );
+
+        refreshNavSystem = makeNavDropdown(
+          document.getElementById('navSystem'),
+          'navSystem',
+          [
+            { key: 'navSysStatus', href: '/system-status' },
+            { key: 'navTaskQueue', href: '/taskqueue' },
+            { key: 'navSysConsole', href: '/system-console' },
+            { key: 'navSysLogs', href: '/system-logs' },
+            { key: 'navSysAudit', href: '/system-audit' }
+          ]
+        );
+
+        refreshModalRoleDd = makeDropdown(
+          document.getElementById('f_role_dd'),
+          modalRoleOptions,
+          () => document.getElementById('f_role').value,
+          async (v) => { document.getElementById('f_role').value = v; }
+        );
+        refreshModalStatusDd = makeDropdown(
+          document.getElementById('f_blocked_dd'),
+          modalStatusOptions,
+          () => document.getElementById('f_blocked').value,
+          async (v) => { document.getElementById('f_blocked').value = v; }
+        );
+        refreshModalLangDd = makeDropdown(
+          document.getElementById('f_lang_dd'),
+          modalLangOptions,
+          () => document.getElementById('f_lang').value,
+          async (v) => { document.getElementById('f_lang').value = v; }
+        );
+        refreshModalThemeDd = makeDropdown(
+          document.getElementById('f_theme_dd'),
+          modalThemeOptions,
+          () => document.getElementById('f_theme').value,
+          async (v) => { document.getElementById('f_theme').value = v; }
+        );
+
+        applyI18n();
+        refreshLangDd();
+        refreshThemeDd();
+        applyTheme();
+        await loadAll();
+        if (window.startV2Heartbeat) {
+          stopHeartbeat = window.startV2Heartbeat({
+            pingUrl: api.ping,
+            intervalMs: 30000,
+            onUnauthorized: () => { location.href = '/login'; }
+          });
+        }
+        onlinePollTimer = setInterval(async () => {
+          try {
+            await loadOnlineUsers();
+            render();
+          } catch (e) {
+          }
+        }, 20000);
+      } catch (e) {
+        toast(e.message || tr('errAuth'));
+        setTimeout(() => { location.href = '/login'; }, 900);
+      }
+    })();
+  </script>
+</body>
+</html>

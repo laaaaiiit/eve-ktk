@@ -2,3 +2,5 @@ addons/
 tmp/
 labs/
 data/
+legacy/files/logs-archive-*/
+legacy/files/logs-trash-*/

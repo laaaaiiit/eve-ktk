@@ -1,0 +1,9 @@
+Legacy PHP stack was moved to:
+  /opt/unetlab/legacy/files/runtime/includes
+
+`/opt/unetlab/runtime/includes` is intentionally removed from active runtime.
+
+Active application stack:
+  /opt/unetlab/eve-web
+
+Legacy wrappers/scripts are disabled and should not be used.

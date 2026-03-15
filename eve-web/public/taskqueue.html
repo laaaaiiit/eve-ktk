@@ -1,0 +1,1942 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Queue</title>
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png">
+  <link rel="stylesheet" href="/assets/css/main.output.css">
+  <link rel="stylesheet" href="/assets/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/assets/v2-scrollbar.css">
+  <style>
+    #taskSettingsModal input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    #taskSettingsModal input[type="number"]::-webkit-outer-spin-button,
+    #taskSettingsModal input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div id="toastRoot" class="fixed right-4 bottom-4 z-[80] flex w-[min(92vw,420px)] flex-col items-end gap-2 sm:right-6 sm:bottom-6"></div>
+  <div id="headerHost"></div>
+  <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <section id="pageCard" class="rounded-3xl border p-5 shadow-2xl transition-colors duration-300">
+      <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight" data-i18n="title">Очередь задач</h1>
+          <p class="mt-1 text-sm opacity-85" data-i18n="subTitle">Мониторинг операций запуска и остановки нод.</p>
+        </div>
+        <div class="ml-auto flex items-center gap-3">
+          <div class="text-xs opacity-75">
+            <span data-i18n="lastUpdate">Последнее обновление</span>:
+            <span id="lastUpdateValue">-</span>
+          </div>
+          <div class="ml-auto flex items-center gap-2">
+            <button id="clearHistoryBtn" type="button" class="hidden inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+              <span data-i18n="clearHistory">Очистить журнал</span>
+            </button>
+            <button id="autoRefreshBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+              <i id="autoRefreshIcon" class="fa fa-pause" aria-hidden="true"></i>
+              <span data-i18n="autoRefresh">Автообновление</span>
+              <span id="autoRefreshState" class="text-xs opacity-80"></span>
+            </button>
+            <button id="refreshBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+              <i class="fa fa-refresh" aria-hidden="true"></i>
+              <span data-i18n="refresh">Обновить</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-dd="status"></div>
+        <div data-dd="limit"></div>
+        <label class="relative block">
+          <span class="sr-only">Search</span>
+          <i class="fa fa-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-70"></i>
+          <input id="searchInput" type="text" class="w-full rounded-xl border px-10 py-2 text-sm outline-none transition" placeholder="Поиск">
+        </label>
+      </div>
+
+      <div class="mb-4 flex items-end justify-between gap-3">
+        <div id="statusChips" class="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto"></div>
+        <div class="ml-auto flex shrink-0 justify-end">
+          <button id="taskSettingsOpenBtn" type="button" class="hidden inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none">
+            <i class="fa fa-sliders" aria-hidden="true"></i>
+            <span data-i18n="taskSettingsOpen">Настройка задач</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="tableWrap" class="overflow-x-auto rounded-2xl border">
+        <table class="min-w-full text-sm">
+          <thead id="thead" class="sticky top-0 z-10">
+            <tr>
+              <th class="px-3 py-3 text-left font-semibold" data-i18n="colCreated">Создано</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colStatus">Статус</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colAction">Действие</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colLab">Лаборатория</th>
+              <th class="px-3 py-3 text-left font-semibold" data-i18n="colNode">Нода</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colRequestedBy">Кем</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colWorker">Воркер</th>
+              <th class="px-3 py-3 text-center font-semibold" data-i18n="colOps">Операции</th>
+              <th class="px-3 py-3 text-left font-semibold" data-i18n="colError">Ошибка</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden py-8 text-center text-sm opacity-80" data-i18n="empty">Задач не найдено.</div>
+      <div id="paginationWrap" class="mt-4 flex items-center justify-between gap-3 text-sm">
+        <div id="paginationInfo" class="opacity-80">-</div>
+        <div class="flex items-center gap-2">
+          <button id="pagePrevBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+            <span data-i18n="pagePrev">Назад</span>
+          </button>
+          <span id="pageCurrentLabel" class="min-w-[7rem] text-center opacity-85">1 / 1</span>
+          <button id="pageNextBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none">
+            <span data-i18n="pageNext">Вперед</span>
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="taskSettingsModal" class="fixed inset-0 z-[95] hidden items-center justify-center p-4">
+    <div id="taskSettingsModalBackdrop" class="absolute inset-0 bg-black/55 backdrop-blur-[1px]"></div>
+    <div id="taskSettingsModalCard" class="relative w-full max-w-xl rounded-2xl border p-5 shadow-2xl">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-black tracking-tight" data-i18n="taskSettingsTitle">Настройка задач</h2>
+        <button id="taskSettingsCloseBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-times" aria-hidden="true"></i>
+          <span data-i18n="close">Закрыть</span>
+        </button>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-4">
+        <label>
+          <span class="mb-1 block text-xs opacity-75" data-i18n="parallelLimitLabel">Семафор нод</span>
+          <input id="parallelLimitInput" type="number" min="1" max="32" step="1" class="w-full rounded-xl border px-3 py-2 text-sm outline-none transition">
+        </label>
+        <label>
+          <span class="mb-1 block text-xs opacity-75" data-i18n="workerStartSlotsLabel">Воркеры старта</span>
+          <input id="workerStartSlotsInput" type="number" min="1" max="32" step="1" class="w-full rounded-xl border px-3 py-2 text-sm outline-none transition">
+        </label>
+        <label>
+          <span class="mb-1 block text-xs opacity-75" data-i18n="workerStopSlotsLabel">Воркеры остановки</span>
+          <input id="workerStopSlotsInput" type="number" min="1" max="32" step="1" class="w-full rounded-xl border px-3 py-2 text-sm outline-none transition">
+        </label>
+        <label>
+          <span class="mb-1 block text-xs opacity-75" data-i18n="workerCheckSlotsLabel">Воркеры проверки</span>
+          <input id="workerCheckSlotsInput" type="number" min="1" max="32" step="1" class="w-full rounded-xl border px-3 py-2 text-sm outline-none transition">
+        </label>
+      </div>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2">
+        <label id="fastStopViosWrap" class="inline-flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 cursor-pointer select-none transition-colors duration-300">
+          <span data-i18n="fastStopViosLabel">Fast-stop vIOS</span>
+          <span class="relative inline-flex items-center shrink-0">
+            <input id="fastStopViosInput" type="checkbox" class="sr-only peer">
+            <span id="fastStopViosTrack" class="h-8 w-16 rounded-full border transition-colors duration-300 peer-checked:bg-emerald-500/80 bg-slate-200 border-slate-300 dark:bg-slate-700/70 dark:border-white/20"></span>
+            <span id="fastStopViosThumb" class="absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-lg transition-transform duration-300 peer-checked:translate-x-8"></span>
+          </span>
+        </label>
+      </div>
+      <div id="workersCheckInline" class="mt-6 hidden rounded-xl border px-3 py-2 text-xs"></div>
+      <div class="mt-5 flex items-center justify-end gap-2">
+        <button id="workersCheckBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-heartbeat" aria-hidden="true"></i>
+          <span data-i18n="workersCheck">Проверить воркеры</span>
+        </button>
+        <button id="workersRestartBtn" type="button" class="hidden inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-refresh" aria-hidden="true"></i>
+          <span data-i18n="workersRestart">Перезапуск воркеров</span>
+        </button>
+        <button id="parallelLimitSaveBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-save" aria-hidden="true"></i>
+          <span data-i18n="parallelLimitSave">Сохранить</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="fixed inset-0 z-[99] hidden items-center justify-center p-4">
+    <div id="confirmModalBackdrop" class="absolute inset-0 bg-black/55 backdrop-blur-[1px]"></div>
+    <div id="confirmModalCard" class="relative w-full max-w-md rounded-2xl border p-5 shadow-2xl">
+      <h3 class="text-base font-black tracking-tight" data-i18n="confirmTitle">Подтверждение</h3>
+      <p id="confirmModalText" class="mt-2 text-sm opacity-90">-</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="confirmModalCancelBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-times" aria-hidden="true"></i>
+          <span data-i18n="cancel">Отмена</span>
+        </button>
+        <button id="confirmModalOkBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition duration-200 cursor-pointer focus:outline-none">
+          <i class="fa fa-check" aria-hidden="true"></i>
+          <span data-i18n="confirmAction">Подтвердить</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/v2-shared-header.js"></script>
+  <script src="/assets/v2-heartbeat.js"></script>
+  <script src="/assets/v2-toast.js"></script>
+  <script>
+    renderV2Header('headerHost');
+
+	    const api = {
+	      auth: '/api/auth',
+	      ping: '/api/auth/ping',
+	      logout: '/api/auth/logout',
+	      prefs: '/api/preferences',
+	      tasks: '/api/tasks',
+        taskHistory: '/api/tasks/history',
+        taskWorkersStatus: '/api/tasks/workers/status',
+        taskWorkersRestart: '/api/tasks/workers/restart',
+        taskGroups: '/api/tasks/groups',
+        taskSettings: '/api/tasks/settings'
+	    };
+
+    const i18n = {
+      ru: {
+        title: 'Очередь задач',
+	      subTitle: 'Мониторинг задач запуска, остановки и проверки лаборатории.',
+        refresh: 'Обновить',
+        autoRefresh: 'Автообновление',
+        clearHistory: 'Очистить журнал',
+        clearHistoryConfirm: 'Очистить журнал задач? Будут удалены только завершенные и ошибочные записи.',
+        clearHistoryDone: 'Журнал очищен.',
+        workersCheck: 'Проверить воркеры',
+        workersRestart: 'Перезапуск воркеров',
+        workersRestartConfirm: 'Перезапустить воркеры обработки задач?',
+        confirmTitle: 'Подтверждение',
+        confirmAction: 'Подтвердить',
+        cancel: 'Отмена',
+        workersCheckResult: 'Воркеры: старт={start_slots}, стоп={stop_slots}, проверка={check_slots}, семафор={semaphore}, pending={pending}, running={running}, активные={active}',
+        workersCheckPrefix: 'Проверка воркеров',
+        workersRestartDone: 'Перезапуск отправлен: {count}',
+        autoRefreshOn: 'Вкл',
+        autoRefreshOff: 'Выкл',
+        lastUpdate: 'Последнее обновление',
+        colCreated: 'Дата и время',
+        colStatus: 'Статус',
+        colAction: 'Действие',
+        colLab: 'Лаборатория',
+        colNode: 'Нода',
+        colRequestedBy: 'Кем',
+	        colAttempts: 'Попытки',
+	        colWorker: 'Воркер',
+	        colOps: 'Операции',
+	        colError: 'Ошибка',
+	        empty: 'Задач не найдено.',
+	        errLoad: 'Не удалось загрузить очередь задач.',
+	        errTaskAction: 'Не удалось выполнить действие с задачей.',
+	        errAuth: 'Ошибка авторизации.',
+	        errForbiddenAction: 'Это действие запрещено для вашей учетной записи.',
+	        search: 'Поиск',
+        status: 'Статус',
+        statuses: 'Статусы',
+        statusChipAll: 'Все',
+        parallelLimitLabel: 'Семафор нод',
+        workerSlotsLabel: 'Воркеры',
+        workerStartSlotsLabel: 'Воркеры старта',
+        workerStopSlotsLabel: 'Воркеры остановки',
+        workerCheckSlotsLabel: 'Воркеры проверки',
+        taskSettingsOpen: 'Настройка задач',
+        taskSettingsTitle: 'Настройка задач',
+        fastStopViosLabel: 'Fast-stop vIOS',
+        parallelLimitSave: 'Сохранить',
+        parallelLimitSaved: 'Лимит параллелизма сохранен.',
+        limit: 'Лимит',
+        statusAll: 'Все',
+        statusPending: 'Ожидает',
+        statusRunning: 'Выполняется',
+        statusDone: 'Выполнена',
+        statusFailed: 'Ошибка',
+	        actionStart: 'Включение',
+	        actionStop: 'Выключение',
+          actionLabCheck: 'Проверка лаборатории',
+	        actionUnknown: 'Операция',
+	        opStopTask: 'Остановить задачу',
+          opStopGroup: 'Остановить',
+	        taskStopped: 'Задача остановлена.',
+          taskGroupStopped: 'Групповая операция остановлена.',
+          groupedBulkStart: 'Массовое включение нод',
+          groupedBulkStop: 'Массовое выключение нод',
+          groupedNodesFmt: 'Нод: {count}',
+          labCheckScopeAllNodes: 'Вся лаборатория',
+          labCheckScopeAllNodesFmt: 'Вся лаборатория ({count} проверок)',
+          paginationInfo: 'Показано {from}-{to} из {total}',
+          pagePrev: 'Назад',
+          pageNext: 'Вперед',
+          pageLabel: 'Страница {page} / {pages}',
+	        navHome: 'Главная',
+        navManagement: 'Управление',
+        navSystem: 'Система',
+        navLabs: 'Лаборатории',
+        navUsers: 'Пользователи',
+        navClouds:'Облака', navRoles:'Роли',
+        navSysStatus: 'Статус системы',
+        navTaskQueue: 'Очередь задач',
+        navSysConsole: 'Консоль VM',
+        navSysLogs:'Системные логи', navSysAudit:'Аудит действий',
+        navSoon: 'Раздел пока в разработке',
+        close: 'Закрыть',
+        lang: 'Язык',
+        theme: 'Тема',
+        langRu: 'Русский',
+        langEn: 'English',
+        themeDark: 'Тёмная',
+        themeLight: 'Светлая',
+        profileRole: 'Роль',
+        logout: 'Выход',
+        unknown: '-'
+      },
+      en: {
+        title: 'Task Queue',
+        subTitle: 'Monitoring node start, stop and lab check tasks.',
+        refresh: 'Refresh',
+        autoRefresh: 'Auto refresh',
+        clearHistory: 'Clear history',
+        clearHistoryConfirm: 'Clear task history? Only completed and failed records will be deleted.',
+        clearHistoryDone: 'History cleared.',
+        workersCheck: 'Check workers',
+        workersRestart: 'Restart workers',
+        workersRestartConfirm: 'Restart task workers?',
+        confirmTitle: 'Confirmation',
+        confirmAction: 'Confirm',
+        cancel: 'Cancel',
+        workersCheckResult: 'Workers: start={start_slots}, stop={stop_slots}, check={check_slots}, semaphore={semaphore}, pending={pending}, running={running}, active={active}',
+        workersCheckPrefix: 'Worker check',
+        workersRestartDone: 'Restart triggered: {count}',
+        autoRefreshOn: 'On',
+        autoRefreshOff: 'Off',
+        lastUpdate: 'Last update',
+        colCreated: 'Date & time',
+        colStatus: 'Status',
+        colAction: 'Action',
+        colLab: 'Lab',
+        colNode: 'Node',
+        colRequestedBy: 'Requested by',
+	        colAttempts: 'Attempts',
+	        colWorker: 'Worker',
+	        colOps: 'Actions',
+	        colError: 'Error',
+	        empty: 'No tasks found.',
+	        errLoad: 'Failed to load task queue.',
+	        errTaskAction: 'Failed to run task action.',
+	        errAuth: 'Authorization error.',
+	        errForbiddenAction: 'This action is not allowed for your account.',
+	        search: 'Search',
+        status: 'Status',
+        statuses: 'Statuses',
+        statusChipAll: 'All',
+        parallelLimitLabel: 'Node semaphore',
+        workerSlotsLabel: 'Workers',
+        workerStartSlotsLabel: 'Start workers',
+        workerStopSlotsLabel: 'Stop workers',
+        workerCheckSlotsLabel: 'Check workers',
+        taskSettingsOpen: 'Task Settings',
+        taskSettingsTitle: 'Task Settings',
+        fastStopViosLabel: 'Fast-stop vIOS',
+        parallelLimitSave: 'Save',
+        parallelLimitSaved: 'Parallel limit saved.',
+        limit: 'Limit',
+        statusAll: 'All',
+        statusPending: 'Pending',
+        statusRunning: 'Running',
+        statusDone: 'Done',
+        statusFailed: 'Failed',
+	        actionStart: 'Power on',
+	        actionStop: 'Power off',
+          actionLabCheck: 'Lab check',
+	        actionUnknown: 'Action',
+	        opStopTask: 'Stop task',
+          opStopGroup: 'Stop',
+	        taskStopped: 'Task stopped.',
+          taskGroupStopped: 'Task group stopped.',
+          groupedBulkStart: 'Bulk node power on',
+          groupedBulkStop: 'Bulk node power off',
+          groupedNodesFmt: 'Nodes: {count}',
+          labCheckScopeAllNodes: 'Whole lab',
+          labCheckScopeAllNodesFmt: 'Whole lab ({count} checks)',
+          paginationInfo: 'Showing {from}-{to} of {total}',
+          pagePrev: 'Prev',
+          pageNext: 'Next',
+          pageLabel: 'Page {page} / {pages}',
+	        navHome: 'Home',
+        navManagement: 'Management',
+        navSystem: 'System',
+        navLabs: 'Labs',
+        navUsers: 'Users',
+        navClouds:'Clouds', navRoles:'Roles',
+        navSysStatus: 'System status',
+        navTaskQueue: 'Task queue',
+        navSysConsole: 'VM Console',
+        navSysLogs:'System logs', navSysAudit:'User audit',
+        navSoon: 'This section is not implemented yet',
+        close: 'Close',
+        lang: 'Language',
+        theme: 'Theme',
+        langRu: 'Russian',
+        langEn: 'English',
+        themeDark: 'Dark',
+        themeLight: 'Light',
+        profileRole: 'Role',
+        logout: 'Logout',
+        unknown: '-'
+      }
+    };
+
+    let me = null;
+    let lang = localStorage.getItem('eve_v2_lang') || 'ru';
+	    let theme = localStorage.getItem('eve_v2_theme') || 'dark';
+	    let rows = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      let totalRows = 0;
+    let canManageTaskSettings = false;
+    let parallelLimitValue = 2;
+    let startWorkerSlotsValue = 2;
+    let stopWorkerSlotsValue = 2;
+    let checkWorkerSlotsValue = 2;
+    let fastStopViosValue = true;
+    let statusFilter = 'all';
+    let limitFilter = '50';
+    let refreshLangDd = () => {};
+    let refreshThemeDd = () => {};
+    let refreshNavManagement = () => {};
+    let refreshNavSystem = () => {};
+    let refreshStatusDd = () => {};
+    let refreshLimitDd = () => {};
+    let pollTimer = 0;
+    const autoRefreshIntervalMs = 3000;
+    const serverFetchLimit = 500;
+    let autoRefreshEnabled = localStorage.getItem('eve_v2_task_queue_auto_refresh') !== '0';
+    let previousTaskSnapshot = new Map();
+    let previousGroupSnapshot = new Map();
+    let changedTaskIds = new Set();
+    let changedGroupIds = new Set();
+    let clearChangedRowsTimer = 0;
+    let workersInlineTimer = 0;
+    let confirmModalResolve = null;
+
+    const langOptions = [
+      { value: 'ru', labelKey: 'langRu' },
+      { value: 'en', labelKey: 'langEn' }
+    ];
+    const themeOptions = [
+      { value: 'dark', labelKey: 'themeDark' },
+      { value: 'light', labelKey: 'themeLight' }
+    ];
+    const statusOptions = [
+      { value: 'all', labelKey: 'statusAll' },
+      { value: 'pending', labelKey: 'statusPending' },
+      { value: 'running', labelKey: 'statusRunning' },
+      { value: 'done', labelKey: 'statusDone' },
+      { value: 'failed', labelKey: 'statusFailed' }
+    ];
+    const limitOptions = [
+      { value: '50', label: '50' },
+      { value: '150', label: '150' },
+      { value: '300', label: '300' },
+      { value: '500', label: '500' }
+    ];
+
+    function tr(k){ return (i18n[lang] || i18n.ru)[k] || k; }
+    function hasPerm(code){ return !!(me && Array.isArray(me.permissions) && me.permissions.includes(code)); }
+    function esc(v){
+      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+    }
+    function byId(id){ return document.getElementById(id); }
+    const toaster = window.createV2ToastManager ? window.createV2ToastManager({
+      rootId: 'toastRoot',
+      getTheme: () => theme,
+      getLabel: () => tr('title'),
+      durationMs: 5000
+    }) : null;
+    function toast(message, kind = 'error') {
+      if (toaster) {
+        toaster.toast(message, kind);
+        return;
+      }
+      console.log('[taskqueue-toast][' + kind + ']', String(message || ''));
+    }
+
+	    async function jget(url, opts = {}) {
+	      const r = await fetch(url, Object.assign({ credentials: 'include' }, opts));
+	      const d = await r.json().catch(() => ({}));
+	      if (!r.ok) {
+	        const msg = String(d && d.message ? d.message : '');
+	        if (r.status === 403 || msg.toLowerCase() === 'forbidden') {
+	          throw new Error(tr('errForbiddenAction'));
+	        }
+	        throw new Error(msg || ('HTTP ' + r.status));
+	      }
+	      return d;
+	    }
+
+	    async function jpost(url, payload = null) {
+	      const opts = {
+	        method: 'POST',
+	        credentials: 'include',
+	        headers: {}
+	      };
+	      if (payload !== null) {
+	        opts.headers['Content-Type'] = 'application/json';
+	        opts.body = JSON.stringify(payload);
+	      }
+	      const r = await fetch(url, opts);
+	      const d = await r.json().catch(() => ({}));
+	      if (!r.ok) {
+	        const msg = String(d && d.message ? d.message : '');
+	        if (r.status === 403 || msg.toLowerCase() === 'forbidden') {
+	          throw new Error(tr('errForbiddenAction'));
+	        }
+	        throw new Error(msg || ('HTTP ' + r.status));
+	      }
+	      return d;
+	    }
+
+    function formatDateTime(value) {
+      if (!value) return tr('unknown');
+      const dt = new Date(String(value));
+      if (Number.isNaN(dt.getTime())) return String(value);
+      return dt.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
+    }
+
+    function formatDateTimeParts(value) {
+      if (!value) return { date: tr('unknown'), time: tr('unknown') };
+      const dt = new Date(String(value));
+      if (Number.isNaN(dt.getTime())) {
+        const raw = String(value);
+        return { date: raw, time: '' };
+      }
+      const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
+      const date = new Intl.DateTimeFormat(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(dt);
+      const time = new Intl.DateTimeFormat(locale, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(dt);
+      return { date, time };
+    }
+
+    function renderAutoRefreshState() {
+      const icon = byId('autoRefreshIcon');
+      const state = byId('autoRefreshState');
+      const btn = byId('autoRefreshBtn');
+      if (icon) icon.className = autoRefreshEnabled ? 'fa fa-pause' : 'fa fa-play';
+      if (state) state.textContent = autoRefreshEnabled ? tr('autoRefreshOn') : tr('autoRefreshOff');
+      if (btn) btn.setAttribute('aria-pressed', autoRefreshEnabled ? 'true' : 'false');
+    }
+
+    function statusBadgeClass(status) {
+      const s = String(status || '').toLowerCase();
+      const light = {
+        pending: 'border-amber-300 bg-amber-50 text-amber-700',
+        running: 'border-sky-300 bg-sky-50 text-sky-700',
+        done: 'border-emerald-300 bg-emerald-50 text-emerald-700',
+        failed: 'border-rose-300 bg-rose-50 text-rose-700'
+      };
+      const dark = {
+        pending: 'border-amber-400/40 bg-amber-500/10 text-amber-200',
+        running: 'border-sky-400/40 bg-sky-500/10 text-sky-200',
+        done: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200',
+        failed: 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+      };
+      const map = theme === 'light' ? light : dark;
+      return map[s] || (theme === 'light'
+        ? 'border-slate-300 bg-slate-50 text-slate-700'
+        : 'border-white/20 bg-white/5 text-slate-200');
+    }
+
+    function statusText(status) {
+      const s = String(status || '').toLowerCase();
+      if (s === 'pending') return tr('statusPending');
+      if (s === 'running') return tr('statusRunning');
+      if (s === 'done') return tr('statusDone');
+      if (s === 'failed') return tr('statusFailed');
+      return s || tr('unknown');
+    }
+
+    function statusProgressBar(status, percent = null, counterText = '') {
+      const s = String(status || '').toLowerCase();
+      if (s !== 'pending' && s !== 'running') return '';
+      const light = theme === 'light';
+      const trackClass = light
+        ? 'h-2 w-28 rounded-full border border-slate-200 bg-slate-100 overflow-hidden'
+        : 'h-2 w-28 rounded-full border border-white/15 bg-white/5 overflow-hidden';
+      const textClass = light ? 'text-slate-500' : 'text-slate-400';
+      const fallbackPct = s === 'pending' ? 0 : 12;
+      const pct = Math.max(0, Math.min(100, Number.isFinite(Number(percent)) ? Number(percent) : fallbackPct));
+      const visualPct = pct > 0 ? Math.max(6, pct) : 4;
+      const fillColorClass = s === 'running'
+        ? (light ? 'bg-sky-500' : 'bg-sky-400')
+        : s === 'pending'
+          ? (light ? 'bg-amber-500' : 'bg-amber-400')
+          : (light ? 'bg-slate-500' : 'bg-slate-400');
+      const fillClass = `h-full rounded-full ${fillColorClass} transition-[width] duration-300 ease-out animate-pulse`;
+      const counter = String(counterText || '').trim();
+      const counterHtml = counter !== '' ? `<span class="text-[10px] font-semibold ${textClass}">${esc(counter)}</span>` : '';
+      return `<div class="mt-1 inline-flex items-center gap-1.5"><div class="${trackClass}"><div class="${fillClass}" style="width:${visualPct}%"></div></div>${counterHtml}<span class="text-[10px] font-semibold ${textClass}">${pct}%</span></div>`;
+    }
+
+    function statusChipClass(key, active) {
+      const light = theme === 'light';
+      const base = light
+        ? 'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border px-3 py-1.5 text-xs font-semibold transition duration-200 cursor-pointer'
+        : 'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl border px-3 py-1.5 text-xs font-semibold transition duration-200 cursor-pointer';
+      if (key === 'all') {
+        return active
+          ? (light ? `${base} border-slate-400 bg-slate-100 text-slate-900` : `${base} border-white/30 bg-white/10 text-white`)
+          : (light ? `${base} border-slate-300 bg-white text-slate-700 hover:bg-slate-50` : `${base} border-white/15 bg-slate-900/45 text-slate-200 hover:bg-white/10`);
+      }
+      const map = {
+        pending: light
+          ? ['border-amber-300 bg-amber-50 text-amber-800', 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50']
+          : ['border-amber-400/40 bg-amber-500/20 text-amber-100', 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'],
+        running: light
+          ? ['border-sky-300 bg-sky-50 text-sky-800', 'border-sky-200 bg-white text-sky-700 hover:bg-sky-50']
+          : ['border-sky-400/40 bg-sky-500/20 text-sky-100', 'border-sky-400/30 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20'],
+        done: light
+          ? ['border-emerald-300 bg-emerald-50 text-emerald-800', 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50']
+          : ['border-emerald-400/40 bg-emerald-500/20 text-emerald-100', 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'],
+        failed: light
+          ? ['border-rose-300 bg-rose-50 text-rose-800', 'border-rose-200 bg-white text-rose-700 hover:bg-rose-50']
+          : ['border-rose-400/40 bg-rose-500/20 text-rose-100', 'border-rose-400/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20']
+      };
+      const pair = map[key] || (light
+        ? ['border-slate-300 bg-slate-50 text-slate-800', 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50']
+        : ['border-white/30 bg-white/10 text-white', 'border-white/20 bg-white/5 text-slate-200 hover:bg-white/10']);
+      return `${base} ${active ? pair[0] : pair[1]}`;
+    }
+
+    function renderStatusChips() {
+      const allRows = Array.isArray(rows) ? rows : [];
+      const counts = { pending: 0, running: 0, done: 0, failed: 0 };
+      allRows.forEach((r) => {
+        const s = String(r && r.status ? r.status : '').toLowerCase();
+        if (counts[s] !== undefined) counts[s] += 1;
+      });
+      const chips = [
+        { key: 'all', label: tr('statusChipAll'), count: allRows.length },
+        { key: 'pending', label: tr('statusPending'), count: counts.pending },
+        { key: 'running', label: tr('statusRunning'), count: counts.running },
+        { key: 'done', label: tr('statusDone'), count: counts.done },
+        { key: 'failed', label: tr('statusFailed'), count: counts.failed }
+      ];
+      byId('statusChips').innerHTML = chips.map((chip) =>
+        `<button type="button" data-status-chip="${esc(chip.key)}" class="${statusChipClass(chip.key, statusFilter === chip.key)}">
+          <span>${esc(chip.label)}</span><span class="font-bold">${Number(chip.count || 0)}</span>
+        </button>`
+      ).join('');
+    }
+
+	    function actionText(action) {
+	      const a = String(action || '').toLowerCase();
+	      if (a === 'start') return tr('actionStart');
+	      if (a === 'stop') return tr('actionStop');
+	      if (a === 'lab_check') return tr('actionLabCheck');
+	      return tr('actionUnknown');
+	    }
+
+	    function taskWorkerDisplay(row) {
+	      const direct = String((row && row.worker_name) || '').trim();
+	      if (direct !== '') {
+          const m = direct.match(/(start-worker-\d+|stop-worker-\d+|check-worker-\d+|worker-\d+)/i);
+          if (m && m[1]) return { main: m[1].toLowerCase(), sub: '' };
+          const short = direct.split('@')[0].split('#')[0].trim();
+	        return { main: short || direct, sub: '' };
+	      }
+	      const slot = Number((row && row.worker_slot) || 0);
+	      const pid = Number((row && row.worker_pid) || 0);
+	      const host = String((row && row.worker_host) || '').trim();
+	      if (slot <= 0 && pid <= 0 && host === '') {
+	        return { main: tr('unknown'), sub: '' };
+	      }
+	      const main = slot > 0 ? `worker-${slot}` : 'worker';
+	      const subParts = [];
+	      if (host !== '') subParts.push(host);
+	      if (pid > 0) subParts.push(`pid:${pid}`);
+	      return { main, sub: subParts.join(' • ') };
+	    }
+
+	    function taskActionCell(row) {
+	      const status = String(row && row.status ? row.status : '').toLowerCase();
+	      const canStop = status === 'pending' || status === 'running';
+	      if (!canStop) return '<span class="opacity-60">-</span>';
+	      const light = theme === 'light';
+	      const stopKlass = light
+	        ? 'inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition duration-200 hover:bg-rose-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+	        : 'inline-flex items-center gap-2 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition duration-200 hover:bg-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+	      return `<button type="button" class="${stopKlass}" data-task-op="stop" data-task-id="${esc(row.id)}"><i class="fa fa-stop-circle-o" aria-hidden="true"></i><span>${esc(tr('opStopTask'))}</span></button>`;
+	    }
+
+    function groupStatusFromTasks(tasks) {
+      const list = Array.isArray(tasks) ? tasks : [];
+      if (list.some((t) => String(t.status || '').toLowerCase() === 'running')) return 'running';
+      if (list.some((t) => String(t.status || '').toLowerCase() === 'pending')) return 'pending';
+      if (list.some((t) => String(t.status || '').toLowerCase() === 'failed')) return 'failed';
+      return 'done';
+    }
+
+    function taskRowSignature(row) {
+      return [
+        String(row && row.status ? row.status : ''),
+        String(row && row.attempts ? row.attempts : 0),
+        String(row && row.updated_at ? row.updated_at : ''),
+        String(row && row.started_at ? row.started_at : ''),
+        String(row && row.finished_at ? row.finished_at : ''),
+        String(row && row.error_text ? row.error_text : ''),
+        String(row && row.worker_name ? row.worker_name : '')
+      ].join('|');
+    }
+
+    function rebuildChangedRowsSnapshot(sourceRows) {
+      const rowsLocal = Array.isArray(sourceRows) ? sourceRows : [];
+      const nextTaskSnapshot = new Map();
+      const nextGroupAccumulator = new Map();
+      const nextChangedTaskIds = new Set();
+      const nextChangedGroupIds = new Set();
+
+      rowsLocal.forEach((row) => {
+        const id = String(row && row.id ? row.id : '').trim();
+        if (!id) return;
+        const isGroupRow = !String(row && row.bulk_operation_id ? row.bulk_operation_id : '').trim()
+          && Object.prototype.hasOwnProperty.call(row || {}, 'total')
+          && Object.prototype.hasOwnProperty.call(row || {}, 'progress_pct');
+        if (isGroupRow) {
+          const groupSig = [
+            String(row && row.status ? row.status : ''),
+            String(row && row.attempts ? row.attempts : 0),
+            String(row && row.progress_pct ? row.progress_pct : 0),
+            String(row && row.queued ? row.queued : 0),
+            String(row && row.running ? row.running : 0),
+            String(row && row.done ? row.done : 0),
+            String(row && row.failed ? row.failed : 0),
+            String(row && row.skipped ? row.skipped : 0),
+            String(row && row.updated_at ? row.updated_at : ''),
+            String(row && row.error_text ? row.error_text : '')
+          ].join('|');
+          nextGroupAccumulator.set(id, [groupSig]);
+          return;
+        }
+        const sig = taskRowSignature(row);
+        nextTaskSnapshot.set(id, sig);
+        if ((previousTaskSnapshot.get(id) || '') !== sig) {
+          nextChangedTaskIds.add(id);
+        }
+        const gid = String(row && row.bulk_operation_id ? row.bulk_operation_id : '').trim();
+        if (gid) {
+          if (!nextGroupAccumulator.has(gid)) nextGroupAccumulator.set(gid, []);
+          nextGroupAccumulator.get(gid).push(sig);
+        }
+      });
+
+      const nextGroupSnapshot = new Map();
+      nextGroupAccumulator.forEach((sigs, gid) => {
+        const groupSig = sigs.slice().sort().join('||');
+        nextGroupSnapshot.set(gid, groupSig);
+        if ((previousGroupSnapshot.get(gid) || '') !== groupSig) {
+          nextChangedGroupIds.add(gid);
+        }
+      });
+
+      previousTaskSnapshot = nextTaskSnapshot;
+      previousGroupSnapshot = nextGroupSnapshot;
+      changedTaskIds = nextChangedTaskIds;
+      changedGroupIds = nextChangedGroupIds;
+
+      if (clearChangedRowsTimer) {
+        clearTimeout(clearChangedRowsTimer);
+      }
+      clearChangedRowsTimer = window.setTimeout(() => {
+        changedTaskIds = new Set();
+        changedGroupIds = new Set();
+        if (document.visibilityState !== 'hidden') {
+          renderRows();
+        }
+      }, 1200);
+    }
+
+    function buildDisplayRows(sourceRows) {
+      const all = Array.isArray(sourceRows) ? sourceRows : [];
+      const grouped = new Map();
+      const output = [];
+      all.forEach((row) => {
+        const isGroupRow = !String(row && row.bulk_operation_id ? row.bulk_operation_id : '').trim()
+          && Object.prototype.hasOwnProperty.call(row || {}, 'total')
+          && Object.prototype.hasOwnProperty.call(row || {}, 'progress_pct');
+        if (isGroupRow) {
+          output.push({
+            type: 'group',
+            groupId: String(row.id || ''),
+            action: String(row.action || ''),
+            status: String(row.status || ''),
+            created_at: row.created_at || null,
+            lab_name: row.lab_name || null,
+            requested_by: row.requested_by || null,
+            attempts: Number(row.attempts || 0),
+            worker_name: row.worker_name || null,
+            worker_host: row.worker_host || null,
+            worker_slot: row.worker_slot || null,
+            worker_pid: row.worker_pid || null,
+            error_text: row.error_text || '',
+            bulk_operation_label: row.label || '',
+            nodes_count: Number(row.total || 0),
+            counts: {
+              pending: Number(row.queued || 0),
+              running: Number(row.running || 0),
+              done: Number(row.done || 0),
+              failed: Number(row.failed || 0)
+            },
+            bulk_operation_total: Number(row.total || 0),
+            bulk_operation_index_max: Number(row.total || 0),
+            progress_pct: Number(row.progress_pct || 0),
+            skipped: Number(row.skipped || 0)
+          });
+          return;
+        }
+        const groupId = String(row && row.bulk_operation_id ? row.bulk_operation_id : '').trim();
+        if (!groupId) {
+          output.push({ type: 'task', row });
+          return;
+        }
+        if (!grouped.has(groupId)) grouped.set(groupId, []);
+        grouped.get(groupId).push(row);
+      });
+
+      grouped.forEach((items, groupId) => {
+        if (!Array.isArray(items) || items.length <= 1) {
+          if (items && items[0]) output.push({ type: 'task', row: items[0] });
+          return;
+        }
+        const sorted = items.slice().sort((a, b) => {
+          const da = new Date(String(a.created_at || 0)).getTime();
+          const db = new Date(String(b.created_at || 0)).getTime();
+          return db - da;
+        });
+        const top = sorted[0] || {};
+        output.push({
+          type: 'group',
+          groupId,
+          action: String(top.action || ''),
+          status: groupStatusFromTasks(items),
+          created_at: top.created_at || null,
+          lab_name: top.lab_name || null,
+          requested_by: top.requested_by || null,
+          attempts: Math.max(...items.map((r) => Number(r.attempts || 0))),
+          worker_name: top.worker_name || null,
+          worker_host: top.worker_host || null,
+          worker_slot: top.worker_slot || null,
+          worker_pid: top.worker_pid || null,
+          error_text: (items.find((r) => String(r.error_text || '').trim() !== '') || {}).error_text || '',
+          bulk_operation_label: top.bulk_operation_label || '',
+          nodes_count: items.length,
+          counts: {
+            pending: items.filter((r) => String(r && r.status ? r.status : '').toLowerCase() === 'pending').length,
+            running: items.filter((r) => String(r && r.status ? r.status : '').toLowerCase() === 'running').length,
+            done: items.filter((r) => String(r && r.status ? r.status : '').toLowerCase() === 'done').length,
+            failed: items.filter((r) => String(r && r.status ? r.status : '').toLowerCase() === 'failed').length
+          },
+          bulk_operation_total: Math.max(
+            0,
+            ...items.map((r) => Number(r && r.bulk_operation_total ? r.bulk_operation_total : 0))
+          ),
+          bulk_operation_index_max: Math.max(
+            0,
+            ...items.map((r) => Number(r && r.bulk_operation_index ? r.bulk_operation_index : 0))
+          )
+        });
+      });
+
+      output.sort((a, b) => {
+        const ad = new Date(String(a.type === 'group' ? a.created_at : (a.row && a.row.created_at) || 0)).getTime();
+        const bd = new Date(String(b.type === 'group' ? b.created_at : (b.row && b.row.created_at) || 0)).getTime();
+        return bd - ad;
+      });
+      return output;
+    }
+
+    function groupProgressMetrics(item) {
+      const counts = (item && typeof item.counts === 'object' && item.counts) ? item.counts : {};
+      const doneCount = Number(counts.done || item.done || 0);
+      const failedCount = Number(counts.failed || item.failed || 0);
+      const skippedCount = Number(item && item.skipped ? item.skipped : 0);
+      const explicitTotal = Number(item && item.bulk_operation_total ? item.bulk_operation_total : 0);
+      const maxBulkIndex = Number(item && item.bulk_operation_index_max ? item.bulk_operation_index_max : 0);
+      const observedTotal = Number(item && item.nodes_count ? item.nodes_count : Number(item && item.total ? item.total : 0));
+      const total = Math.max(1, explicitTotal, maxBulkIndex, observedTotal);
+      const completed = Math.min(total, Math.max(0, doneCount + failedCount + skippedCount));
+      const explicitPct = Number(item && item.progress_pct ? item.progress_pct : 0);
+      return {
+        total,
+        completed,
+        percent: Math.max(0, Math.min(100, Number.isFinite(explicitPct) && explicitPct > 0 ? explicitPct : Math.round((completed / total) * 100)))
+      };
+    }
+
+    function closeAllDropdownPanels() {
+      document.querySelectorAll('.v2-dd-panel').forEach((el) => el.classList.add('hidden'));
+    }
+
+    function makeDropdown(root, options, getValue, setValue, getLabel) {
+      if (!root) return () => {};
+      root.classList.add('relative', 'min-w-0');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const panel = document.createElement('div');
+      panel.className = 'v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl';
+      root.innerHTML = '';
+      root.appendChild(btn);
+      root.appendChild(panel);
+
+      function repaint() {
+        const isLight = theme === 'light';
+        btn.className = isLight
+          ? 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between'
+          : 'w-full rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 text-left text-sm text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between';
+        panel.className = `v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl ${
+          isLight ? 'border-slate-200 bg-white' : 'border-white/15 bg-slate-900/95'
+        }`;
+        const val = String(getValue());
+        const active = options.find((o) => String(o.value) === val) || options[0] || { value: '', label: '' };
+        const activeLabel = active.label ? active.label : tr(active.labelKey || '');
+        const prefix = getLabel ? `${getLabel()}: ` : '';
+        btn.innerHTML = `<span>${esc(prefix)}${esc(activeLabel)}</span><i class="fa fa-chevron-down text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}"></i>`;
+
+        panel.innerHTML = '';
+        options.forEach((opt) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          const isActive = String(opt.value) === val;
+          const label = opt.label ? opt.label : tr(opt.labelKey || '');
+          item.className = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm cursor-pointer transition ${
+            isLight ? 'text-slate-800 hover:bg-slate-100' : 'text-slate-100 hover:bg-white/10'
+          } ${isActive ? (isLight ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-200') : ''}`;
+          item.innerHTML = `<span>${esc(label)}</span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', async () => {
+            closeAllDropdownPanels();
+            await setValue(String(opt.value));
+            repaint();
+          });
+          panel.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hidden = panel.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (hidden) panel.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!root.contains(e.target)) panel.classList.add('hidden');
+      });
+      repaint();
+      return repaint;
+    }
+
+    function navIcon(key) {
+      const map = {
+        navManagement: '<i class="fa fa-cogs" aria-hidden="true"></i>',
+        navSystem: '<i class="fa fa-desktop" aria-hidden="true"></i>',
+        navLabs: '<i class="fa fa-flask" aria-hidden="true"></i>',
+        navUsers: '<i class="fa fa-users" aria-hidden="true"></i>',
+        navClouds: '<i class="fa fa-cloud" aria-hidden="true"></i>',
+        navRoles: '<i class="fa fa-id-badge" aria-hidden="true"></i>',
+        navSysStatus: '<i class="fa fa-heartbeat" aria-hidden="true"></i>',
+        navTaskQueue:'<i class="fa fa-tasks" aria-hidden="true"></i>',
+        navSysConsole:'<i class="fa fa-terminal" aria-hidden="true"></i>',
+        navSysLogs: '<i class="fa fa-file-text-o" aria-hidden="true"></i>',
+        navSysAudit:'<i class="fa fa-history" aria-hidden="true"></i>'
+      };
+      return map[key] || '<i class="fa fa-circle-o" aria-hidden="true"></i>';
+    }
+
+    function makeNavDropdown(root, labelKey, items) {
+      if (!root) return () => {};
+      root.classList.add('relative', 'min-w-0');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const panel = document.createElement('div');
+      root.innerHTML = '';
+      root.appendChild(btn);
+      root.appendChild(panel);
+
+      function repaint() {
+        const isLight = theme === 'light';
+        btn.className = isLight
+          ? 'w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-900 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between'
+          : 'w-full rounded-xl border border-white/15 bg-slate-900/70 px-4 py-2 text-left text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between';
+        panel.className = `v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl ${
+          isLight ? 'border-slate-200 bg-white' : 'border-white/15 bg-slate-900/95'
+        }`;
+        btn.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(labelKey)}<span>${esc(tr(labelKey))}</span></span><i class="fa fa-chevron-down text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}"></i>`;
+
+        panel.innerHTML = '';
+        const current = location.pathname;
+        items.forEach((it) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          const isActive = !!it.href && current === it.href;
+          item.className = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm cursor-pointer transition ${
+            isLight ? 'text-slate-800 hover:bg-slate-100' : 'text-slate-100 hover:bg-white/10'
+          } ${isActive ? (isLight ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-200') : ''}`;
+          item.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(it.key)}<span>${esc(tr(it.key))}</span></span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
+          item.addEventListener('click', () => {
+            closeAllDropdownPanels();
+            if (it.href) {
+              location.href = it.href;
+              return;
+            }
+            toast(tr('navSoon'));
+          });
+          panel.appendChild(item);
+        });
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hidden = panel.classList.contains('hidden');
+        closeAllDropdownPanels();
+        if (hidden) panel.classList.remove('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!root.contains(e.target)) panel.classList.add('hidden');
+      });
+      repaint();
+      return repaint;
+    }
+
+    async function persistPrefs() {
+      await jget(api.prefs, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang, theme })
+      });
+    }
+
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = tr(key);
+      });
+      byId('searchInput').placeholder = tr('search');
+      const home = byId('navHome');
+      if (home) home.querySelector('span').textContent = tr('navHome');
+      const profileRole = byId('profileRole');
+      if (profileRole) profileRole.textContent = `${tr('profileRole')}: ${me && me.role ? me.role : tr('unknown')}`;
+      const logoutBtn = byId('logoutBtn');
+      if (logoutBtn) logoutBtn.textContent = tr('logout');
+      refreshLangDd();
+      refreshThemeDd();
+      refreshNavManagement();
+      refreshNavSystem();
+      refreshStatusDd();
+      refreshLimitDd();
+      renderAutoRefreshState();
+      renderTaskSettingsControls();
+      renderStatusChips();
+      renderRows();
+    }
+
+    function applyTheme() {
+      const light = theme === 'light';
+      document.body.className = light
+        ? 'min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300'
+        : 'min-h-screen bg-slate-950 text-slate-100 transition-colors duration-300';
+
+      const topbar = byId('topbar');
+      if (topbar) {
+        topbar.className = light
+          ? 'relative z-40 w-full border-b border-slate-200 bg-white/90 px-4 py-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-colors duration-300'
+          : 'relative z-40 w-full border-b border-white/20 bg-slate-800/85 px-4 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.6)] backdrop-blur-xl transition-colors duration-300';
+      }
+
+      const pageCard = byId('pageCard');
+      pageCard.className = light
+        ? 'rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-2xl transition-colors duration-300'
+        : 'rounded-3xl border border-white/20 bg-slate-900/65 p-5 shadow-2xl transition-colors duration-300';
+
+      const tableWrap = byId('tableWrap');
+      tableWrap.className = light
+        ? 'overflow-x-auto rounded-2xl border border-slate-200'
+        : 'overflow-x-auto rounded-2xl border border-white/15';
+
+      const thead = byId('thead');
+      thead.className = light ? 'sticky top-0 z-10 bg-slate-50/95' : 'sticky top-0 z-10 bg-slate-900/95';
+
+      const refreshBtn = byId('refreshBtn');
+      refreshBtn.className = light
+        ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      const autoRefreshBtn = byId('autoRefreshBtn');
+      if (autoRefreshBtn) {
+        autoRefreshBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const clearHistoryBtn = byId('clearHistoryBtn');
+      if (clearHistoryBtn) {
+        clearHistoryBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition duration-200 hover:bg-rose-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition duration-200 hover:bg-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+      const workersCheckBtn = byId('workersCheckBtn');
+      if (workersCheckBtn) {
+        workersCheckBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition duration-200 hover:bg-sky-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition duration-200 hover:bg-sky-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+      const workersRestartBtn = byId('workersRestartBtn');
+      if (workersRestartBtn) {
+        workersRestartBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition duration-200 hover:bg-amber-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 transition duration-200 hover:bg-amber-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+
+      const searchInput = byId('searchInput');
+      searchInput.className = light
+        ? 'w-full rounded-xl border border-slate-300 bg-white px-10 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-300'
+        : 'w-full rounded-xl border border-white/20 bg-slate-950/40 px-10 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400/60';
+      const parallelLimitInput = byId('parallelLimitInput');
+      if (parallelLimitInput) {
+        parallelLimitInput.className = light
+          ? 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition ring-sky-300 focus:ring-2'
+          : 'w-full rounded-2xl border border-white/15 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 outline-none transition ring-cyan-300/40 focus:ring-2';
+      }
+      const workerStartSlotsInput = byId('workerStartSlotsInput');
+      if (workerStartSlotsInput) {
+        workerStartSlotsInput.className = light
+          ? 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition ring-sky-300 focus:ring-2'
+          : 'w-full rounded-2xl border border-white/15 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 outline-none transition ring-cyan-300/40 focus:ring-2';
+      }
+      const workerStopSlotsInput = byId('workerStopSlotsInput');
+      if (workerStopSlotsInput) {
+        workerStopSlotsInput.className = light
+          ? 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition ring-sky-300 focus:ring-2'
+          : 'w-full rounded-2xl border border-white/15 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 outline-none transition ring-cyan-300/40 focus:ring-2';
+      }
+      const workerCheckSlotsInput = byId('workerCheckSlotsInput');
+      if (workerCheckSlotsInput) {
+        workerCheckSlotsInput.className = light
+          ? 'w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition ring-sky-300 focus:ring-2'
+          : 'w-full rounded-2xl border border-white/15 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 outline-none transition ring-cyan-300/40 focus:ring-2';
+      }
+      const fastStopViosWrap = byId('fastStopViosWrap');
+      if (fastStopViosWrap) {
+        fastStopViosWrap.className = light
+          ? 'inline-flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 cursor-pointer select-none transition-colors duration-300 text-slate-700'
+          : 'inline-flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 cursor-pointer select-none transition-colors duration-300 text-slate-200';
+      }
+      const parallelLimitSaveBtn = byId('parallelLimitSaveBtn');
+      if (parallelLimitSaveBtn) {
+        parallelLimitSaveBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-blue-300 bg-gradient-to-r from-blue-500 to-sky-500 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:from-blue-600 hover:to-sky-600 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-gradient-to-r from-cyan-500/85 to-blue-500/85 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+      const taskSettingsOpenBtn = byId('taskSettingsOpenBtn');
+      if (taskSettingsOpenBtn) {
+        taskSettingsOpenBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 transition duration-200 hover:bg-violet-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-xl border border-violet-400/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition duration-200 hover:bg-violet-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+      const taskSettingsModalCard = byId('taskSettingsModalCard');
+      if (taskSettingsModalCard) {
+        taskSettingsModalCard.className = light
+          ? 'relative w-full max-w-xl rounded-2xl border border-slate-300 bg-white p-5 shadow-2xl'
+          : 'relative w-full max-w-xl rounded-2xl border border-white/20 bg-slate-900/95 p-5 shadow-2xl';
+      }
+      const taskSettingsCloseBtn = byId('taskSettingsCloseBtn');
+      if (taskSettingsCloseBtn) {
+        taskSettingsCloseBtn.className = light
+          ? 'inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-gradient-to-r from-rose-500 to-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-rose-500/25 transition duration-200 hover:from-rose-600 hover:to-red-600 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'inline-flex items-center gap-1.5 rounded-xl border border-rose-400/40 bg-gradient-to-r from-rose-500/85 to-red-500/85 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-rose-500/25 transition duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const confirmModalCard = byId('confirmModalCard');
+      if (confirmModalCard) {
+        confirmModalCard.className = light
+          ? 'relative w-full max-w-md rounded-2xl border border-slate-300 bg-white p-5 shadow-2xl'
+          : 'relative w-full max-w-md rounded-2xl border border-white/20 bg-slate-900/95 p-5 shadow-2xl';
+      }
+      const confirmModalCancelBtn = byId('confirmModalCancelBtn');
+      if (confirmModalCancelBtn) {
+        confirmModalCancelBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition duration-200 hover:bg-slate-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'inline-flex items-center gap-2 rounded-xl border border-white/20 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 transition duration-200 hover:bg-slate-700/90 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const confirmModalOkBtn = byId('confirmModalOkBtn');
+      if (confirmModalOkBtn) {
+        confirmModalOkBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:from-amber-600 hover:to-orange-600 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/85 to-orange-500/85 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+
+      const profileBtn = byId('profileBtn');
+      if (profileBtn) {
+        profileBtn.className = light
+          ? 'rounded-2xl border border-slate-300 bg-white px-4 py-2 text-left transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'rounded-2xl border border-white/20 bg-slate-900/50 px-4 py-2 text-left transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const logoutBtn = byId('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.className = light
+          ? 'rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+          : 'rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+      }
+      const navHome = byId('navHome');
+      if (navHome) {
+        navHome.className = light
+          ? 'rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none inline-flex items-center gap-2'
+          : 'rounded-xl border border-white/20 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none inline-flex items-center gap-2';
+      }
+      const pagePrevBtn = byId('pagePrevBtn');
+      if (pagePrevBtn) {
+        pagePrevBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-lg border border-white/20 bg-slate-900/50 px-3 py-1.5 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+      const pageNextBtn = byId('pageNextBtn');
+      if (pageNextBtn) {
+        pageNextBtn.className = light
+          ? 'inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed'
+          : 'inline-flex items-center gap-2 rounded-lg border border-white/20 bg-slate-900/50 px-3 py-1.5 text-sm font-semibold text-slate-100 transition duration-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed';
+      }
+
+      refreshLangDd();
+      refreshThemeDd();
+      refreshNavManagement();
+      refreshNavSystem();
+      refreshStatusDd();
+      refreshLimitDd();
+      renderAutoRefreshState();
+      renderRows();
+    }
+
+    function renderProfileCard() {
+      byId('profileName').textContent = me && me.username ? me.username : 'user';
+      byId('profileRole').textContent = `${tr('profileRole')}: ${me && me.role ? me.role : tr('unknown')}`;
+    }
+
+    function renderTaskSettingsControls() {
+      const input = byId('parallelLimitInput');
+      const workerStartInput = byId('workerStartSlotsInput');
+      const workerStopInput = byId('workerStopSlotsInput');
+      const workerCheckInput = byId('workerCheckSlotsInput');
+      const fastStopViosInput = byId('fastStopViosInput');
+      const saveBtn = byId('parallelLimitSaveBtn');
+      const openBtn = byId('taskSettingsOpenBtn');
+      const clearHistoryBtn = byId('clearHistoryBtn');
+      const workersRestartBtn = byId('workersRestartBtn');
+      if (!input || !workerStartInput || !workerStopInput || !workerCheckInput || !saveBtn) return;
+      if (openBtn) {
+        openBtn.classList.toggle('hidden', !canManageTaskSettings);
+        openBtn.disabled = !canManageTaskSettings;
+      }
+      input.value = String(parallelLimitValue);
+      workerStartInput.value = String(startWorkerSlotsValue);
+      workerStopInput.value = String(stopWorkerSlotsValue);
+      workerCheckInput.value = String(checkWorkerSlotsValue);
+      if (fastStopViosInput) fastStopViosInput.checked = !!fastStopViosValue;
+      input.disabled = !canManageTaskSettings;
+      workerStartInput.disabled = !canManageTaskSettings;
+      workerStopInput.disabled = !canManageTaskSettings;
+      workerCheckInput.disabled = !canManageTaskSettings;
+      if (fastStopViosInput) fastStopViosInput.disabled = !canManageTaskSettings;
+      saveBtn.disabled = !canManageTaskSettings;
+      if (clearHistoryBtn) {
+        clearHistoryBtn.classList.toggle('hidden', !canManageTaskSettings);
+        clearHistoryBtn.disabled = !canManageTaskSettings;
+      }
+      if (workersRestartBtn) {
+        workersRestartBtn.classList.toggle('hidden', !canManageTaskSettings);
+        workersRestartBtn.disabled = !canManageTaskSettings;
+      }
+    }
+
+    function renderWorkersCheckInline(message, tone = 'info') {
+      const el = byId('workersCheckInline');
+      if (!el) return;
+      if (workersInlineTimer) {
+        window.clearTimeout(workersInlineTimer);
+        workersInlineTimer = 0;
+      }
+      const text = String(message || '').trim();
+      if (!text) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      const isLight = theme === 'light';
+      const toneValue = String(tone || 'info').toLowerCase();
+      let cls = isLight
+        ? 'border-slate-200 bg-slate-50 text-slate-700'
+        : 'border-white/20 bg-slate-900/60 text-slate-200';
+      if (toneValue === 'success') {
+        cls = isLight
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+          : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200';
+      } else if (toneValue === 'error') {
+        cls = isLight
+          ? 'border-rose-300 bg-rose-50 text-rose-800'
+          : 'border-rose-400/40 bg-rose-500/10 text-rose-200';
+      }
+      el.className = `mt-6 mb-4 rounded-xl border px-3 py-2 text-xs ${cls}`;
+      el.textContent = text;
+      el.classList.remove('hidden');
+      workersInlineTimer = window.setTimeout(() => {
+        el.classList.add('hidden');
+        workersInlineTimer = 0;
+      }, 8000);
+    }
+
+    function closeConfirmModal(result = false) {
+      const modal = byId('confirmModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      if (typeof confirmModalResolve === 'function') {
+        const resolve = confirmModalResolve;
+        confirmModalResolve = null;
+        resolve(!!result);
+      }
+    }
+
+    function openConfirmModal(message) {
+      return new Promise((resolve) => {
+        confirmModalResolve = resolve;
+        const textEl = byId('confirmModalText');
+        if (textEl) textEl.textContent = String(message || '').trim() || tr('confirmTitle');
+        const modal = byId('confirmModal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        } else {
+          resolve(false);
+        }
+      });
+    }
+
+    async function checkTaskWorkersStatus(showToast = true, showInline = true) {
+      const res = await jget(api.taskWorkersStatus);
+      const data = res && res.data ? res.data : {};
+      const activeIds = Array.isArray(data.active_worker_ids) ? data.active_worker_ids : [];
+      const activeSlots = Array.isArray(data.active_worker_slots) ? data.active_worker_slots : [];
+      const active = activeIds.length
+        ? activeIds.join(',')
+        : (activeSlots.length ? activeSlots.join(',') : '-');
+      const checkSlots = Number(data.check_worker_slots || data.worker_slots || 0);
+      const line = tr('workersCheckResult')
+        .replace('{start_slots}', String(Number(data.start_worker_slots || 0)))
+        .replace('{stop_slots}', String(Number(data.stop_worker_slots || 0)))
+        .replace('{check_slots}', String(checkSlots))
+        .replace('{semaphore}', String(Number(data.power_parallel_limit || 0)))
+        .replace('{pending}', String(Number(data.pending_tasks || 0)))
+        .replace('{running}', String(Number(data.running_tasks || 0)))
+        .replace('{active}', active);
+      if (showInline) {
+        renderWorkersCheckInline(`${tr('workersCheckPrefix')}: ${line}`, 'success');
+      }
+      if (showToast) {
+        toast(line, 'success');
+      }
+      return data;
+    }
+
+    async function loadTaskSettings(showToastOnError = false) {
+      try {
+        const res = await jget(api.taskSettings);
+        const data = res && res.data ? res.data : {};
+        canManageTaskSettings = !!data.can_manage;
+        parallelLimitValue = Math.max(1, Number(data.power_parallel_limit || 2));
+        const fallbackSlots = Math.max(1, Number(data.worker_slots || parallelLimitValue || 2));
+        startWorkerSlotsValue = Math.max(1, Number(data.start_worker_slots || fallbackSlots));
+        stopWorkerSlotsValue = Math.max(1, Number(data.stop_worker_slots || fallbackSlots));
+        checkWorkerSlotsValue = Math.max(1, Number(data.check_worker_slots || fallbackSlots));
+        fastStopViosValue = (data.fast_stop_vios === undefined) ? true : !!data.fast_stop_vios;
+        const input = byId('parallelLimitInput');
+        const workerStartInput = byId('workerStartSlotsInput');
+        const workerStopInput = byId('workerStopSlotsInput');
+        const workerCheckInput = byId('workerCheckSlotsInput');
+        if (input) {
+          input.min = String(Number(data.min_limit || 1));
+          input.max = String(Number(data.max_limit || 32));
+        }
+        if (workerStartInput) {
+          workerStartInput.min = String(Number(data.min_limit || 1));
+          workerStartInput.max = String(Number(data.max_limit || 32));
+        }
+        if (workerStopInput) {
+          workerStopInput.min = String(Number(data.min_limit || 1));
+          workerStopInput.max = String(Number(data.max_limit || 32));
+        }
+        if (workerCheckInput) {
+          workerCheckInput.min = String(Number(data.min_limit || 1));
+          workerCheckInput.max = String(Number(data.max_limit || 32));
+        }
+        renderTaskSettingsControls();
+      } catch (e) {
+        canManageTaskSettings = false;
+        renderTaskSettingsControls();
+        if (showToastOnError) {
+          toast((e && e.message) ? e.message : tr('errLoad'));
+        }
+      }
+    }
+
+    async function saveTaskSettings() {
+      const input = byId('parallelLimitInput');
+      const workerStartInput = byId('workerStartSlotsInput');
+      const workerStopInput = byId('workerStopSlotsInput');
+      const workerCheckInput = byId('workerCheckSlotsInput');
+      const fastStopViosInput = byId('fastStopViosInput');
+      if (!input || !workerStartInput || !workerStopInput || !workerCheckInput) return;
+      const requested = Math.max(1, Number(input.value || parallelLimitValue || 2));
+      const requestedStartWorkers = Math.max(1, Number(workerStartInput.value || startWorkerSlotsValue || 2));
+      const requestedStopWorkers = Math.max(1, Number(workerStopInput.value || stopWorkerSlotsValue || 2));
+      const requestedCheckWorkers = Math.max(1, Number(workerCheckInput.value || checkWorkerSlotsValue || 2));
+      const requestedFastStopVios = !!(fastStopViosInput ? fastStopViosInput.checked : fastStopViosValue);
+      const res = await jget(api.taskSettings, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          power_parallel_limit: requested,
+          start_worker_slots: requestedStartWorkers,
+          stop_worker_slots: requestedStopWorkers,
+          check_worker_slots: requestedCheckWorkers,
+          fast_stop_vios: requestedFastStopVios
+        })
+      });
+      const data = res && res.data ? res.data : {};
+      parallelLimitValue = Math.max(1, Number(data.power_parallel_limit || requested));
+      startWorkerSlotsValue = Math.max(1, Number(data.start_worker_slots || requestedStartWorkers));
+      stopWorkerSlotsValue = Math.max(1, Number(data.stop_worker_slots || requestedStopWorkers));
+      checkWorkerSlotsValue = Math.max(1, Number(data.check_worker_slots || requestedCheckWorkers));
+      fastStopViosValue = (data.fast_stop_vios === undefined) ? requestedFastStopVios : !!data.fast_stop_vios;
+      renderTaskSettingsControls();
+      toast(tr('parallelLimitSaved'), 'success');
+    }
+
+    function renderRows() {
+      const q = String(byId('searchInput').value || '').trim().toLowerCase();
+      const filtered = rows.filter((row) => {
+        if (!q) return true;
+        const blob = [
+          row.id, row.lab_name, row.node_name, row.requested_by, row.error_text, row.worker_name, row.worker_host, row.bulk_operation_label, row.label
+        ].map((x) => String(x || '').toLowerCase()).join(' ');
+        return blob.includes(q);
+      });
+      const displayRows = buildDisplayRows(filtered);
+      const perPage = Math.max(1, Number(limitFilter || 1));
+      totalRows = displayRows.length;
+      totalPages = Math.max(1, Math.ceil(totalRows / perPage));
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
+      const startIndex = (currentPage - 1) * perPage;
+      const pagedRows = displayRows.slice(startIndex, startIndex + perPage);
+
+      const bodyClass = theme === 'light'
+        ? 'border-t border-slate-200 text-slate-800'
+        : 'border-t border-white/10 text-slate-100';
+      const rowHover = theme === 'light' ? 'hover:bg-slate-50/70' : 'hover:bg-white/5';
+      const rowChanged = theme === 'light' ? 'bg-amber-50/80' : 'bg-amber-500/10';
+      const stopGroupBtnCls = theme === 'light'
+        ? 'inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition duration-200 hover:bg-rose-100 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none'
+        : 'inline-flex items-center gap-2 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition duration-200 hover:bg-rose-500/20 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none';
+
+      byId('tbody').innerHTML = pagedRows.map((item) => {
+        if (item.type === 'group') {
+          const requestedBy = String(item.requested_by || '');
+          const createdAt = formatDateTimeParts(item.created_at);
+          const worker = taskWorkerDisplay(item);
+          const action = String(item.action || '').toLowerCase();
+          const label = item.bulk_operation_label
+            || (action === 'start'
+              ? tr('groupedBulkStart')
+              : (action === 'stop' ? tr('groupedBulkStop') : tr('actionUnknown')));
+          const nodesText = tr('groupedNodesFmt').replace('{count}', String(item.nodes_count || 0));
+          const canStopGroup = item.status === 'pending' || item.status === 'running';
+          const metrics = groupProgressMetrics(item);
+          const changedCls = changedGroupIds.has(String(item.groupId || '')) ? rowChanged : '';
+          return `
+            <tr class="${bodyClass} ${rowHover} ${changedCls}">
+              <td class="px-3 py-2 align-middle whitespace-nowrap">
+                <div class="font-semibold">${esc(createdAt.date)}</div>
+                <div class="text-xs opacity-75">${esc(createdAt.time)}</div>
+              </td>
+              <td class="px-3 py-2 align-middle whitespace-nowrap text-center">
+                <div class="inline-flex flex-col items-center">
+                  <span class="inline-flex rounded-xl border px-2 py-1 text-xs font-semibold ${statusBadgeClass(item.status)}">${esc(statusText(item.status))}</span>
+                  ${statusProgressBar(item.status, metrics.percent, `${metrics.completed}/${metrics.total}`)}
+                </div>
+              </td>
+              <td class="px-3 py-2 align-middle whitespace-nowrap text-center">${esc(actionText(item.action))}</td>
+              <td class="px-3 py-2 align-middle text-center">
+                <div class="font-semibold">${esc(item.lab_name || tr('unknown'))}</div>
+              </td>
+              <td class="px-3 py-2 align-middle">
+                <div class="font-semibold">${esc(label)}</div>
+                <div class="text-xs opacity-75">${esc(nodesText)}</div>
+              </td>
+              <td class="px-3 py-2 align-middle text-center">${esc(requestedBy || tr('unknown'))}</td>
+              <td class="px-3 py-2 align-middle text-center">
+                <div>${esc(worker.main)}</div>
+                ${worker.sub ? `<div class="text-xs opacity-75">${esc(worker.sub)}</div>` : ''}
+              </td>
+              <td class="px-3 py-2 align-middle whitespace-nowrap text-center">
+                ${canStopGroup
+                  ? `<button type="button" class="${stopGroupBtnCls}" data-task-group-op="stop" data-task-group-id="${esc(item.groupId)}"><i class="fa fa-stop-circle-o" aria-hidden="true"></i><span>${esc(tr('opStopGroup'))}</span></button>`
+                  : '<span class="opacity-60">-</span>'}
+              </td>
+              <td class="px-3 py-2 align-middle">${esc(String(item.error_text || ''))}</td>
+            </tr>`;
+        }
+        const row = item.row;
+        const action = String(row && row.action ? row.action : '').toLowerCase();
+        const error = String(row.error_text || '').trim();
+        const requestedBy = String(row.requested_by || '');
+        const createdAt = formatDateTimeParts(row.created_at);
+        const worker = taskWorkerDisplay(row);
+        const payload = (row && row.payload && typeof row.payload === 'object') ? row.payload : {};
+        const rawTotal = Number(row && row.progress_total ? row.progress_total : (payload.checks_total || 0));
+        const rawDone = Number(row && row.progress_done ? row.progress_done : (payload.checks_done || 0));
+        const totalChecks = Math.max(0, rawTotal);
+        const doneChecks = Math.max(0, Math.min(totalChecks > 0 ? totalChecks : rawDone, rawDone));
+        const rawPercent = Number(row && row.progress_pct ? row.progress_pct : (payload.checks_percent || 0));
+        const computedPercent = totalChecks > 0 ? Math.round((doneChecks / totalChecks) * 100) : 0;
+        const checkPercent = Math.max(0, Math.min(100, Number.isFinite(rawPercent) && rawPercent > 0 ? rawPercent : computedPercent));
+        const checkCounter = totalChecks > 0 ? `${doneChecks}/${totalChecks}` : '';
+        const nodeLabel = action === 'lab_check'
+          ? (totalChecks > 0
+            ? tr('labCheckScopeAllNodesFmt').replace('{count}', String(totalChecks))
+            : tr('labCheckScopeAllNodes'))
+          : (row.node_name || tr('unknown'));
+        const changedCls = changedTaskIds.has(String(row.id || '')) ? rowChanged : '';
+        return `
+          <tr class="${bodyClass} ${rowHover} ${changedCls}">
+            <td class="px-3 py-2 align-middle whitespace-nowrap">
+              <div class="font-semibold">${esc(createdAt.date)}</div>
+              <div class="text-xs opacity-75">${esc(createdAt.time)}</div>
+            </td>
+            <td class="px-3 py-2 align-middle whitespace-nowrap text-center">
+              <div class="inline-flex flex-col items-center">
+                <span class="inline-flex rounded-xl border px-2 py-1 text-xs font-semibold ${statusBadgeClass(row.status)}">${esc(statusText(row.status))}</span>
+                ${statusProgressBar(row.status, action === 'lab_check' ? checkPercent : null, action === 'lab_check' ? checkCounter : '')}
+              </div>
+            </td>
+            <td class="px-3 py-2 align-middle whitespace-nowrap text-center">${esc(actionText(row.action))}</td>
+            <td class="px-3 py-2 align-middle text-center">
+              <div class="font-semibold">${esc(row.lab_name || tr('unknown'))}</div>
+            </td>
+            <td class="px-3 py-2 align-middle">
+              <div>${esc(nodeLabel)}</div>
+            </td>
+            <td class="px-3 py-2 align-middle text-center">${esc(requestedBy || tr('unknown'))}</td>
+            <td class="px-3 py-2 align-middle text-center">
+              <div>${esc(worker.main)}</div>
+              ${worker.sub ? `<div class="text-xs opacity-75">${esc(worker.sub)}</div>` : ''}
+            </td>
+            <td class="px-3 py-2 align-middle whitespace-nowrap text-center">${taskActionCell(row)}</td>
+            <td class="px-3 py-2 align-middle">${esc(error || '')}</td>
+          </tr>`;
+      }).join('');
+
+      byId('emptyState').classList.toggle('hidden', totalRows > 0);
+      renderStatusChips();
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const perPage = Math.max(1, Number(limitFilter || 1));
+      const from = totalRows > 0 ? ((currentPage - 1) * perPage + 1) : 0;
+      const to = totalRows > 0 ? Math.min(currentPage * perPage, totalRows) : 0;
+      byId('paginationInfo').textContent = tr('paginationInfo')
+        .replace('{from}', String(from))
+        .replace('{to}', String(to))
+        .replace('{total}', String(totalRows));
+      byId('pageCurrentLabel').textContent = tr('pageLabel')
+        .replace('{page}', String(currentPage))
+        .replace('{pages}', String(totalPages));
+      byId('pagePrevBtn').disabled = currentPage <= 1;
+      byId('pageNextBtn').disabled = currentPage >= totalPages;
+    }
+
+    async function loadTasks(showToastOnError = true) {
+      const params = new URLSearchParams();
+      params.set('limit', String(serverFetchLimit));
+      params.set('page', '1');
+      if (statusFilter !== 'all') {
+        params.set('status', statusFilter);
+      }
+      try {
+        let loaded = false;
+        let groupedRows = [];
+        try {
+          const groupsRes = await jget(`${api.taskGroups}?${params.toString()}`);
+          const groupsData = groupsRes && groupsRes.data ? groupsRes.data : {};
+          groupedRows = Array.isArray(groupsData)
+            ? groupsData
+            : (Array.isArray(groupsData.items) ? groupsData.items : []);
+          loaded = true;
+        } catch (_) {}
+
+        const res = await jget(`${api.tasks}?${params.toString()}`);
+        const data = res && res.data ? res.data : {};
+        const taskRows = Array.isArray(data)
+          ? data
+          : (Array.isArray(data.items) ? data.items : []);
+
+        if (loaded) {
+          const singleRows = taskRows.filter((row) => {
+            const gid = String(row && row.bulk_operation_id ? row.bulk_operation_id : '').trim();
+            return gid === '';
+          });
+          rows = groupedRows.concat(singleRows);
+        } else {
+          rows = taskRows;
+        }
+        byId('lastUpdateValue').textContent = formatDateTime(new Date().toISOString());
+        rebuildChangedRowsSnapshot(rows);
+        renderRows();
+      } catch (e) {
+        if (showToastOnError) {
+          toast((e && e.message) ? e.message : tr('errLoad'));
+        }
+      }
+    }
+
+	    byId('searchInput').addEventListener('input', () => {
+      currentPage = 1;
+      renderRows();
+    });
+	    byId('tbody').addEventListener('click', async (e) => {
+        const groupBtn = e.target.closest('button[data-task-group-op][data-task-group-id]');
+        if (groupBtn) {
+          const groupId = String(groupBtn.getAttribute('data-task-group-id') || '').trim();
+          const op = String(groupBtn.getAttribute('data-task-group-op') || '').trim();
+          if (!groupId || !op) return;
+          groupBtn.disabled = true;
+          groupBtn.classList.add('opacity-60', 'cursor-not-allowed');
+          try {
+            await jpost(`${api.taskGroups}/${encodeURIComponent(groupId)}/${encodeURIComponent(op)}`);
+            toast(tr('taskGroupStopped'), 'success');
+            await loadTasks(false);
+          } catch (err) {
+            toast((err && err.message) ? err.message : tr('errTaskAction'));
+          } finally {
+            groupBtn.disabled = false;
+            groupBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+          }
+          return;
+        }
+	      const btn = e.target.closest('button[data-task-op][data-task-id]');
+	      if (!btn) return;
+	      const taskId = String(btn.getAttribute('data-task-id') || '').trim();
+	      const op = String(btn.getAttribute('data-task-op') || '').trim();
+	      if (!taskId || !op) return;
+	      btn.disabled = true;
+	      btn.classList.add('opacity-60', 'cursor-not-allowed');
+	      try {
+	        const res = await jpost(`${api.tasks}/${encodeURIComponent(taskId)}/${encodeURIComponent(op)}`);
+	        if (op === 'stop' || op === 'cancel') {
+	          toast(tr('taskStopped'), 'success');
+	        } else {
+	          toast(String(res && res.message ? res.message : tr('refresh')), 'success');
+	        }
+	        await loadTasks(false);
+	      } catch (err) {
+	        toast((err && err.message) ? err.message : tr('errTaskAction'));
+	      } finally {
+	        btn.disabled = false;
+	        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+	      }
+	    });
+	    byId('refreshBtn').addEventListener('click', async () => {
+	      await loadTasks(true);
+	      toast(tr('refresh'), 'success');
+	    });
+    byId('clearHistoryBtn').addEventListener('click', async () => {
+      if (!canManageTaskSettings) return;
+      if (!window.confirm(tr('clearHistoryConfirm'))) return;
+      const btn = byId('clearHistoryBtn');
+      if (btn) btn.disabled = true;
+      try {
+        await jget(api.taskHistory, { method: 'DELETE' });
+        toast(tr('clearHistoryDone'), 'success');
+        currentPage = 1;
+        await loadTasks(false);
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+    byId('workersCheckBtn').addEventListener('click', async () => {
+      const btn = byId('workersCheckBtn');
+      if (btn) btn.disabled = true;
+      try {
+        await checkTaskWorkersStatus(false, true);
+      } catch (err) {
+        const msg = (err && err.message) ? err.message : tr('errTaskAction');
+        renderWorkersCheckInline(`${tr('workersCheckPrefix')}: ${msg}`, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+    byId('workersRestartBtn').addEventListener('click', async () => {
+      if (!canManageTaskSettings) return;
+      const confirmed = await openConfirmModal(tr('workersRestartConfirm'));
+      if (!confirmed) return;
+      const btn = byId('workersRestartBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await jpost(api.taskWorkersRestart);
+        const data = res && res.data ? res.data : {};
+        renderWorkersCheckInline(tr('workersRestartDone').replace('{count}', String(Number(data.triggered || 0))), 'success');
+        await checkTaskWorkersStatus(false, true);
+        await loadTasks(false);
+      } catch (err) {
+        const msg = (err && err.message) ? err.message : tr('errTaskAction');
+        renderWorkersCheckInline(msg, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+    byId('parallelLimitSaveBtn').addEventListener('click', async () => {
+      if (!canManageTaskSettings) return;
+      try {
+        await saveTaskSettings();
+        const modal = byId('taskSettingsModal');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      }
+    });
+    byId('taskSettingsOpenBtn').addEventListener('click', () => {
+      if (!canManageTaskSettings) return;
+      const modal = byId('taskSettingsModal');
+      if (!modal) return;
+      renderTaskSettingsControls();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+    byId('taskSettingsCloseBtn').addEventListener('click', () => {
+      const modal = byId('taskSettingsModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+    byId('taskSettingsModalBackdrop').addEventListener('click', () => {
+      const modal = byId('taskSettingsModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+    byId('confirmModalCancelBtn').addEventListener('click', () => closeConfirmModal(false));
+    byId('confirmModalOkBtn').addEventListener('click', () => closeConfirmModal(true));
+    byId('confirmModalBackdrop').addEventListener('click', () => closeConfirmModal(false));
+    byId('parallelLimitInput').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!canManageTaskSettings) return;
+      try {
+        await saveTaskSettings();
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      }
+    });
+    byId('workerStartSlotsInput').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!canManageTaskSettings) return;
+      try {
+        await saveTaskSettings();
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      }
+    });
+    byId('workerStopSlotsInput').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!canManageTaskSettings) return;
+      try {
+        await saveTaskSettings();
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      }
+    });
+    byId('workerCheckSlotsInput').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!canManageTaskSettings) return;
+      try {
+        await saveTaskSettings();
+      } catch (err) {
+        toast((err && err.message) ? err.message : tr('errTaskAction'));
+      }
+    });
+    byId('pagePrevBtn').addEventListener('click', async () => {
+      if (currentPage <= 1) return;
+      currentPage -= 1;
+      renderRows();
+    });
+    byId('pageNextBtn').addEventListener('click', async () => {
+      if (currentPage >= totalPages) return;
+      currentPage += 1;
+      renderRows();
+    });
+    byId('statusChips').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-status-chip]');
+      if (!btn) return;
+      const next = String(btn.getAttribute('data-status-chip') || 'all');
+      if (!next || next === statusFilter) return;
+      statusFilter = next;
+      currentPage = 1;
+      refreshStatusDd();
+      await loadTasks(false);
+    });
+    byId('autoRefreshBtn').addEventListener('click', () => {
+      autoRefreshEnabled = !autoRefreshEnabled;
+      localStorage.setItem('eve_v2_task_queue_auto_refresh', autoRefreshEnabled ? '1' : '0');
+      renderAutoRefreshState();
+    });
+    byId('logoutBtn').addEventListener('click', async () => {
+      try {
+        await jget(api.logout, { method: 'POST' });
+        location.href = '/login';
+      } catch (e) {
+        toast((e && e.message) ? e.message : tr('errAuth'));
+      }
+    });
+    byId('profileBtn').addEventListener('click', () => {
+      if (typeof window.openV2ProfileSettingsModal === 'function') {
+        window.openV2ProfileSettingsModal();
+      }
+    });
+
+    (async () => {
+      try {
+        const auth = await jget(api.auth);
+        me = auth.data || null;
+        lang = (me && me.lang) || lang;
+        theme = (me && me.theme) || theme;
+        localStorage.setItem('eve_v2_lang', lang);
+        localStorage.setItem('eve_v2_theme', theme);
+
+        refreshLangDd = makeDropdown(
+          document.querySelector('[data-dd="lang"]'),
+          langOptions,
+          () => lang,
+          async (v) => {
+            lang = v;
+            localStorage.setItem('eve_v2_lang', v);
+            applyI18n();
+            await persistPrefs();
+          },
+          null
+        );
+        refreshThemeDd = makeDropdown(
+          document.querySelector('[data-dd="theme"]'),
+          themeOptions,
+          () => theme,
+          async (v) => {
+            theme = v;
+            localStorage.setItem('eve_v2_theme', v);
+            applyTheme();
+            await persistPrefs();
+          },
+          null
+        );
+        refreshNavManagement = makeNavDropdown(
+          document.getElementById('navManagement'),
+          'navManagement',
+          [
+            { key: 'navLabs', href: '/labmgmt' },
+            { key: 'navUsers', href: '/usermgmt' },
+            { key: 'navClouds', href: '/cloudmgmt' },
+            { key: 'navRoles', href: '/roles' }
+          ]
+        );
+        refreshNavSystem = makeNavDropdown(
+          document.getElementById('navSystem'),
+          'navSystem',
+          [
+            { key: 'navSysStatus', href: '/system-status' },
+            { key: 'navTaskQueue', href: '/taskqueue' },
+            { key: 'navSysConsole', href: '/system-console' },
+            { key: 'navSysLogs', href: '/system-logs' },
+            { key: 'navSysAudit', href: '/system-audit' }
+          ]
+        );
+        refreshStatusDd = makeDropdown(
+          document.querySelector('[data-dd="status"]'),
+          statusOptions,
+          () => statusFilter,
+	          async (v) => {
+	            statusFilter = v;
+              currentPage = 1;
+	            await loadTasks(false);
+	          },
+          () => tr('status')
+        );
+        refreshLimitDd = makeDropdown(
+          document.querySelector('[data-dd="limit"]'),
+          limitOptions,
+          () => limitFilter,
+	          async (v) => {
+	            limitFilter = v;
+              currentPage = 1;
+	            await loadTasks(false);
+	          },
+          () => tr('limit')
+        );
+
+        renderProfileCard();
+        await loadTaskSettings(false);
+        applyI18n();
+        applyTheme();
+        await checkTaskWorkersStatus(false, false).catch(() => {});
+        await loadTasks(false);
+
+	        if (pollTimer) window.clearInterval(pollTimer);
+	        pollTimer = window.setInterval(async () => {
+          if (!autoRefreshEnabled) return;
+          if (document.visibilityState === 'hidden') return;
+	          await loadTasks(false);
+	        }, autoRefreshIntervalMs);
+
+        if (window.startV2Heartbeat) {
+          window.startV2Heartbeat({
+            pingUrl: api.ping,
+            intervalMs: 30000,
+            onUnauthorized: () => { location.href = '/login'; }
+          });
+        }
+      } catch (e) {
+        toast((e && e.message) ? e.message : tr('errAuth'));
+        setTimeout(() => { location.href = '/login'; }, 900);
+      }
+    })();
+  </script>
+</body>
+</html>

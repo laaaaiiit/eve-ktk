@@ -24,5 +24,15 @@ PHP follows the vim modeline already committed (tabs, no expandtab) and PSR-styl
 ## Testing Guidelines
 No dedicated test harness exists, so rely on reproducible labs. Create verification labs in `labs/<feature>/<case>.unl`, clear stale `.unl.lock` files, and document external images in a README. Lint PHP and Python as described above, then import the lab through the UI or `curl` against `html/api.php` to confirm nodes boot, wrappers attach NICs, and config scripts reach their prompts. Capture `bash scripts/eve-info.sh` output and sample REST data such as `curl -s http://127.0.0.1/api/status | jq '.'` when reporting results.
 
+## Lab Workflow (DB-first, v2)
+- Resolve the target lab first via DB (`labs.labs`) and keep the `lab_id` for all further operations.
+- Read topology from DB (`labs.lab_nodes`, `labs.lab_networks`, `labs.lab_node_ports`) before changing checks/tasks/annotations.
+- Update checks/tasks directly in `checks.lab_check_items` and `checks.lab_check_task_items`; keep `order_index` stable for predictable UI ordering.
+- Store visual annotations in `labs.lab_objects` (`object_type='text'|'shape'`) with `data_base64` as UTF-8 JSON encoded to base64.
+- For multiline text in object JSON, use proper JSON newline escape (`\n`) and avoid double-escaped `\\n` that renders as literal text.
+- Use QEMU guest-agent sockets (`/tmp/eve-v2-qga-<node_id>.sock`) for in-guest setup (hostname/IP/routes) when available.
+- After any DB-side lab changes, verify by re-reading affected rows from DB and then hard-refreshing lab UI.
+- Keep lab-facing labels concise (`IP/mask`, OSPF/NAT notes), and avoid interface-name duplication unless explicitly requested.
+
 ## Commit & Pull Request Guidelines
 History favors short imperative subjects (e.g., `fix vios login prompt`), so keep titles under ~50 characters and describe motivation plus impact in the body. Reference touched files explicitly (`html/api.php`, `config_scripts/config_vios.py`) and list the validation commands you ran. Pull requests must link to an issue or lab ID, outline any environment setup (images, firmware, topology), and include screenshots or REST payloads when UI or API behavior changes. Tag reviewers when cross-team coordination is required.

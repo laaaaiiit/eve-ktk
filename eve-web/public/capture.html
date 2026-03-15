@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interface Capture</title>
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+  <link rel="stylesheet" href="/assets/css/main.output.css">
+  <link rel="stylesheet" href="/assets/font-awesome/css/font-awesome.min.css">
+  <style>
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    body.theme-light {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    body.theme-dark {
+      background: #020617;
+      color: #e2e8f0;
+    }
+
+    .capture-input {
+      width: 100%;
+      border-radius: 1rem;
+      border: 1px solid;
+      padding: .55rem .85rem;
+      font-size: .8rem;
+      line-height: 1.2rem;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease;
+    }
+    body.theme-light .capture-input {
+      border-color: #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+    }
+    body.theme-dark .capture-input {
+      border-color: rgba(148, 163, 184, .35);
+      background: rgba(15, 23, 42, .72);
+      color: #e2e8f0;
+    }
+    .capture-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, .25);
+    }
+
+    #pktTableWrap::-webkit-scrollbar,
+    #pktDetails::-webkit-scrollbar,
+    #pktHex::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    #pktTableWrap::-webkit-scrollbar-thumb,
+    #pktDetails::-webkit-scrollbar-thumb,
+    #pktHex::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 999px;
+    }
+
+    body.theme-light #tableHead {
+      background: #cbd5e1;
+      color: #1e293b;
+    }
+    body.theme-dark #tableHead {
+      background: rgba(30, 41, 59, .95);
+      color: #e2e8f0;
+    }
+
+    body.theme-light .capture-panel {
+      border-color: #cbd5e1;
+      background: #ffffff;
+    }
+    body.theme-dark .capture-panel {
+      border-color: rgba(148, 163, 184, .35);
+      background: rgba(15, 23, 42, .76);
+    }
+
+    body.theme-light .capture-panel-title {
+      border-color: #cbd5e1;
+      background: #cbd5e1;
+      color: #1e293b;
+    }
+    body.theme-dark .capture-panel-title {
+      border-color: rgba(148, 163, 184, .35);
+      background: rgba(30, 41, 59, .95);
+      color: #e2e8f0;
+    }
+
+    body.theme-light #captureStatus {
+      border-color: #cbd5e1;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    body.theme-dark #captureStatus {
+      border-color: rgba(148, 163, 184, .35);
+      background: rgba(15, 23, 42, .75);
+      color: #cbd5e1;
+    }
+
+    .proto-icmp { background-color: #e9fce9; }
+    .proto-icmpv6 { background-color: #e9fce9; }
+    .proto-arp { background-color: #fff7d6; }
+    .proto-tcp { background-color: #efe9ff; }
+    .proto-udp { background-color: #e6f4ff; }
+    .proto-stp { background-color: #ffe9d5; }
+    .proto-lldp { background-color: #ffe9d5; }
+    .proto-cdp { background-color: #ffe9d5; }
+
+    body.theme-dark .proto-icmp,
+    body.theme-dark .proto-icmpv6 { background-color: rgba(22, 101, 52, .18); }
+    body.theme-dark .proto-arp { background-color: rgba(161, 98, 7, .22); }
+    body.theme-dark .proto-tcp { background-color: rgba(91, 33, 182, .2); }
+    body.theme-dark .proto-udp { background-color: rgba(3, 105, 161, .2); }
+    body.theme-dark .proto-stp,
+    body.theme-dark .proto-lldp,
+    body.theme-dark .proto-cdp { background-color: rgba(154, 52, 18, .2); }
+
+    body.theme-light .pkt-row-selected {
+      background-color: #bfdbfe !important;
+      box-shadow: inset 0 0 0 1px #60a5fa;
+    }
+    body.theme-dark .pkt-row-selected {
+      background-color: rgba(56, 189, 248, .3) !important;
+      box-shadow: inset 0 0 0 1px rgba(125, 211, 252, .85);
+    }
+  </style>
+</head>
+<body id="pageBody" class="h-screen overflow-hidden theme-light">
+  <main class="mx-auto h-screen w-full max-w-[1800px] p-2">
+    <section class="flex h-full flex-col overflow-visible pt-1">
+      <div class="mb-2 flex flex-wrap items-center gap-1.5">
+        <a href="/main" id="btnHome" class="inline-flex items-center gap-1.5 rounded-xl border border-sky-300 bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0">
+          <i class="fa fa-home" aria-hidden="true"></i>
+          <span data-i18n="home">На главную</span>
+        </a>
+        <button id="btnStart" type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-amber-600 active:translate-y-0">
+          <i class="fa fa-play" aria-hidden="true"></i>
+          <span data-i18n="start">Старт</span>
+        </button>
+        <button id="btnStop" type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-rose-600 active:translate-y-0">
+          <i class="fa fa-stop" aria-hidden="true"></i>
+          <span data-i18n="stop">Стоп</span>
+        </button>
+        <button id="btnClear" type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-sky-300 bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0">
+          <i class="fa fa-eraser" aria-hidden="true"></i>
+          <span data-i18n="clear">Очистить</span>
+        </button>
+
+        <label class="ml-2 inline-flex items-center gap-2 text-xs text-slate-700">
+          <span data-i18n="autoscroll">Автоскролл</span>
+          <span class="relative inline-flex h-6 w-12 items-center">
+            <input id="fltAutoscroll" type="checkbox" checked class="peer sr-only">
+            <span class="h-6 w-12 rounded-full border border-slate-300 bg-slate-200 transition-colors duration-200 peer-checked:bg-emerald-500/80"></span>
+            <span class="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-6"></span>
+          </span>
+        </label>
+
+        <div class="ml-auto flex items-center gap-2">
+          <div class="flex items-center gap-3 text-xs text-slate-600">
+            <span id="captureCounters">Пакетов: 0 / Отображено: 0</span>
+            <span id="captureMeta">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-2 grid gap-1.5 lg:grid-cols-12">
+        <label class="block lg:col-span-5">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500" data-i18n="displayFilter">Display Filter</span>
+          <input id="fltText" type="text" placeholder="icmp || 10.10.10.1 || arp request" class="capture-input">
+        </label>
+        <label class="block lg:col-span-2">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500" data-i18n="ipLabel">IP</span>
+          <input id="fltIp" type="text" placeholder="10.10.10.1" class="capture-input">
+        </label>
+        <label class="block lg:col-span-2">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500" data-i18n="protocolLabel">Протокол</span>
+          <select id="fltProto" class="capture-input">
+            <option value="all">all</option>
+            <option value="icmp">icmp</option>
+            <option value="icmp6">icmp6</option>
+            <option value="tcp">tcp</option>
+            <option value="udp">udp</option>
+            <option value="arp">arp</option>
+            <option value="ip">ip</option>
+            <option value="ip6">ip6</option>
+            <option value="stp">stp</option>
+            <option value="lldp">lldp</option>
+            <option value="cdp">cdp</option>
+          </select>
+        </label>
+        <label class="block lg:col-span-1">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500" data-i18n="maxRows">Max Rows</span>
+          <input id="fltMaxRows" type="number" min="100" max="10000" step="100" value="2000" class="capture-input">
+        </label>
+        <label class="block lg:col-span-2">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500" data-i18n="serverLimit">Server Limit</span>
+          <input id="fltLimit" type="number" min="0" max="500000" step="100" value="0" class="capture-input">
+        </label>
+      </div>
+
+      <div id="captureStatus" class="mb-2 rounded-xl border px-3 py-1.5 text-xs">Инициализация...</div>
+
+      <div class="grid h-[80vh] min-h-0 grid-rows-[3fr_2fr] gap-2">
+        <div id="pktTableWrap" class="capture-panel overflow-auto rounded-xl border">
+          <table class="min-w-full border-collapse text-xs">
+            <thead id="tableHead" class="sticky top-0 z-10">
+              <tr class="border-b border-slate-300">
+                <th class="w-16 px-2 py-1.5 text-left font-semibold" data-i18n="colNo">No.</th>
+                <th class="w-36 px-2 py-1.5 text-left font-semibold" data-i18n="colTime">Time</th>
+                <th class="w-52 px-2 py-1.5 text-left font-semibold" data-i18n="colSource">Source</th>
+                <th class="w-52 px-2 py-1.5 text-left font-semibold" data-i18n="colDestination">Destination</th>
+                <th class="w-28 px-2 py-1.5 text-left font-semibold" data-i18n="colProtocol">Protocol</th>
+                <th class="w-20 px-2 py-1.5 text-left font-semibold" data-i18n="colLength">Length</th>
+                <th class="px-2 py-1.5 text-left font-semibold" data-i18n="colInfo">Info</th>
+              </tr>
+            </thead>
+            <tbody id="pktRows"></tbody>
+          </table>
+        </div>
+
+        <div class="grid min-h-0 grid-cols-1 gap-2 lg:grid-cols-2">
+          <div class="capture-panel flex min-h-0 flex-col overflow-hidden rounded-xl border">
+            <div id="detailsTitle" class="capture-panel-title border-b px-3 py-1.5 text-xs font-semibold" data-i18n="detailsTitle">Packet Details</div>
+            <pre id="pktDetails" class="min-h-0 flex-1 overflow-auto px-3 py-2 text-xs"></pre>
+          </div>
+          <div class="capture-panel flex min-h-0 flex-col overflow-hidden rounded-xl border">
+            <div id="bytesTitle" class="capture-panel-title border-b px-3 py-1.5 text-xs font-semibold" data-i18n="bytesTitle">Packet Bytes</div>
+            <pre id="pktHex" class="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[11px] leading-5"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/v2-heartbeat.js"></script>
+  <script>
+    (function () {
+      if (typeof window.startV2Heartbeat === 'function') {
+        window.startV2Heartbeat({
+          pingUrl: '/api/auth/ping',
+          intervalMs: 30000,
+          onUnauthorized: function () { location.href = '/login'; }
+        });
+      }
+
+      const api = {
+        meta: null,
+        packets: null,
+        prefs: '/api/preferences'
+      };
+
+      const i18n = {
+        ru: {
+          home: 'На главную',
+          start: 'Старт',
+          stop: 'Стоп',
+          clear: 'Очистить',
+          autoscroll: 'Автоскролл',
+          displayFilter: 'Фильтр отображения',
+          ipLabel: 'IP',
+          protocolLabel: 'Протокол',
+          maxRows: 'Макс. строк',
+          serverLimit: 'Лимит сервера',
+          colNo: '№',
+          colTime: 'Время',
+          colSource: 'Источник',
+          colDestination: 'Назначение',
+          colProtocol: 'Протокол',
+          colLength: 'Длина',
+          colInfo: 'Инфо',
+          detailsTitle: 'Детали пакета',
+          bytesTitle: 'Байты пакета',
+          lang: 'Язык',
+          theme: 'Тема',
+          langRu: 'Русский',
+          langEn: 'English',
+          themeDark: 'Тёмная',
+          themeLight: 'Светлая',
+          counterFmt: 'Пакетов: {total} / Отображено: {shown}',
+          phDisplayFilter: 'icmp || 10.10.10.1 || arp request',
+          msgInit: 'Инициализация...',
+          msgInvalidParams: 'Некорректные параметры захвата.',
+          msgNoMeta: 'Нет данных интерфейса.',
+          msgConnecting: 'Подключение к потоку захвата...',
+          msgStreamOpened: 'Поток открыт. Ожидание пакетов...',
+          msgNoTraffic: 'Поток активен, трафик пока не обнаружен.',
+          msgStarted: 'Захват запущен.',
+          msgStoppedFmt: 'Захват завершен. rc={rc}, packets={packets}',
+          msgStreamClosed: 'Поток захвата закрыт.',
+          msgStreamStopped: 'Захват остановлен.',
+          msgStreamError: 'Ошибка захвата.',
+          msgStreamUnavailable: 'Поток недоступен',
+          msgIfaceMissing: 'Интерфейс не найден на хосте. Проверьте, что нода запущена.',
+          msgReady: 'Готово к запуску захвата.',
+          msgMetaFail: 'Не удалось получить метаданные захвата.',
+          msgPickPacket: 'Выберите пакет в таблице для просмотра деталей.',
+          msgHexMissing: 'RAW-байты для выбранного пакета недоступны.\nЭто нормально для части протоколов и служебных кадров.',
+          detailsFrame: 'Кадр',
+          detailsTime: 'Время',
+          detailsSince: 'Время с начала',
+          detailsSource: 'Источник',
+          detailsDestination: 'Назначение',
+          detailsProtocol: 'Протокол',
+          detailsLength: 'Длина',
+          detailsInfo: 'Инфо',
+          detailsStack: 'Стек протоколов',
+          detailsTcpPorts: 'TCP порты',
+          detailsUdpPorts: 'UDP порты',
+          detailsIcmp: 'ICMP',
+          detailsIcmpv6: 'ICMPv6',
+          detailsArpOpcode: 'ARP opcode',
+          unknown: '-'
+        },
+        en: {
+          home: 'Home',
+          start: 'Start',
+          stop: 'Stop',
+          clear: 'Clear',
+          autoscroll: 'Autoscroll',
+          displayFilter: 'Display Filter',
+          ipLabel: 'IP',
+          protocolLabel: 'Protocol',
+          maxRows: 'Max Rows',
+          serverLimit: 'Server Limit',
+          colNo: 'No.',
+          colTime: 'Time',
+          colSource: 'Source',
+          colDestination: 'Destination',
+          colProtocol: 'Protocol',
+          colLength: 'Length',
+          colInfo: 'Info',
+          detailsTitle: 'Packet Details',
+          bytesTitle: 'Packet Bytes',
+          lang: 'Language',
+          theme: 'Theme',
+          langRu: 'Russian',
+          langEn: 'English',
+          themeDark: 'Dark',
+          themeLight: 'Light',
+          counterFmt: 'Packets: {total} / Displayed: {shown}',
+          phDisplayFilter: 'icmp || 10.10.10.1 || arp request',
+          msgInit: 'Initialization...',
+          msgInvalidParams: 'Invalid capture parameters.',
+          msgNoMeta: 'Interface metadata is unavailable.',
+          msgConnecting: 'Connecting to capture stream...',
+          msgStreamOpened: 'Stream opened. Waiting for packets...',
+          msgNoTraffic: 'Stream is active, no traffic detected yet.',
+          msgStarted: 'Capture started.',
+          msgStoppedFmt: 'Capture finished. rc={rc}, packets={packets}',
+          msgStreamClosed: 'Capture stream closed.',
+          msgStreamStopped: 'Capture stopped.',
+          msgStreamError: 'Capture error.',
+          msgStreamUnavailable: 'Stream unavailable',
+          msgIfaceMissing: 'Host interface not found. Ensure the node is running.',
+          msgReady: 'Ready to start capture.',
+          msgMetaFail: 'Failed to load capture metadata.',
+          msgPickPacket: 'Select a packet from the table to see details.',
+          msgHexMissing: 'RAW bytes are unavailable for selected packet.\nThis is normal for some protocol/control frames.',
+          detailsFrame: 'Frame',
+          detailsTime: 'Time',
+          detailsSince: 'Time since start',
+          detailsSource: 'Source',
+          detailsDestination: 'Destination',
+          detailsProtocol: 'Protocol',
+          detailsLength: 'Length',
+          detailsInfo: 'Info',
+          detailsStack: 'Protocol stack',
+          detailsTcpPorts: 'TCP ports',
+          detailsUdpPorts: 'UDP ports',
+          detailsIcmp: 'ICMP',
+          detailsIcmpv6: 'ICMPv6',
+          detailsArpOpcode: 'ARP opcode',
+          unknown: '-'
+        }
+      };
+
+      const qs = new URLSearchParams(location.search);
+      const labId = String(qs.get('lab') || '').trim();
+      const attachmentId = String(qs.get('attachment') || '').trim();
+      api.meta = `/api/labs/${encodeURIComponent(labId)}/attachments/${encodeURIComponent(attachmentId)}/capture/meta`;
+      api.packets = `/api/labs/${encodeURIComponent(labId)}/attachments/${encodeURIComponent(attachmentId)}/capture/packets`;
+
+      const el = {
+        body: document.getElementById('pageBody'),
+        status: document.getElementById('captureStatus'),
+        rows: document.getElementById('pktRows'),
+        details: document.getElementById('pktDetails'),
+        hex: document.getElementById('pktHex'),
+        counters: document.getElementById('captureCounters'),
+        meta: document.getElementById('captureMeta'),
+        tableWrap: document.getElementById('pktTableWrap'),
+        start: document.getElementById('btnStart'),
+        stop: document.getElementById('btnStop'),
+        clear: document.getElementById('btnClear'),
+        fltText: document.getElementById('fltText'),
+        fltIp: document.getElementById('fltIp'),
+        fltProto: document.getElementById('fltProto'),
+        fltMaxRows: document.getElementById('fltMaxRows'),
+        fltLimit: document.getElementById('fltLimit'),
+        fltAutoscroll: document.getElementById('fltAutoscroll')
+      };
+
+      let lang = localStorage.getItem('eve_v2_lang') || 'ru';
+      let theme = localStorage.getItem('eve_v2_theme') || 'light';
+      let captureInfo = null;
+      let active = false;
+      let controller = null;
+      let packets = [];
+      let selectedSeq = null;
+      let renderQueued = false;
+      let pendingAutoScroll = false;
+      let displayCount = 0;
+      let gotAnyStreamEvent = false;
+      let refreshLangDd = function () {};
+      let refreshThemeDd = function () {};
+
+      const langOptions = [
+        { value: 'ru', labelKey: 'langRu' },
+        { value: 'en', labelKey: 'langEn' }
+      ];
+      const themeOptions = [
+        { value: 'dark', labelKey: 'themeDark' },
+        { value: 'light', labelKey: 'themeLight' }
+      ];
+
+      function tr(k) {
+        return (i18n[lang] || i18n.ru)[k] || k;
+      }
+
+      function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c];
+        });
+      }
+
+      function fmt(key, params) {
+        let text = String(tr(key) || '');
+        const p = params || {};
+        Object.keys(p).forEach(function (k) {
+          text = text.replace(new RegExp('\\{' + k + '\\}', 'g'), String(p[k]));
+        });
+        return text;
+      }
+
+      function closeAllDropdownPanels() {
+        document.querySelectorAll('.v2-dd-panel').forEach(function (x) {
+          x.classList.add('hidden');
+        });
+      }
+
+      function makeDropdown(root, options, getValue, setValue, getLabel) {
+        if (!root) return function () {};
+        root.classList.add('relative', 'min-w-0');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const panel = document.createElement('div');
+        panel.className = 'v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl';
+        root.innerHTML = '';
+        root.appendChild(btn);
+        root.appendChild(panel);
+
+        function repaint() {
+          const isLight = theme === 'light';
+          btn.className = isLight
+            ? 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 transition duration-200 hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between'
+            : 'w-full rounded-xl border border-white/20 bg-slate-900/70 px-3 py-2 text-left text-sm text-slate-100 transition duration-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none flex items-center justify-between';
+          panel.className = 'v2-dd-panel absolute z-50 mt-2 hidden w-full rounded-xl border p-1 shadow-2xl ' + (isLight
+            ? 'border-slate-200 bg-white'
+            : 'border-white/15 bg-slate-900/95');
+
+          const val = String(getValue());
+          const activeOption = options.find(function (o) { return String(o.value) === val; }) || options[0] || { value: '', label: '' };
+          const activeLabel = activeOption.label ? activeOption.label : tr(activeOption.labelKey || '');
+          const prefix = getLabel ? (getLabel() + ': ') : '';
+          btn.innerHTML = '<span>' + esc(prefix + activeLabel) + '</span><i class="fa fa-chevron-down text-xs ' + (isLight ? 'text-slate-500' : 'text-slate-400') + '"></i>';
+
+          panel.innerHTML = '';
+          options.forEach(function (opt) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            const isActive = String(opt.value) === val;
+            const label = opt.label ? opt.label : tr(opt.labelKey || '');
+            item.className = 'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm cursor-pointer transition ' +
+              (isLight ? 'text-slate-800 hover:bg-slate-100' : 'text-slate-100 hover:bg-white/10') +
+              (isActive ? (isLight ? ' bg-emerald-50 text-emerald-700' : ' bg-emerald-500/10 text-emerald-200') : '');
+            item.innerHTML = '<span>' + esc(label) + '</span><span class="' + (isActive ? 'opacity-100' : 'opacity-0') + ' text-emerald-500"><i class="fa fa-check"></i></span>';
+            item.addEventListener('click', async function () {
+              closeAllDropdownPanels();
+              await setValue(String(opt.value));
+              repaint();
+            });
+            panel.appendChild(item);
+          });
+        }
+
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const hidden = panel.classList.contains('hidden');
+          closeAllDropdownPanels();
+          if (hidden) panel.classList.remove('hidden');
+        });
+
+        document.addEventListener('click', function (e) {
+          if (!root.contains(e.target)) panel.classList.add('hidden');
+        });
+
+        repaint();
+        return repaint;
+      }
+
+      async function persistPrefs() {
+        try {
+          await fetch(api.prefs, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: lang, theme: theme })
+          });
+        } catch (_) {}
+      }
+
+      function applyTheme() {
+        el.body.className = 'h-screen overflow-hidden ' + (theme === 'light' ? 'theme-light' : 'theme-dark');
+        refreshLangDd();
+        refreshThemeDd();
+      }
+
+      function applyI18n() {
+        document.documentElement.lang = lang === 'ru' ? 'ru' : 'en';
+        document.querySelectorAll('[data-i18n]').forEach(function (node) {
+          const k = node.getAttribute('data-i18n');
+          if (k) node.textContent = tr(k);
+        });
+        el.fltText.placeholder = tr('phDisplayFilter');
+        updateCounters();
+        renderPacketDetails(findPacketBySeq(selectedSeq));
+        scheduleRender();
+      }
+
+      function setStatus(text, tone) {
+        const val = String(text || '');
+        el.status.textContent = val;
+        const base = 'mb-2 rounded-xl border px-3 py-1.5 text-xs';
+        if (tone === 'ok') {
+          el.status.className = base + ' border-emerald-300 bg-emerald-100 text-emerald-900';
+          return;
+        }
+        if (tone === 'error') {
+          el.status.className = base + ' border-rose-300 bg-rose-100 text-rose-900';
+          return;
+        }
+        el.status.className = base + ' border-slate-300 bg-slate-100 text-slate-800';
+      }
+
+      function parseIntSafe(value, fallback) {
+        const n = parseInt(String(value || ''), 10);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function updateCounters() {
+        el.counters.textContent = fmt('counterFmt', { total: packets.length, shown: displayCount });
+      }
+
+      function formatTime(epochText, relText) {
+        const epoch = Number.parseFloat(String(epochText || ''));
+        if (!Number.isFinite(epoch)) {
+          return String(relText || tr('unknown'));
+        }
+        const d = new Date(epoch * 1000);
+        const h = String(d.getHours()).padStart(2, '0');
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const s = String(d.getSeconds()).padStart(2, '0');
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        return h + ':' + m + ':' + s + '.' + ms;
+      }
+
+      function protoClass(proto) {
+        const key = String(proto || '').toLowerCase();
+        if (key.indexOf('icmpv6') !== -1) return 'proto-icmpv6';
+        if (key.indexOf('icmp') !== -1) return 'proto-icmp';
+        if (key.indexOf('arp') !== -1) return 'proto-arp';
+        if (key.indexOf('tcp') !== -1) return 'proto-tcp';
+        if (key.indexOf('udp') !== -1) return 'proto-udp';
+        if (key.indexOf('stp') !== -1) return 'proto-stp';
+        if (key.indexOf('lldp') !== -1) return 'proto-lldp';
+        if (key.indexOf('cdp') !== -1) return 'proto-cdp';
+        return '';
+      }
+
+      function rowText(p) {
+        return [
+          p.no, p.src, p.dst, p.proto, p.len, p.info, p.protocols,
+          p.tcp_src_port, p.tcp_dst_port, p.udp_src_port, p.udp_dst_port
+        ].join(' ').toLowerCase();
+      }
+
+      function matchesDisplayFilter(p) {
+        const needle = String((el.fltText && el.fltText.value) || '').trim().toLowerCase();
+        if (!needle) return true;
+        return rowText(p).indexOf(needle) !== -1;
+      }
+
+      function hexDump(hexText) {
+        const clean = String(hexText || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+        if (!clean) {
+          return tr('msgHexMissing');
+        }
+        const bytes = [];
+        for (let i = 0; i < clean.length; i += 2) {
+          bytes.push(clean.slice(i, i + 2).padEnd(2, '0'));
+        }
+        const lines = [];
+        for (let off = 0; off < bytes.length; off += 16) {
+          const chunk = bytes.slice(off, off + 16);
+          const left = chunk.slice(0, 8).join(' ');
+          const right = chunk.slice(8).join(' ');
+          let ascii = '';
+          for (let i = 0; i < chunk.length; i++) {
+            const code = parseInt(chunk[i], 16);
+            ascii += (code >= 32 && code <= 126) ? String.fromCharCode(code) : '.';
+          }
+          lines.push(off.toString(16).padStart(4, '0') + '  ' + left.padEnd(23, ' ') + '  ' + right.padEnd(23, ' ') + '  ' + ascii);
+        }
+        return lines.join('\n');
+      }
+
+      function renderPacketDetails(p) {
+        if (!p) {
+          el.details.textContent = tr('msgPickPacket');
+          el.hex.textContent = '';
+          return;
+        }
+        const lines = [];
+        lines.push(tr('detailsFrame') + ' ' + (p.no || tr('unknown')));
+        lines.push(tr('detailsTime') + ': ' + formatTime(p.time_epoch, p.time_relative) + ' (epoch ' + (p.time_epoch || tr('unknown')) + ')');
+        if (p.time_relative) lines.push(tr('detailsSince') + ': ' + p.time_relative + 's');
+        lines.push(tr('detailsSource') + ': ' + (p.src || tr('unknown')));
+        lines.push(tr('detailsDestination') + ': ' + (p.dst || tr('unknown')));
+        lines.push(tr('detailsProtocol') + ': ' + (p.proto || tr('unknown')));
+        lines.push(tr('detailsLength') + ': ' + (p.len || 0));
+        lines.push(tr('detailsInfo') + ': ' + (p.info || tr('unknown')));
+        if (p.protocols) lines.push(tr('detailsStack') + ': ' + p.protocols);
+        if (p.tcp_src_port || p.tcp_dst_port) lines.push(tr('detailsTcpPorts') + ': ' + (p.tcp_src_port || '-') + ' -> ' + (p.tcp_dst_port || '-'));
+        if (p.udp_src_port || p.udp_dst_port) lines.push(tr('detailsUdpPorts') + ': ' + (p.udp_src_port || '-') + ' -> ' + (p.udp_dst_port || '-'));
+        if (p.icmp_type || p.icmp_code) lines.push(tr('detailsIcmp') + ': type=' + (p.icmp_type || '-') + ' code=' + (p.icmp_code || '-'));
+        if (p.icmpv6_type || p.icmpv6_code) lines.push(tr('detailsIcmpv6') + ': type=' + (p.icmpv6_type || '-') + ' code=' + (p.icmpv6_code || '-'));
+        if (p.arp_opcode) lines.push(tr('detailsArpOpcode') + ': ' + p.arp_opcode);
+        el.details.textContent = lines.join('\n');
+        el.hex.textContent = hexDump(p.data_hex || '');
+      }
+
+      function findPacketBySeq(seq) {
+        if (seq == null) return null;
+        for (let i = packets.length - 1; i >= 0; i--) {
+          if (packets[i].seq === seq) return packets[i];
+        }
+        return null;
+      }
+
+      function selectPacket(seq) {
+        selectedSeq = seq;
+        renderPacketDetails(findPacketBySeq(seq));
+        scheduleRender();
+      }
+
+      function renderTable(allowAutoScroll) {
+        const fragment = document.createDocumentFragment();
+        displayCount = 0;
+        const textClass = theme === 'light' ? 'text-slate-700' : 'text-slate-200';
+        const strongClass = theme === 'light' ? 'font-semibold text-slate-700' : 'font-semibold text-slate-100';
+        const borderClass = theme === 'light' ? 'border-slate-100' : 'border-slate-700/60';
+
+        function addCell(row, text, extraClass) {
+          const td = document.createElement('td');
+          td.className = 'px-2 py-1 ' + (extraClass || textClass);
+          td.textContent = String(text || '');
+          row.appendChild(td);
+        }
+
+        for (let i = 0; i < packets.length; i++) {
+          const p = packets[i];
+          if (!matchesDisplayFilter(p)) continue;
+          displayCount++;
+          const trEl = document.createElement('tr');
+          trEl.className = 'cursor-pointer border-b ' + borderClass + ' ' + protoClass(p.proto) + ' ' + (selectedSeq === p.seq ? 'pkt-row-selected' : '');
+          trEl.addEventListener('click', function () { selectPacket(p.seq); });
+          addCell(trEl, p.no, textClass);
+          addCell(trEl, formatTime(p.time_epoch, p.time_relative), textClass);
+          addCell(trEl, p.src || '-', textClass);
+          addCell(trEl, p.dst || '-', textClass);
+          addCell(trEl, p.proto || '-', strongClass);
+          addCell(trEl, p.len || 0, textClass);
+          addCell(trEl, p.info || '', textClass);
+          fragment.appendChild(trEl);
+        }
+        el.rows.textContent = '';
+        el.rows.appendChild(fragment);
+        updateCounters();
+        if (allowAutoScroll && el.fltAutoscroll && el.fltAutoscroll.checked) {
+          el.tableWrap.scrollTop = el.tableWrap.scrollHeight;
+        }
+      }
+
+      function scheduleRender(allowAutoScroll) {
+        if (allowAutoScroll) {
+          pendingAutoScroll = true;
+        }
+        if (renderQueued) return;
+        renderQueued = true;
+        window.requestAnimationFrame(function () {
+          renderQueued = false;
+          const doAutoScroll = pendingAutoScroll;
+          pendingAutoScroll = false;
+          renderTable(doAutoScroll);
+        });
+      }
+
+      function applyRowCap() {
+        const cap = Math.max(100, Math.min(10000, parseIntSafe(el.fltMaxRows.value, 2000)));
+        el.fltMaxRows.value = String(cap);
+        if (packets.length <= cap) return;
+        packets = packets.slice(packets.length - cap);
+        if (!findPacketBySeq(selectedSeq)) {
+          selectedSeq = packets.length ? packets[packets.length - 1].seq : null;
+          renderPacketDetails(findPacketBySeq(selectedSeq));
+        }
+      }
+
+      function clearPackets() {
+        packets = [];
+        selectedSeq = null;
+        displayCount = 0;
+        el.rows.textContent = '';
+        renderPacketDetails(null);
+        updateCounters();
+      }
+
+      function handlePacket(packet) {
+        packets.push(packet);
+        applyRowCap();
+        if (selectedSeq == null) {
+          selectedSeq = packet.seq;
+          renderPacketDetails(packet);
+        } else if (selectedSeq === packet.seq) {
+          renderPacketDetails(packet);
+        }
+        scheduleRender(true);
+      }
+
+      function handleEvent(evt) {
+        if (!evt || typeof evt !== 'object') return;
+        gotAnyStreamEvent = true;
+        if (evt.type === 'packet') {
+          handlePacket(evt);
+          return;
+        }
+        if (evt.type === 'status' && evt.status === 'started') {
+          setStatus(tr('msgStarted'), 'ok');
+          return;
+        }
+        if (evt.type === 'status' && evt.status === 'stopped') {
+          setStatus(fmt('msgStoppedFmt', { rc: evt.rc || 0, packets: evt.packets || 0 }), 'info');
+          return;
+        }
+        if (evt.type === 'status' && evt.status === 'stderr') {
+          const msg = String(evt.message || '').trim();
+          if (!msg) return;
+          const lower = msg.toLowerCase();
+          if (lower.indexOf('error in input stream') !== -1) {
+            setStatus(tr('msgNoTraffic'), 'info');
+            return;
+          }
+          setStatus(msg, (lower.indexOf('permission denied') !== -1 || lower.indexOf('sudo:') !== -1) ? 'error' : 'info');
+        }
+      }
+
+      function handleNonJsonStreamLine(line) {
+        const text = String(line || '').trim();
+        if (!text) return;
+        const lower = text.toLowerCase();
+        if (lower.indexOf('error in input stream') !== -1) {
+          setStatus(tr('msgNoTraffic'), 'info');
+          return;
+        }
+        setStatus(text, (lower.indexOf('permission denied') !== -1 || lower.indexOf('sudo:') !== -1) ? 'error' : 'info');
+      }
+
+      function buildPacketsUrl() {
+        const streamUrl = new URL(api.packets, window.location.origin);
+        const ipVal = String((el.fltIp && el.fltIp.value) || '').trim();
+        const protoVal = String((el.fltProto && el.fltProto.value) || 'all').trim().toLowerCase();
+        const limitVal = Math.max(0, Math.min(500000, parseIntSafe(el.fltLimit.value, 0)));
+        el.fltLimit.value = String(limitVal);
+        if (ipVal) streamUrl.searchParams.set('host', ipVal);
+        if (protoVal && protoVal !== 'all') streamUrl.searchParams.set('proto', protoVal);
+        if (limitVal > 0) streamUrl.searchParams.set('limit', String(limitVal));
+        return streamUrl;
+      }
+
+      async function startCapture() {
+        if (active) return;
+        if (!captureInfo) {
+          setStatus(tr('msgNoMeta'), 'error');
+          return;
+        }
+
+        active = true;
+        gotAnyStreamEvent = false;
+        controller = new AbortController();
+        let connectWatchdog = null;
+        let connectTimedOut = false;
+        setStatus(tr('msgConnecting'), 'info');
+
+        try {
+          connectWatchdog = window.setTimeout(function () {
+            if (active && controller && !controller.signal.aborted) {
+              connectTimedOut = true;
+              controller.abort();
+            }
+          }, 15000);
+
+          const r = await fetch(buildPacketsUrl().toString(), {
+            method: 'GET',
+            credentials: 'include',
+            signal: controller.signal,
+            headers: { 'Accept': 'application/x-ndjson' }
+          });
+          if (connectWatchdog) {
+            window.clearTimeout(connectWatchdog);
+            connectWatchdog = null;
+          }
+          if (!r.ok) {
+            let msg = 'HTTP ' + r.status;
+            try {
+              const d = await r.json();
+              if (d && d.message) msg = String(d.message);
+            } catch (_) {}
+            throw new Error(msg);
+          }
+          if (!r.body) {
+            throw new Error(tr('msgStreamUnavailable'));
+          }
+
+          setStatus(tr('msgStreamOpened'), 'info');
+          window.setTimeout(function () {
+            if (active && !gotAnyStreamEvent) setStatus(tr('msgNoTraffic'), 'info');
+          }, 2500);
+
+          const reader = r.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let streamBuffer = '';
+
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            streamBuffer += decoder.decode(chunk.value, { stream: true });
+            let nlPos = streamBuffer.indexOf('\n');
+            while (nlPos !== -1) {
+              const line = streamBuffer.slice(0, nlPos).trim();
+              streamBuffer = streamBuffer.slice(nlPos + 1);
+              if (line) {
+                try {
+                  handleEvent(JSON.parse(line));
+                } catch (_) {
+                  handleNonJsonStreamLine(line);
+                }
+              }
+              nlPos = streamBuffer.indexOf('\n');
+            }
+          }
+
+          const tail = (streamBuffer + decoder.decode()).trim();
+          if (tail) {
+            try {
+              handleEvent(JSON.parse(tail));
+            } catch (_) {
+              handleNonJsonStreamLine(tail);
+            }
+          }
+
+          if (!controller || !controller.signal.aborted) setStatus(tr('msgStreamClosed'), 'info');
+        } catch (err) {
+          if (connectTimedOut) {
+            setStatus(tr('msgNoTraffic'), 'info');
+          } else if (controller && controller.signal.aborted) {
+            setStatus(tr('msgStreamStopped'), 'info');
+          } else {
+            setStatus((err && err.message) ? err.message : tr('msgStreamError'), 'error');
+          }
+        } finally {
+          if (connectWatchdog) {
+            window.clearTimeout(connectWatchdog);
+            connectWatchdog = null;
+          }
+          active = false;
+          controller = null;
+        }
+      }
+
+      function stopCapture() {
+        if (!active || !controller) return;
+        controller.abort();
+      }
+
+      async function jget(url, opts) {
+        const r = await fetch(url, Object.assign({ credentials: 'include' }, opts || {}));
+        const d = await r.json().catch(function () { return {}; });
+        if (!r.ok) throw new Error(String((d && d.message) || ('HTTP ' + r.status)));
+        return d;
+      }
+
+      async function loadMeta() {
+        const data = await jget(api.meta);
+        const info = data && data.data ? data.data : {};
+        captureInfo = info;
+        const nodeName = String(info.node_name || '');
+        const portName = String(info.port_name || '');
+        const iface = String(info.host_interface || '');
+        el.meta.textContent = nodeName + ' / ' + portName + ' / ' + iface;
+        document.title = 'Capture: ' + nodeName + ' ' + portName;
+        if (!info.interface_exists) {
+          setStatus(tr('msgIfaceMissing'), 'error');
+        } else {
+          setStatus(tr('msgReady'), 'ok');
+        }
+      }
+
+      if (!labId || !attachmentId) {
+        applyTheme();
+        applyI18n();
+        setStatus(tr('msgInvalidParams'), 'error');
+        return;
+      }
+
+      refreshLangDd = makeDropdown(
+        document.querySelector('[data-dd="lang"]'),
+        langOptions,
+        function () { return lang; },
+        async function (v) {
+          lang = v;
+          localStorage.setItem('eve_v2_lang', v);
+          applyI18n();
+          await persistPrefs();
+        },
+        null
+      );
+
+      refreshThemeDd = makeDropdown(
+        document.querySelector('[data-dd="theme"]'),
+        themeOptions,
+        function () { return theme; },
+        async function (v) {
+          theme = v;
+          localStorage.setItem('eve_v2_theme', v);
+          applyTheme();
+          await persistPrefs();
+        },
+        null
+      );
+
+      applyTheme();
+      applyI18n();
+      renderPacketDetails(null);
+      updateCounters();
+      setStatus(tr('msgInit'), 'info');
+
+      el.start.addEventListener('click', startCapture);
+      el.stop.addEventListener('click', stopCapture);
+      el.clear.addEventListener('click', clearPackets);
+      el.fltText.addEventListener('input', scheduleRender);
+      el.fltMaxRows.addEventListener('change', function () {
+        applyRowCap();
+        scheduleRender();
+      });
+      window.addEventListener('beforeunload', function () {
+        if (controller) controller.abort();
+      });
+
+      loadMeta().catch(function (err) {
+        setStatus((err && err.message) ? err.message : tr('msgMetaFail'), 'error');
+      });
+    })();
+  </script>
+</body>
+</html>
