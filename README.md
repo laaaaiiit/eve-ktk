@@ -24,22 +24,52 @@
 - `wrappers/` — обертки/утилиты совместимости.
 - `legacy/` — архив старой реализации (только для справки, не используется runtime v2).
 
-## Быстрый старт
+## Быстрый старт (Linux)
 
-1. Настройте переменные БД:
+Поддерживаемая платформа: Linux (рекомендуется Ubuntu/Debian с KVM).
+
+Код должен находиться в каталоге:
+- `/opt/unetlab`
+
+Источник кода:
+- GitHub репозиторий: `https://github.com/laaaaiiit/eve-ng-fork.git`
+
+1. Установите базовые зависимости:
+
+```bash
+apt update
+apt install -y git rsync curl tar php-cli python3 postgresql-client
+```
+
+2. Скачайте ПО и разместите в `/opt/unetlab`:
+
+```bash
+git clone https://github.com/laaaaiiit/eve-ng-fork.git /opt/unetlab
+```
+
+Если каталог уже существует и это git-копия:
+
+```bash
+cd /opt/unetlab
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+```
+
+3. Настройте переменные БД:
 
 ```bash
 cp /opt/unetlab/eve-web/.env.example /opt/unetlab/eve-web/.env
 ```
 
-2. Примените миграции:
+4. Примените миграции:
 
 ```bash
 cd /opt/unetlab/eve-web
 ./bin/apply_migrations.sh
 ```
 
-3. Проверьте синтаксис:
+5. Проверьте базово, что код читается:
 
 ```bash
 php -l /opt/unetlab/eve-web/public/index.php
@@ -78,4 +108,3 @@ python3 -m compileall /opt/unetlab/config_scripts
 - Каталоги `addons/` и `data/` в репозитории не хранятся (образы/рабочие данные).
 - Большие бинарные файлы и runtime-данные должны оставаться вне Git.
 - `legacy/` предназначен только для анализа старого кода.
-
