@@ -1,0 +1,111 @@
+<main class="min-h-screen theme-page flex items-center justify-center px-6 py-10 relative overflow-hidden transition-colors duration-300">
+  <div class="absolute inset-0 pointer-events-none">
+    <div class="absolute -left-28 -top-36 w-96 h-96 rounded-full login-aurora"></div>
+    <div class="absolute -right-16 top-4 w-80 h-80 rounded-full login-aurora rotate-6"></div>
+    <div class="absolute inset-0 opacity-25"
+         ng-class="themeClass('bg-gradient-to-br from-slate-950 via-slate-900 to-black','bg-gradient-to-br from-white via-slate-100 to-slate-50')"></div>
+  </div>
+
+  <div class="absolute top-6 right-6 flex flex-col sm:flex-row sm:items-center gap-4 z-10 w-[14rem] sm:w-auto glass-panel rounded-2xl px-4 py-3 backdrop-blur-lg">
+    <fancy-select class="w-full sm:w-48"
+                  options="languageOptions"
+                  model="lang"
+                  on-change="onLanguageChange(value)"
+                  theme-class="themeClass(darkClasses, lightClasses)"></fancy-select>
+    <fancy-select class="w-full sm:w-48"
+                  options="themeOptions"
+                  model="theme"
+                  on-change="onThemeChange(value)"
+                  theme-class="themeClass(darkClasses, lightClasses)"></fancy-select>
+  </div>
+
+  <div class="relative w-full max-w-6xl grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-stretch z-0">
+    <section class="relative theme-surface glass-panel rounded-3xl p-10 overflow-hidden transition-colors duration-300">
+      <div class="absolute -top-10 left-8 w-72 h-72 rounded-full login-aurora opacity-70"></div>
+      <div class="absolute -bottom-14 right-6 w-64 h-64 rounded-full bg-gradient-to-br from-emerald-400/18 via-blue-500/12 to-cyan-500/14 blur-3xl pointer-events-none"></div>
+      <div class="relative flex flex-col h-full justify-center gap-8">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <img src="/themes/adminLTE/unl_data/img/Logo_EVE_Color.png" alt="EVE-NG logo" class="w-48 lg:w-56 h-auto drop-shadow-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[0.75rem] uppercase tracking-[0.3em]"
+               ng-class="themeClass('border-white/10 bg-white/5 text-slate-100','border-slate-200 bg-white/70 text-slate-900')">
+            <span class="w-2 h-2 rounded-full" ng-class="themeClass('bg-indigo-300','bg-blue-500')"></span>
+            <span class="font-semibold" data-ng-bind="eveversion"></span>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <h1 class="text-4xl font-semibold theme-heading" data-ng-bind="t.brandTitle"></h1>
+          <p class="text-lg leading-relaxed theme-muted max-w-2xl" data-ng-bind="t.brandSubtitle"></p>
+        </div>
+        <ul class="grid gap-4 sm:grid-cols-2">
+          <li class="theme-subtle-surface rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm">
+            <span class="feature-icon"
+                  ng-class="themeClass('feature-icon-dark text-indigo-100','feature-icon-light text-blue-600')">
+              <i class="fa fa-bolt text-lg"></i>
+            </span>
+            <span class="theme-heading leading-snug" data-ng-bind="t.brandBulletOne"></span>
+          </li>
+          <li class="theme-subtle-surface rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm">
+            <span class="feature-icon"
+                  ng-class="themeClass('feature-icon-dark text-emerald-100','feature-icon-light text-emerald-600')">
+              <i class="fa fa-cloud text-lg"></i>
+            </span>
+            <span class="theme-heading leading-snug" data-ng-bind="t.brandBulletTwo"></span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="relative theme-surface glass-panel rounded-3xl shadow-2xl p-10 flex flex-col gap-6 transition-colors duration-300 overflow-hidden">
+      <div class="absolute -right-10 -top-10 w-44 h-44 rounded-full login-aurora opacity-70"></div>
+      <div class="absolute inset-x-0 top-0 h-px"
+           ng-class="themeClass('bg-gradient-to-r from-transparent via-white/20 to-transparent','bg-gradient-to-r from-transparent via-slate-200 to-transparent')"></div>
+      <div class="relative flex flex-col gap-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.cardTitle"></h2>
+            <p class="theme-muted" data-ng-bind="t.cardSubtitle"></p>
+          </div>
+        </div>
+      </div>
+
+      <form class="relative flex flex-col gap-5" ng-submit="tryLogin()" novalidate>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.usernameLabel"></label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 theme-muted"><i class="fa fa-user"></i></span>
+            <input type="text"
+                   class="theme-input pl-10"
+                   placeholder="{{t.usernamePlaceholder}}"
+                   ng-model="username"
+                   autofocus>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.passwordLabel"></label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 theme-muted"><i class="fa fa-lock"></i></span>
+            <input type="password"
+                   class="theme-input pl-10"
+                   placeholder="{{t.passwordPlaceholder}}"
+                   ng-model="password">
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.consoleLabel"></label>
+          <fancy-select options="consoleOptions"
+                        model="html5"
+                        on-change="onConsoleChange(value)"
+                        theme-class="themeClass(darkClasses, lightClasses)"></fancy-select>
+        </div>
+        <button id="btnlogin"
+                type="submit"
+                class="accent-button"
+                data-ng-bind="t.submitButton">
+        </button>
+      </form>
+      <p class="theme-muted text-sm" data-ng-bind="t.hintText"></p>
+      <p class="text-sm min-h-[20px]" data-ng-bind="loginMessageInfo" role="alert" aria-live="polite"
+         ng-class="themeClass('text-rose-300','text-rose-500')"></p>
+    </section>
+  </div>
+</main>

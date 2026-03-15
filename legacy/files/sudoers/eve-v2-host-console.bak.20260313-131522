@@ -1,0 +1,17 @@
+# Allow web app to start host-console worker as root without password.
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/run_host_console_session.php --session=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/run_host_console_session.php --session=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_upload_finalize.php --tmp=* --dest=* --overwrite=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_upload_finalize.php --tmp=* --dest=* --overwrite=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_list_files.php --path=* --limit=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_list_files.php --path=* --limit=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_stream_download.php --path=* --meta=1
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_stream_download.php --path=* --meta=1
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_stream_download.php --path=* --offset=* --length=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_stream_download.php --path=* --offset=* --length=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_stream_capture.php --if=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_stream_capture.php --if=*
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_stream_capture.php *
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_stream_capture.php *
+www-data ALL=(root) NOPASSWD: /usr/bin/php /opt/unetlab/eve-ng-new-web/bin/host_stream_capture_packets.php *
+www-data ALL=(root) NOPASSWD: /usr/bin/php8.2 /opt/unetlab/eve-ng-new-web/bin/host_stream_capture_packets.php *

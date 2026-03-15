@@ -1,0 +1,11 @@
+[Unit]
+Description=Guacamole guacd watchdog
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/guacd_watchdog.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

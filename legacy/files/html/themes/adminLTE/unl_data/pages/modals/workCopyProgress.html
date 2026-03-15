@@ -1,0 +1,36 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 theme-modal-backdrop"></div>
+  <div class="relative w-full max-w-lg rounded-3xl border p-6 space-y-5"
+       ng-class="themeClass('border-white/10 bg-slate-950/80 text-slate-100','border-slate-200 bg-white text-slate-900')">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center"
+           ng-class="themeClass('bg-amber-500/20 text-amber-200','bg-amber-100 text-amber-600')">
+        <i class="fa fa-files-o" aria-hidden="true"></i>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] theme-muted" data-ng-bind="t.workCopyTitle"></p>
+        <p class="text-sm theme-muted" data-ng-bind="t.workCopySubtitle"></p>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="flex items-center justify-between text-sm">
+        <span class="font-semibold" data-ng-bind="t.workCopyProgressLabel"></span>
+        <span class="font-mono">{{workCopyProgress || 0}}%</span>
+      </div>
+      <div class="h-2 rounded-full overflow-hidden"
+           ng-class="themeClass('bg-white/10','bg-slate-200')">
+        <div class="h-full transition-all duration-300"
+             ng-class="themeClass('bg-amber-400','bg-amber-500')"
+             ng-style="{'width': (workCopyProgress || 0) + '%'}"></div>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="uppercase tracking-[0.3em] theme-muted" data-ng-bind="t.workCopyEtaLabel"></span>
+        <span class="font-mono" data-ng-bind="workCopyEta"></span>
+      </div>
+      <div class="text-xs"
+           ng-class="themeClass('text-slate-300','text-slate-600')"
+           data-ng-bind="workCopyStatus"></div>
+    </div>
+  </div>
+</div>

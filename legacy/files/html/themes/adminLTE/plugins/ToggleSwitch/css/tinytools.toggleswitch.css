@@ -1,0 +1,115 @@
+.TinyTools.ToggleSwitch {
+    border: 1px solid transparent;
+    border-radius: 12px;
+    box-shadow: none;
+    font-size: 12px;
+    height: 32px;
+    width: 72px;
+    background: linear-gradient(120deg, #23314d, #1a2343);
+    position: relative;
+    padding: 2px;
+    box-sizing: border-box;
+
+	display: inline-block;
+	font-size: 11px;
+	font-weight: bold;
+	border: 1px solid #888;
+	border-radius: 3px;
+	overflow: hidden;
+	color: #eee;
+	position: relative;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	cursor: pointer;
+}
+
+	.TinyTools.ToggleSwitch .NubWrapper {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    -moz-transition: opacity 1s;
+    -o-transition: opacity 1s;
+    -webkit-transition: opacity 1s;
+    transition: opacity 1s;
+	}
+
+    .TinyTools.ToggleSwitch .NubWrapper.Disabled {
+    	opacity: .5;
+    }
+
+    .TinyTools.ToggleSwitch .NubWrapper > * {
+    	-moz-transition: left .5s ease-in-out, right .5s ease-in-out;
+    	-o-transition: left .5s ease-in-out, right .5s ease-in-out;
+    	-webkit-transition: left .5s ease-in-out, right .5s ease-in-out;
+    	transition: left .5s ease-in-out, right .5s ease-in-out;
+    }
+
+    .TinyTools.ToggleSwitch .NubWrapper .OnSide,
+    .TinyTools.ToggleSwitch .NubWrapper .OffSide,
+    .TinyTools.ToggleSwitch .NubWrapper .Nub {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    width: 28px;
+    height: 28px;
+    margin: 2px;
+
+    	display: table;
+    	vertical-align: middle;
+    	width: 50%;
+    	height: 100%;
+    	text-align: center;
+    	position: absolute;
+    	top: 0;
+    }
+
+.TinyTools.ToggleSwitch .NubWrapper .OnSide {
+    background: linear-gradient(120deg, #34d399, #22d3ee);
+    color: #0b1224;
+
+    	right: -50%;
+    	
+    	
+    	
+    	
+    	
+    }
+
+	.TinyTools.ToggleSwitch .NubWrapper .OffSide {
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+
+left: 0;
+    }
+
+    	.TinyTools.ToggleSwitch .NubWrapper .OnSide span,
+    	.TinyTools.ToggleSwitch .NubWrapper .OffSide span {
+        display: table-cell;
+        vertical-align: middle;
+    	}
+
+    .TinyTools.ToggleSwitch .NubWrapper .Nub {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    width: 28px;
+    height: 28px;
+    margin: 2px;
+
+left: 50%;
+    }
+
+    .TinyTools.ToggleSwitch .NubWrapper.Checked .OnSide {
+    	right: 0;
+    }
+
+    .TinyTools.ToggleSwitch .NubWrapper.Checked .OffSide {
+    	left: -50%;
+    }
+
+    .TinyTools.ToggleSwitch .NubWrapper.Checked .Nub {
+    	left: 0;
+    }

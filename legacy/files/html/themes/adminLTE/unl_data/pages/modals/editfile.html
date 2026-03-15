@@ -1,0 +1,126 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-5xl rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-slate-100 shadow-2xl">
+    <div class="flex items-start justify-between gap-4 border-b border-white/10 px-8 py-6">
+      <div>
+        <p class="text-xs uppercase tracking-[0.4em] text-blue-200/80">Workspace</p>
+        <h3 class="text-2xl font-semibold text-white">Edit lab</h3>
+        <p class="text-sm text-slate-300">Update metadata, sharing controls, or descriptions for the selected topology.</p>
+      </div>
+      <button type="button" class="text-slate-400 hover:text-white transition text-2xl leading-none cursor-pointer" ng-click="closeModal()">&times;</button>
+    </div>
+
+    <div class="px-8 py-6">
+      <form id="form-lab-edit" name="formLabEdit" class="space-y-6">
+        <div class="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Path</label>
+              <input class="w-full rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-white opacity-70"
+                     name="path"
+                     ng-model="fullPathToFile"
+                     disabled>
+            </div>
+
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Name</label>
+              <input class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                     name="name"
+                     ng-model="labName"
+                     ng-pattern="restrictNumber"
+                     required>
+              <p class="text-xs mt-1" ng-class="formLabEdit.name.$valid ? 'text-slate-500' : 'text-rose-400'">Use only letters, numbers, or hyphen.</p>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Version</label>
+                <input class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                       name="version"
+                       ng-model="version"
+                       ng-pattern="restrictTest">
+                <p class="text-xs mt-1" ng-class="formLabEdit.version.$valid ? 'text-slate-500' : 'text-rose-400'">Must be numeric.</p>
+              </div>
+              <div>
+                <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Script timeout (sec)</label>
+                <input class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                       name="scripttimeout"
+                       ng-model="scripttimeout">
+              </div>
+            </div>
+
+            <div ng-if="role === 'admin'">
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Author</label>
+              <input class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                     name="author"
+                     ng-model="author">
+            </div>
+
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Description</label>
+              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        name="description"
+                        ng-model="description"></textarea>
+            </div>
+            <div>
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Tasks</label>
+              <textarea class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white min-h-[8rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        name="body"
+                        ng-model="body"></textarea>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="space-y-3">
+              <label class="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 cursor-pointer select-none">
+                <div>
+                  <p class="text-sm font-semibold text-white">Shared lab</p>
+                  <span class="text-xs text-slate-400">Allow other users to view this lab.</span>
+                </div>
+                <span class="relative inline-flex items-center">
+                  <input type="checkbox" class="sr-only peer" ng-model="shared">
+                  <span class="w-16 h-8 rounded-full border border-white/10 bg-slate-700/70 transition-colors duration-300 peer-checked:bg-emerald-500/80"></span>
+                  <span class="absolute left-1 top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform duration-300 peer-checked:translate-x-8"></span>
+                </span>
+              </label>
+              <label class="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 cursor-pointer select-none">
+                <div>
+                  <p class="text-sm font-semibold text-white">Collaborative work</p>
+                  <span class="text-xs text-slate-400">Allow selected users to collaborate on the lab.</span>
+                </div>
+                <span class="relative inline-flex items-center">
+                  <input type="checkbox" class="sr-only peer" ng-model="collaborateAllowed">
+                  <span class="w-16 h-8 rounded-full border border-white/10 bg-slate-700/70 transition-colors duration-300 peer-checked:bg-emerald-500/80"></span>
+                  <span class="absolute left-1 top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform duration-300 peer-checked:translate-x-8"></span>
+                </span>
+              </label>
+            </div>
+
+            <div ng-show="shared">
+              <label class="text-xs uppercase tracking-[0.3em] text-slate-400">Shared with (comma separated)</label>
+              <input class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                     name="sharedWith"
+                     ng-model="sharedWith"
+                     placeholder="user1,user2">
+            </div>
+
+            <p class="text-xs text-slate-400"><span class="text-rose-300">*</span> Required fields</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+          <button type="button"
+                  class="rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 hover:bg-white/10 transition cursor-pointer"
+                  ng-click="closeModal()">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-lg hover:shadow-2xl transition cursor-pointer"
+                  ng-click="editLab()">
+            Save changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

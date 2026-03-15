@@ -1,0 +1,106 @@
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
+
+<main class="min-h-screen theme-page transition-colors duration-300">
+  <section class="max-w-6xl mx-auto w-full px-6 py-12 flex flex-col gap-10" ng-if="!roleResolved || role === 'admin'">
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+      <div class="space-y-3">
+        <p class="text-xs uppercase theme-muted" data-ng-bind="t.heroEyebrow"></p>
+        <h1 class="text-4xl font-semibold theme-heading" data-ng-bind="t.heroTitle"></h1>
+        <p class="theme-muted text-lg leading-relaxed" data-ng-bind="t.heroDescription"></p>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-wrap gap-3">
+          <div class="px-4 py-3 rounded-2xl text-sm uppercase flex items-center gap-3 theme-subtle-surface">
+            <span class="theme-muted">{{t.fileCountLabel}}</span>
+            <strong class="text-base tracking-normal theme-heading">{{fileList.length || 0}}</strong>
+          </div>
+          <div class="px-4 py-3 rounded-2xl text-sm uppercase flex items-center gap-3 theme-subtle-surface">
+            <span class="theme-muted">/opt/unetlab/data/Logs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-8 space-y-6 transition-colors duration-300">
+      <div class="grid gap-6 md:grid-cols-3">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.filterFileLabel"></label>
+          <div class="relative" ng-if="filesReady">
+            <select class="theme-select"
+                    data-ng-model="state.selectedFile"
+                    data-ng-options="file as file.name for file in fileList track by file.name"
+                    data-ng-change="onFileSelectionChange(state.selectedFile)"
+                    data-ng-disabled="filesLoading"
+                    data-ng-init="state.selectedFile = state.selectedFile || (fileList[0])"></select>
+            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center" ng-class="themeClass('text-slate-500','text-slate-500')"><i class="fa fa-chevron-down"></i></span>
+          </div>
+          <div class="text-xs theme-muted" ng-if="!filesReady">{{t.choosePrompt}}</div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.filterLinesLabel"></label>
+          <input type="number"
+                 class="theme-input"
+                 id="log_lines"
+                 placeholder="{{t.placeholderLines}}"
+                 data-ng-model="state.lineCount"
+                 data-ng-change="onLineCountChange(state.lineCount)"
+                 min="1" max="5000">
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs uppercase theme-muted" data-ng-bind="t.filterSearchLabel"></label>
+          <input type="text"
+                 class="theme-input"
+                 id="log_search"
+                 placeholder="{{t.placeholderSearch}}"
+                 data-ng-model="state.searchText"
+                 data-ng-change="onSearchChange(state.searchText)">
+        </div>
+      </div>
+      <p class="text-xs theme-muted">
+        {{t.updatedLabel}}: {{(currentMeta && currentMeta.modified) || '—'}}<br>
+        {{t.bytesLabel}}: {{formatKb(currentMeta && currentMeta.size)}}
+      </p>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-8 space-y-6 transition-colors duration-300">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <p class="text-2xl font-semibold theme-heading" data-ng-bind="t.outputTitle"></p>
+          <small class="theme-muted">{{fileselect ? (state.selectedFile && state.selectedFile.name) : t.choosePrompt}}</small>
+        </div>
+        <span class="px-4 py-2 rounded-full text-sm uppercase border"
+              ng-class="themeClass('bg-white/10 border-white/10 text-slate-100','bg-white border-slate-300 text-slate-800')">{{logInfo.length}} {{t.linesSuffix}}</span>
+      </div>
+      <div class="rounded-2xl border min-h-[320px] max-h-[540px] overflow-auto p-6 space-y-3 eve-scroll transition-colors duration-300"
+           ng-class="themeClass('border-white/10 bg-slate-950/60','border-slate-200 bg-white')"
+           data-ng-class="{'opacity-60': logInfo.length == 0}">
+        <h4 class="text-center theme-muted" data-ng-show="!fileselect" data-ng-bind="t.choosePrompt"></h4>
+        <h4 class="text-center theme-muted" data-ng-show="logInfo.length == 0 && fileselect" data-ng-bind="t.emptyPrompt"></h4>
+        <pre class="text-sm font-mono whitespace-pre-wrap break-words border rounded-xl px-4 py-2 transition-colors duration-300"
+             ng-class="themeClass('text-slate-100 border-white/5 bg-slate-900/70','text-slate-800 border-slate-200 bg-slate-100')"
+             data-ng-repeat="x in logInfo track by $index">{{x}}</pre>
+      </div>
+    </div>
+
+    <div class="theme-surface rounded-3xl shadow-2xl p-8 space-y-6 transition-colors duration-300">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <p class="text-xl font-semibold theme-heading">{{t.fileCountLabel}}: {{fileList.length || 0}}</p>
+        <span class="text-sm theme-muted">/opt/unetlab/data/Logs</span>
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="border rounded-2xl p-4 flex flex-col gap-2 transition-colors duration-300"
+             ng-class="themeClass('border-white/10 bg-white/5','border-slate-200 bg-white')"
+             data-ng-repeat="file in fileList track by file.name">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold theme-heading">{{file.name}}</p>
+            <span class="text-xs uppercase px-3 py-1 rounded-full"
+                  ng-class="themeClass('bg-white/10 text-slate-100','bg-slate-100 text-slate-800')">{{formatKb(file.size)}} {{t.bytesLabel}}</span>
+          </div>
+          <p class="text-sm theme-muted">{{t.updatedLabel}}: {{file.modified || '—'}}</p>
+        </div>
+        <p class="text-sm theme-muted" data-ng-if="!fileList.length">{{t.choosePrompt}}</p>
+      </div>
+    </div>
+  </section>
+
+</main>

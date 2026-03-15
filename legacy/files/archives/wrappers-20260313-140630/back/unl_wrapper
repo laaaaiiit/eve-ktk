@@ -1,0 +1,4 @@
+#!/usr/bin/php
+<?php
+fwrite(STDERR, "[legacy-disabled] wrappers/back/unl_wrapper is deprecated and disabled.\n");
+exit(1);

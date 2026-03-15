@@ -1,0 +1,332 @@
+<div data-ng-include="'/themes/adminLTE/unl_data/pages/constant/header.html'" data-ng-controller="HeaderController"></div>
+
+<main class="min-h-screen theme-page transition-colors duration-300">
+  <section class="max-w-[95rem] mx-auto w-full px-4 lg:px-8 py-10 space-y-10">
+    <div class="space-y-6">
+      <div class="flex flex-col gap-3">
+        <p class="text-sm uppercase theme-muted" data-ng-bind="t.heroEyebrow"></p>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="space-y-3">
+            <h1 class="text-3xl lg:text-4xl font-semibold theme-heading" data-ng-bind="t.heroTitle"></h1>
+            <p class="theme-muted text-lg" data-ng-bind="t.heroDescription"></p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button"
+                    class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 text-white font-semibold uppercase shadow-xl hover:shadow-2xl transition text-sm border border-white/20 cursor-pointer"
+                    data-ng-click="openModal('addfile', null,'megalg');">
+              <i class="fa fa-file mr-2"></i><span data-ng-bind="t.newLabButton"></span>
+            </button>
+            <button type="button"
+                    class="px-6 py-3 rounded-2xl text-sm uppercase cursor-pointer transition border"
+                    ng-class="themeClass('border-white/20 text-slate-100 bg-white/5 hover:bg-white/15','border-slate-200 text-slate-800 bg-white hover:bg-slate-100')"
+                    data-ng-click="fileMngDraw(path); falseForSelAll();">
+              <i class="fa fa-refresh mr-2"></i><span data-ng-bind="t.refreshButton"></span>
+            </button>
+          </div>
+        </div>
+          </div>    </div>
+
+    <input id="oneFileUploadInput"
+           type="file"
+           class="hidden"
+           multiple
+           accept=".unl,.zip,.tgz"
+           nv-file-select=""
+           uploader="uploader"
+           data-ng-init="fileNameChanged()">
+
+    <div class="grid gap-8 lg:grid-cols-2">
+            <section class="space-y-6 card-glow">
+              <div class="h-full rounded-3xl theme-surface shadow-2xl p-6 space-y-4 transition-colors duration-300">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="space-y-0">
+                    <h2 class="text-2xl font-semibold theme-heading" data-ng-bind="t.labsCardTitle"></h2>
+                    <p class="theme-muted text-sm" data-ng-bind="t.labsCardSubtitle"></p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                  </div>
+                </div>
+      
+                <div data-ng-if="role === 'admin' || role === 'editor'" class="flex-1 space-y-1">
+                    <label class="text-sm uppercase theme-muted" data-ng-bind="t.newFolderLabel"></label>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input type="text"
+                             class="flex-1 theme-input"
+                             data-ng-attr-placeholder="{{t.newFolderPlaceholder}}"
+                             data-ng-model="folderData.newElementName"
+                             my-enter="createNewElement('Folder')"
+                             focus-on="foCreate">
+                      <button type="button"
+                              class="px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm uppercase shadow-lg hover:shadow-2xl transition {{blockButtonsClass}} border border-white/20 cursor-pointer"
+                              ng-disabled="blockButtons"
+                              data-ng-click="createNewElement('Folder')">
+                        <i class="fa fa-folder-open mr-2"></i><span data-ng-bind="t.createButton"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-1 justify-center">
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-white/15 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
+                            data-ng-attr-title="{{t.toolbarSelectTitle}}"
+                            data-ng-click="selectAll()"
+                            data-ng-show="!allCheckedFlag">
+                      <i class="fa fa-square-o mr-2"></i><span data-ng-bind="t.toolbarSelect"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-white/15 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
+                            data-ng-attr-title="{{t.toolbarClearTitle}}"
+                            data-ng-click="selectAll()"
+                            data-ng-show="allCheckedFlag">
+                      <i class="fa fa-check-square-o mr-2"></i><span data-ng-bind="t.toolbarClear"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-white/15 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
+                            data-ng-attr-title="{{t.toolbarMoveTitle}}"
+                            data-ng-click="moveto()"
+                            ng-disabled="!selectedItemsCanBeModified()">
+                      <i class="fa fa-scissors mr-2"></i><span data-ng-bind="t.toolbarMove"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-rose-500/50 text-rose-200 hover:bg-rose-500/10','border-rose-300 text-rose-600 hover:bg-rose-100')"
+                            data-ng-attr-title="{{t.toolbarDeleteTitle}}"
+                            data-ng-click="deleteALLElement(); hideAllEdit()"
+                            ng-disabled="!selectedItemsCanBeDeleted()">
+                      <i class="fa fa-trash mr-2"></i><span data-ng-bind="t.toolbarDelete"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-white/15 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
+                            data-ng-attr-title="{{t.toolbarImportTitle}}"
+                            data-ng-click="selectOneFileUplad(); falseForSelAll();">
+                      <i class="fa fa-download mr-2"></i><span data-ng-bind="t.toolbarImport"></span>
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2 rounded-xl border text-sm uppercase transition cursor-pointer"
+                            ng-class="themeClass('border-white/15 text-slate-100 hover:bg-white/10','border-slate-200 text-slate-800 hover:bg-slate-100')"
+                            data-ng-attr-title="{{t.toolbarExportTitle}}"
+                            data-ng-click="exportFiles()">
+                      <i class="fa fa-upload mr-2"></i><span data-ng-bind="t.toolbarExport"></span>
+                    </button>
+                  </div>
+
+                  <div class="pt-2">
+                    <p class="text-sm uppercase theme-muted">
+                      <span data-ng-bind="t.pathLabel"></span>
+                      <span class="ml-2 font-mono theme-heading break-all">{{path}}</span>
+                    </p>
+                  </div>
+
+                <div ng-show="loading" class="text-center py-4">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                </div>
+      
+                <div ng-if="showTable" ng-show="!loading" class="rounded-2xl border shadow-inner overflow-hidden transition-colors duration-300"
+                     ng-class="themeClass('border-white/10 bg-slate-950/50','border-slate-200 bg-white')">
+                  <table class="w-full text-base text-left">
+                    <thead class="text-sm uppercase theme-table-head">
+                      <tr>
+                        <th class="px-4 py-3 w-12"></th>
+                        <th class="px-4 py-3 cursor-pointer" ng-click="setOrder('name')">
+                          <span data-ng-bind="t.treeColumnName"></span>
+                          <i class="fa" ng-class="{'fa-sort-asc': fileOrder === 'name' && !reverseSort, 'fa-sort-desc': fileOrder === 'name' && reverseSort}"></i>
+                        </th>
+                        <th class="px-4 py-3 w-40 text-right cursor-pointer" ng-click="setOrder('umtime')">
+                          <span data-ng-bind="t.treeColumnUpdated"></span>
+                          <i class="fa" ng-class="{'fa-sort-asc': fileOrder === 'umtime' && !reverseSort, 'fa-sort-desc': fileOrder === 'umtime' && reverseSort}"></i>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y text-slate-100" ng-class="themeClass('divide-white/5','divide-slate-200 text-slate-800')" data-ng-if="rootDir">
+                      <tr data-ng-repeat="x in rootDir.folders | orderBy:'name':reverseSort track by x.path"
+                          ng-class="{'bg-white/5': checkboxArray['Fo_'+x.name] && checkboxArray['Fo_'+x.name].checked}"
+                          class="hover:bg-white/5 transition"
+                          data-ng-init="fileManagerItem['Fo_'+x.name] = fileManagerItem['Fo_'+x.name] || { visibleEdit:false, type:'Folder', oldvalue:x.name, value:x.name, img:false }; checkboxArray['Fo_'+x.name] = checkboxArray['Fo_'+x.name] || { name:x.name, checked:false, type:'Folder', author:x.author, path:x.path }">
+                        <td class="px-4 py-3 align-top">
+                          <div class="flex items-center justify-center" data-ng-if="x.name != '..'">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                              <input type="checkbox"
+                                     class="sr-only"
+                                     data-ng-model="checkboxArray['Fo_'+x.name].checked"
+                                     data-ng-click="falseForSelAll(); hideAllEdit(); $event.stopPropagation();">
+                              <span class="h-5 w-5 rounded-lg flex items-center justify-center flex-shrink-0 leading-none transition border bg-slate-900/70"
+                                    ng-class="[themeClass('border-white/20 bg-slate-900/70 text-slate-100','border-slate-300 bg-white text-slate-800'), {'bg-emerald-500/60 border-emerald-300 text-white': checkboxArray['Fo_'+x.name].checked}]">
+                                <i class="fa fa-check text-sm" ng-class="themeClass('text-white','text-slate-900')" data-ng-show="checkboxArray['Fo_'+x.name].checked"></i>
+                              </span>
+                            </label>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="flex flex-col gap-2">
+                            <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fo_'+x.name].visibleEdit">
+                              <div class="flex flex-col gap-1">
+                                <button type="button"
+                                        class="text-left font-semibold transition cursor-pointer"
+                                        ng-class="themeClass('text-white hover:text-blue-200','text-slate-900 hover:text-blue-700')"
+                                        data-ng-click="fileMngDraw(x.path, x.name); $event.stopPropagation();">
+                                  <i class="fa fa-folder mr-2 text-amber-300"></i>
+                                  <span data-ng-if="x.name !== '..'">{{x.name}}</span>
+                                  <span data-ng-if="x.name === '..'">{{t.treeParentLabel || '..'}}</span>
+                                </button>
+                              </div>
+                              <div class="flex items-center gap-2" data-ng-if="x.name != '..' && (!isSharedPath(x.path) || role === 'admin')">
+                                <button type="button"
+                                        class="px-2 py-1 rounded-full text-xs cursor-pointer transition"
+                                        ng-class="themeClass('text-slate-300 hover:text-white hover:bg-white/10','text-slate-500 hover:text-slate-800 hover:bg-slate-100')"
+                                        data-ng-click="openRename(fileManagerItem['Fo_'+x.name], $event)">
+                                  <i class="fa fa-pencil"></i>
+                                </button>
+                              </div>
+                            </div>
+                            <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fo_'+x.name].visibleEdit">
+                              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <input type="text"
+                                      class="flex-1 theme-input"
+                                      data-ng-model="fileManagerItem['Fo_'+x.name].value"
+                                      data-ng-attr-maxlength="40"
+                                      focus-on="{{'Fo_'+x.name}}"
+                                      my-enter="editElementApply(fileManagerItem['Fo_'+x.name])">
+                                <div class="flex gap-2">
+                                  <button type="button"
+                                          class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase cursor-pointer"
+                                          data-ng-click="editElementApply(fileManagerItem['Fo_'+x.name])">
+                                    <span data-ng-bind="t.actionApply"></span>
+                                  </button>
+                                  <button type="button"
+                                          class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase cursor-pointer"
+                                          data-ng-click="hideAllEdit()">
+                                    <span data-ng-bind="t.deleteDialogCancel"></span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
+                      </tr>
+      
+                      <tr data-ng-repeat="x in rootDir.labs | orderBy:fileOrder:reverseSort track by x.path"
+                          ng-class="{'bg-white/5': checkboxArray['Fi_'+x.file] && checkboxArray['Fi_'+x.file].checked, 'bg-white/10': selectedLab === x.file}"
+                          class="hover:bg-white/5 transition"
+                          data-ng-init="fileManagerItem['Fi_'+x.file] = fileManagerItem['Fi_'+x.file] || { visibleEdit:false, type:'File', oldvalue:x.file, value:x.file, img:false }; checkboxArray['Fi_'+x.file] = checkboxArray['Fi_'+x.file] || { name:x.file, checked:false, type:'File', author:x.author, path:x.path }">
+                        <td class="px-4 py-3 align-top">
+                          <div class="flex items-center justify-center">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                              <input type="checkbox"
+                                     class="sr-only"
+                                     data-ng-model="checkboxArray['Fi_'+x.file].checked"
+                                     data-ng-click="falseForSelAll(); hideAllEdit(); $event.stopPropagation();">
+                              <span class="h-5 w-5 rounded-lg flex items-center justify-center flex-shrink-0 leading-none transition border bg-slate-900/70"
+                                    ng-class="[themeClass('border-white/20 bg-slate-900/70 text-slate-100','border-slate-300 bg-white text-slate-800'), {'bg-emerald-500/60 border-emerald-300 text-white': checkboxArray['Fi_'+x.file].checked}]">
+                                  <i class="fa fa-check text-sm" ng-class="themeClass('text-white','text-slate-900')" data-ng-show="checkboxArray['Fi_'+x.file].checked"></i>
+                                </span>
+                              </label>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 space-y-2">
+                          <div class="flex items-start justify-between gap-3" data-ng-if="!fileManagerItem['Fi_'+x.file].visibleEdit">
+                              <div class="space-y-1">
+                              <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex items-center gap-1">
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-emerald-400/80','bg-emerald-500/80')" title="{{t.previewCollaborateButton}}" data-ng-if="x.collaborateAllowed"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')" title="{{t.legendShared}}" data-ng-if="x.shared || x.isMirror"></span>
+                                  <span class="inline-block w-1.5 h-6 rounded-full" ng-class="themeClass('bg-amber-400/80','bg-amber-500/80')" title="{{t.startWorkButton}}" data-ng-if="x.workExists"></span>
+                                </div>
+                                <span class="font-semibold cursor-pointer"
+                                      ng-class="themeClass('text-white hover:text-blue-200','text-slate-900 hover:text-blue-700')"
+                                      data-ng-click="$event.stopPropagation(); getLabInfo(x.path, x.file)">
+                                  <i class="fa fa-file-text-o mr-2 text-slate-400"></i>{{x.file}}
+                                </span>
+                              </div>
+                              <p class="text-xs text-slate-400" data-ng-if="x.sharedWith">{{t.previewSharedWithLabel}}: {{x.sharedWith}}</p>
+                            </div>
+                            <div class="flex items-center gap-2" data-ng-if="!isSharedPath(x.path) || role === 'admin'">
+                              <div class="text-slate-400" data-ng-show="fileManagerItem['Fi_'+x.file].img">
+                                <i class="fa fa-circle-o-notch fa-spin"></i>
+                              </div>
+                              <button type="button"
+                                      class="px-2 py-1 rounded-full text-xs cursor-pointer transition"
+                                      ng-class="themeClass('text-slate-300 hover:text-white hover:bg-white/10','text-slate-500 hover:text-slate-800 hover:bg-slate-100')"
+                                      data-ng-click="openRename(fileManagerItem['Fi_'+x.file], $event)">
+                                <i class="fa fa-pencil"></i>
+                              </button>
+                            </div>
+                          </div>
+                          <div class="flex flex-col gap-2" data-ng-if="fileManagerItem['Fi_'+x.file].visibleEdit">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <input type="text"
+                                     class="flex-1 theme-input"
+                                     data-ng-model="fileManagerItem['Fi_'+x.file].value"
+                                     data-ng-attr-maxlength="40"
+                                     focus-on="{{'Fi_'+x.file}}"
+                                     my-enter="editElementApply(fileManagerItem['Fi_'+x.file])">
+                              <div class="flex gap-2">
+                                <button type="button"
+                                        class="px-3 py-2 rounded-xl bg-emerald-500/60 text-xs font-semibold uppercase cursor-pointer"
+                                        data-ng-click="editElementApply(fileManagerItem['Fi_'+x.file])">
+                                  <span data-ng-bind="t.actionApply"></span>
+                                </button>
+                                <button type="button"
+                                        class="px-3 py-2 rounded-xl border border-white/20 text-xs font-semibold uppercase cursor-pointer"
+                                        data-ng-click="hideAllEdit()">
+                                  <span data-ng-bind="t.deleteDialogCancel"></span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-400" data-ng-bind="x.mtime"></td>
+                      </tr>
+      
+                      <tr data-ng-if="rootDir.folders.length === 0 && rootDir.labs.length === 0">
+                        <td colspan="3" class="px-4 py-6 text-center text-slate-400" data-ng-bind="t.treeEmptyState"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="pt-4 flex justify-center">
+                  <div class="flex flex-wrap items-center justify-center gap-3 text-xs">
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-emerald-400/80','bg-emerald-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendCollaborate"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-indigo-400/80','bg-indigo-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendShared"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-1.5 h-5 rounded-full" ng-class="themeClass('bg-amber-400/80','bg-amber-500/80')"></span>
+                      <span class="theme-muted" data-ng-bind="t.legendWork"></span>
+                    </div>
+                  </div>
+                </div>
+      
+              </div>
+            </section>
+            <section class="h-full rounded-3xl theme-surface shadow-2xl p-6 card-glow flex flex-col transition-colors duration-300">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="space-y-1">
+                    <h2 class="text-2xl font-semibold theme-heading"
+                        data-ng-bind="t.topologyPreviewCardTitle + (labInfo && labInfo.name ? (' ' + labInfo.name) : '')"></h2>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                  </div>
+              </div>
+              <div data-ng-if="fileSelected"
+                   data-ng-include="'/themes/adminLTE/unl_data/pages/constant/labView.html'" class="flex-1"></div>
+              <div class="flex flex-col items-center justify-center text-center h-full space-y-3" data-ng-if="!fileSelected">
+                <div class="h-16 w-16 rounded-full border border-dashed flex items-center justify-center"
+                     ng-class="themeClass('border-white/20','border-slate-300')">
+                  <i class="fa fa-sitemap text-3xl" ng-class="themeClass('text-slate-500','text-slate-500')"></i>
+                </div>
+                <p class="text-lg font-semibold theme-heading" data-ng-bind="t.previewPlaceholderTitle"></p>
+                <p class="theme-muted max-w-sm" data-ng-bind="t.previewPlaceholderDescription"></p>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>

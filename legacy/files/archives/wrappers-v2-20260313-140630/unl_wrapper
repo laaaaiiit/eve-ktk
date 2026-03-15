@@ -1,0 +1,4 @@
+#!/usr/bin/php
+<?php
+fwrite(STDERR, "[legacy-disabled] wrappers-v2/unl_wrapper is deprecated and not used by v2. Use /opt/unetlab/eve-web runtime service.\n");
+exit(1);
