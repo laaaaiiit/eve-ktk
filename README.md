@@ -24,7 +24,7 @@
 - `wrappers/` — обертки/утилиты совместимости.
 - `legacy/` — архив старой реализации (только для справки, не используется runtime v2).
 
-## Быстрый старт (Linux)
+## Возможная реализация (Linux)
 
 Поддерживаемая платформа: Linux (рекомендуется Ubuntu/Debian с KVM).
 
@@ -34,11 +34,17 @@
 Источник кода:
 - GitHub репозиторий: `https://github.com/laaaaiiit/eve-ng-fork.git`
 
+Что нужно, чтобы сайт заработал:
+- Web-сервер: `Apache2` (рекомендуется для этой реализации) или `Nginx` + `php-fpm` (потребуется ручная настройка маршрутов).
+- PHP: `php-cli`, `php-fpm`/`libapache2-mod-php`, `php-pgsql`, `php-yaml`.
+- PostgreSQL: рабочая БД и учетные данные в `eve-web/.env`.
+- Фоновые задачи: сервис `eve-labtasks` (systemd).
+
 1. Установите базовые зависимости:
 
 ```bash
 apt update
-apt install -y git rsync curl tar php-cli python3 postgresql-client
+apt install -y git rsync curl tar apache2 php-cli php-pgsql php-yaml python3 postgresql-client
 ```
 
 2. Скачайте ПО и разместите в `/opt/unetlab`:
@@ -74,6 +80,13 @@ cd /opt/unetlab/eve-web
 ```bash
 php -l /opt/unetlab/eve-web/public/index.php
 python3 -m compileall /opt/unetlab/config_scripts
+```
+
+6. Убедитесь, что web и фоновые сервисы запущены:
+
+```bash
+systemctl enable --now apache2
+systemctl enable --now eve-labtasks
 ```
 
 ## Обновление системы (рекомендуется)
