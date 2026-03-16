@@ -6,6 +6,9 @@
 
 Скрипт `eve-web/bin/install_debian_eve_v2.sh`:
 - ставит пакеты (`nginx`, `php-fpm`, `postgresql`, `websockify`, `qemu-utils`, и т.д.);
+- подготавливает layout версий QEMU в `/opt/qemu-*` (как на текущей VM):
+  `1.3.1, 2.0.2, 2.2.0, 2.4.0, 2.5.0, 2.6.2, 2.12.0, 3.1.0, 4.1.0, 5.2.0, 6.0.0, 7.2.9, 8.2.1`;
+- создает симлинк `/opt/qemu -> /opt/qemu-2.4.0` (по умолчанию);
 - клонирует/обновляет репозиторий в `/opt/unetlab`;
 - создает БД и пользователя PostgreSQL;
 - подготавливает `eve-web/.env`;
@@ -35,10 +38,15 @@ sudo /tmp/install_debian_eve_v2.sh \
   --db-port 5432 \
   --db-name eve-ng-db \
   --db-user eve-ng-ktk \
-  --db-password '<password>'
+  --db-password '<password>' \
+  --install-eve-qemu
 ```
 
 Полный список: `sudo /tmp/install_debian_eve_v2.sh --help`.
+
+`--install-eve-qemu`:
+- пытается установить пакет `eve-ng-qemu` через APT (если репозиторий настроен);
+- если пакет недоступен, скрипт все равно создает совместимый `/opt/qemu-*` layout через системный `qemu-system-x86_64`.
 
 ## Проверка после установки
 

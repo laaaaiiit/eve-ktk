@@ -53,55 +53,12 @@ sudo /tmp/install_debian_eve_v2.sh
 2. Клонирует/обновляет Git-репозиторий в `/opt/unetlab`.
 3. Создает БД/пользователя PostgreSQL и подготавливает `.env`.
 4. Применяет миграции.
-5. Настраивает `nginx` (HTTP + websocket proxy для `/vncws/` и `/collabws/`).
-6. Создает/включает сервис `eve-labtasks`.
-7. Применяет базовые `sysctl` настройки.
+5. Готовит набор версий QEMU в `/opt/qemu-*` (как на текущей VM) и симлинк `/opt/qemu`.
+6. Настраивает `nginx` (HTTP + websocket proxy для `/vncws/` и `/collabws/`).
+7. Создает/включает сервис `eve-labtasks`.
+8. Применяет базовые `sysctl` настройки.
 
 Подробности: `eve-web/docs/install-debian.md`.
-
-### Ручной режим (если нужно)
-
-1. Скачайте ПО и разместите в `/opt/unetlab`:
-
-```bash
-git clone https://github.com/laaaaiiit/eve-ktk.git /opt/unetlab
-```
-
-Если каталог уже существует и это git-копия:
-
-```bash
-cd /opt/unetlab
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-```
-
-2. Настройте переменные БД:
-
-```bash
-cp /opt/unetlab/eve-web/.env.example /opt/unetlab/eve-web/.env
-```
-
-3. Примените миграции:
-
-```bash
-cd /opt/unetlab/eve-web
-./bin/apply_migrations.sh
-```
-
-4. Проверьте базово, что код читается:
-
-```bash
-php -l /opt/unetlab/eve-web/public/index.php
-python3 -m compileall /opt/unetlab/config_scripts
-```
-
-5. Убедитесь, что web и фоновые сервисы запущены:
-
-```bash
-systemctl enable --now nginx
-systemctl enable --now eve-labtasks
-```
 
 ## Обновление системы (рекомендуется)
 
@@ -132,11 +89,14 @@ systemctl enable --now eve-labtasks
 
 ## Версии QEMU
 
-Важно: этот репозиторий не устанавливает бинарники QEMU автоматически.  
-Они должны быть установлены на хосте Linux в стандартных путях вида:
+Бинарники QEMU используются из стандартных путей вида:
 - `/opt/qemu-<version>/bin/qemu-system-x86_64`
 - (fallback) `/opt/qemu/bin/qemu-system-x86_64`
 - (fallback) `/usr/bin/qemu-system-x86_64`
+
+При установке через `install_debian_eve_v2.sh` автоматически создается
+совместимый `/opt/qemu-*` layout (как на текущей VM), а при флаге
+`--install-eve-qemu` дополнительно выполняется попытка установить пакет `eve-ng-qemu`.
 
 Как проверить, какие версии доступны на хосте:
 

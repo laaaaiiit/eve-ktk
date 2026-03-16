@@ -13,6 +13,9 @@ DB_NAME="${DB_NAME:-eve-ng-db}"
 DB_USER="${DB_USER:-eve-ng-ktk}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 DB_SEARCH_PATH="${DB_SEARCH_PATH:-auth,infra,labs,runtime,checks,public}"
+QEMU_VERSIONS="${QEMU_VERSIONS:-1.3.1 2.0.2 2.2.0 2.4.0 2.5.0 2.6.2 2.12.0 3.1.0 4.1.0 5.2.0 6.0.0 7.2.9 8.2.1}"
+QEMU_DEFAULT_LINK="${QEMU_DEFAULT_LINK:-2.4.0}"
+INSTALL_EVE_QEMU_PACKAGE="${INSTALL_EVE_QEMU_PACKAGE:-0}"
 NGINX_SITE_PATH="${NGINX_SITE_PATH:-/etc/nginx/sites-available/eve-v2.conf}"
 DISABLE_APACHE="${DISABLE_APACHE:-1}"
 APPLY_SYSCTL="${APPLY_SYSCTL:-1}"
@@ -47,6 +50,7 @@ Options:
   --db-name <name>         DB name (default: $DB_NAME)
   --db-user <user>         DB user (default: $DB_USER)
   --db-password <pass>     DB password (default: generated)
+  --install-eve-qemu       Try apt install eve-ng-qemu (if repository is configured)
   --keep-apache            Do not stop/disable apache2
   --skip-sysctl            Do not apply sysctl tuning
   -h, --help               Show this help
@@ -54,6 +58,7 @@ Options:
 Environment overrides:
   TARGET_DIR, REPO_URL, REPO_BRANCH, SERVER_NAME,
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SEARCH_PATH,
+  QEMU_VERSIONS, QEMU_DEFAULT_LINK, INSTALL_EVE_QEMU_PACKAGE,
   WEB_USER, WEB_GROUP, DISABLE_APACHE, APPLY_SYSCTL, NGINX_SITE_PATH
 USAGE
 }
@@ -147,6 +152,10 @@ parse_args() {
 				[[ $# -ge 2 ]] || fail "--db-password requires value"
 				DB_PASSWORD="$2"
 				shift 2
+				;;
+			--install-eve-qemu)
+				INSTALL_EVE_QEMU_PACKAGE=1
+				shift
 				;;
 			--keep-apache)
 				DISABLE_APACHE=0
@@ -294,6 +303,64 @@ apply_migrations() {
 	DB_PASSWORD="$DB_PASSWORD" \
 	MIGRATIONS_TABLE="schema_migrations" \
 	"$TARGET_DIR/eve-web/bin/apply_migrations.sh"
+}
+
+install_qemu_versions_layout() {
+	local qemu_bin qemu_img version qemu_dir qemu_target img_target first_version
+	first_version=""
+
+	log "Configuring QEMU version layout in /opt/qemu-*"
+
+	if [[ "$INSTALL_EVE_QEMU_PACKAGE" == "1" ]]; then
+		if apt-cache policy eve-ng-qemu 2>/dev/null | grep -q 'Candidate: (none)'; then
+			warn "eve-ng-qemu package is not available in configured APT repositories"
+		else
+			apt-get install -y eve-ng-qemu || warn "Failed to install eve-ng-qemu package, continue with compatibility layout"
+		fi
+	fi
+
+	qemu_bin=""
+	for qemu_bin in /usr/bin/qemu-system-x86_64 /opt/qemu/bin/qemu-system-x86_64; do
+		if [[ -x "$qemu_bin" ]]; then
+			break
+		fi
+		qemu_bin=""
+	done
+	[[ -n "$qemu_bin" ]] || fail "qemu-system-x86_64 not found after package installation"
+
+	qemu_img=""
+	for qemu_img in /usr/bin/qemu-img /opt/qemu/bin/qemu-img; do
+		if [[ -x "$qemu_img" ]]; then
+			break
+		fi
+		qemu_img=""
+	done
+
+	for version in $QEMU_VERSIONS; do
+		qemu_dir="/opt/qemu-${version}/bin"
+		if [[ -z "$first_version" ]]; then
+			first_version="$version"
+		fi
+		install -d -m 0755 "$qemu_dir"
+
+		qemu_target="${qemu_dir}/qemu-system-x86_64"
+		if [[ ! -e "$qemu_target" || ( -L "$qemu_target" && ! -e "$qemu_target" ) ]]; then
+			ln -sfn "$qemu_bin" "$qemu_target"
+		fi
+
+		if [[ -n "$qemu_img" ]]; then
+			img_target="${qemu_dir}/qemu-img"
+			if [[ ! -e "$img_target" || ( -L "$img_target" && ! -e "$img_target" ) ]]; then
+				ln -sfn "$qemu_img" "$img_target"
+			fi
+		fi
+	done
+
+	if [[ -d "/opt/qemu-${QEMU_DEFAULT_LINK}" ]]; then
+		ln -sfn "qemu-${QEMU_DEFAULT_LINK}" /opt/qemu
+	elif [[ -n "$first_version" && -d "/opt/qemu-${first_version}" ]]; then
+		ln -sfn "qemu-${first_version}" /opt/qemu
+	fi
 }
 
 install_sudoers() {
@@ -540,6 +607,7 @@ main() {
 	require_cmd git
 	require_cmd visudo
 	require_cmd curl
+	install_qemu_versions_layout
 	sync_repo
 	prepare_runtime_dirs
 	setup_database

@@ -54,6 +54,9 @@ chmod +x /tmp/install_debian_eve_v2.sh
 sudo /tmp/install_debian_eve_v2.sh
 ```
 
+The installer also prepares QEMU compatibility layout in `/opt/qemu-*`
+for template `qemu_version` values used in this project.
+
 Installer guide: `docs/install-debian.md`.
 
 ## Runtime env
