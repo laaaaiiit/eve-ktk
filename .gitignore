@@ -1,5 +1,6 @@
 addons/
 jail/
+wrappers/
 tmp/
 labs/
 data/

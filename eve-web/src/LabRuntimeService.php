@@ -2385,31 +2385,6 @@ function runtimeAllocateConsolePort(string $labId, string $nodeId, string $nodeT
 
 
 
-function runtimeWrappersDir(): string
-{
-    $custom = trim((string) getenv('EVE_V2_WRAPPERS_DIR'));
-    if ($custom !== '') {
-        return rtrim($custom, '/');
-    }
-
-    $preferred = '/opt/unetlab/wrappers-v2';
-    if (is_dir($preferred)) {
-        return $preferred;
-    }
-
-    $fallback = '/opt/unetlab/wrappers';
-    if (is_dir($fallback)) {
-        return $fallback;
-    }
-
-    return $preferred;
-}
-
-function runtimeWrapperPath(string $name): string
-{
-    return runtimeWrappersDir() . '/' . ltrim(trim($name), '/');
-}
-
 function runtimeLaunchBackgroundProcess(
     string $labId,
     string $nodeId,
