@@ -32,25 +32,39 @@
 - `/opt/unetlab`
 
 Источник кода:
-- GitHub репозиторий: `https://github.com/laaaaiiit/eve-ng-fork.git`
+- GitHub репозиторий: `https://github.com/laaaaiiit/eve-ktk.git`
 
 Что нужно, чтобы сайт заработал:
-- Web-сервер: `Apache2` (рекомендуется для этой реализации) или `Nginx` + `php-fpm` (потребуется ручная настройка маршрутов).
-- PHP: `php-cli`, `php-fpm`/`libapache2-mod-php`, `php-pgsql`, `php-yaml`.
+- Web-сервер: `Nginx` + `php-fpm`.
+- PHP: `php-cli`, `php-fpm`, `php-pgsql`, `php-yaml`.
 - PostgreSQL: рабочая БД и учетные данные в `eve-web/.env`.
 - Фоновые задачи: сервис `eve-labtasks` (systemd).
 
-1. Установите базовые зависимости:
+### Автоматическая установка Debian
 
 ```bash
-apt update
-apt install -y git rsync curl tar apache2 php-cli php-pgsql php-yaml python3 postgresql-client
+curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/eve-web/bin/install_debian_eve_v2.sh -o /tmp/install_debian_eve_v2.sh
+chmod +x /tmp/install_debian_eve_v2.sh
+sudo /tmp/install_debian_eve_v2.sh
 ```
 
-2. Скачайте ПО и разместите в `/opt/unetlab`:
+Скрипт автоматически:
+1. Устанавливает зависимости (`nginx`, `php-fpm`, `postgresql`, `websockify`, и т.д.).
+2. Клонирует/обновляет Git-репозиторий в `/opt/unetlab`.
+3. Создает БД/пользователя PostgreSQL и подготавливает `.env`.
+4. Применяет миграции.
+5. Настраивает `nginx` (HTTP + websocket proxy для `/vncws/` и `/collabws/`).
+6. Создает/включает сервис `eve-labtasks`.
+7. Применяет базовые `sysctl` настройки.
+
+Подробности: `eve-web/docs/install-debian.md`.
+
+### Ручной режим (если нужно)
+
+1. Скачайте ПО и разместите в `/opt/unetlab`:
 
 ```bash
-git clone https://github.com/laaaaiiit/eve-ng-fork.git /opt/unetlab
+git clone https://github.com/laaaaiiit/eve-ktk.git /opt/unetlab
 ```
 
 Если каталог уже существует и это git-копия:
@@ -62,30 +76,30 @@ git checkout main
 git pull --ff-only origin main
 ```
 
-3. Настройте переменные БД:
+2. Настройте переменные БД:
 
 ```bash
 cp /opt/unetlab/eve-web/.env.example /opt/unetlab/eve-web/.env
 ```
 
-4. Примените миграции:
+3. Примените миграции:
 
 ```bash
 cd /opt/unetlab/eve-web
 ./bin/apply_migrations.sh
 ```
 
-5. Проверьте базово, что код читается:
+4. Проверьте базово, что код читается:
 
 ```bash
 php -l /opt/unetlab/eve-web/public/index.php
 python3 -m compileall /opt/unetlab/config_scripts
 ```
 
-6. Убедитесь, что web и фоновые сервисы запущены:
+5. Убедитесь, что web и фоновые сервисы запущены:
 
 ```bash
-systemctl enable --now apache2
+systemctl enable --now nginx
 systemctl enable --now eve-labtasks
 ```
 
@@ -148,9 +162,3 @@ ls -1 /opt | grep '^qemu'
 Рекомендация:
 - не удаляйте старые версии QEMU, если у вас есть шаблоны, которые на них завязаны;
 - при добавлении новых шаблонов сначала проверяйте совместимость образа с выбранной версией QEMU.
-
-## Важно
-
-- Каталоги `addons/` и `data/` в репозитории не хранятся (образы/рабочие данные).
-- Большие бинарные файлы и runtime-данные должны оставаться вне Git.
-- `legacy/` предназначен только для анализа старого кода.

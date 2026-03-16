@@ -45,6 +45,17 @@ Use the updater script for branch-based updates with backup + migrations:
 
 Full guide: `docs/update-guide.md`.
 
+## Debian install (full setup)
+For a clean Debian host use the installer script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/eve-web/bin/install_debian_eve_v2.sh -o /tmp/install_debian_eve_v2.sh
+chmod +x /tmp/install_debian_eve_v2.sh
+sudo /tmp/install_debian_eve_v2.sh
+```
+
+Installer guide: `docs/install-debian.md`.
+
 ## Runtime env
 Copy `.env.example` to `.env` and set real credentials.
 
