@@ -447,7 +447,10 @@
           item.type = 'button';
           item.className = `${c.item} flex items-center justify-between ${isActive ? (theme==='light' ? 'bg-emerald-50' : 'bg-emerald-500/10') : ''}`;
           item.innerHTML = `<span>${opt.label}</span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
-          item.addEventListener('click', async () => {
+          item.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAllDropdownPanels();
             await setValue(opt.value);
             renderButtonLabel();
             refreshTheme();
@@ -498,7 +501,9 @@
           item.type = 'button';
           item.className = `${c.item} flex items-center justify-between ${isActive ? (theme==='light' ? 'bg-emerald-50' : 'bg-emerald-500/10') : ''}`;
           item.innerHTML = `<span class="inline-flex items-center gap-2">${navIcon(it.key)}<span>${tr(it.key)}</span></span><span class="${isActive ? 'opacity-100' : 'opacity-0'} text-emerald-500"><i class="fa fa-check"></i></span>`;
-          item.addEventListener('click', () => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             panel.classList.add('hidden');
             if (it.href) {
               location.href = it.href;
