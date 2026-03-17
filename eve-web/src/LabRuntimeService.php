@@ -3285,6 +3285,7 @@ function runtimeBuildVpcsLaunchSpec(array $ctx, string $labId, string $nodeId, s
     if ($binary === '') {
         throw new RuntimeException('vpcs binary is not available');
     }
+    runtimeEnsureVpcsBinaryCompatible($binary);
 
     $consolePort = runtimeAllocateConsolePort(
         $labId,
@@ -3338,6 +3339,56 @@ function runtimeBuildVpcsLaunchSpec(array $ctx, string $labId, string $nodeId, s
         'image' => null,
         'process_hints' => ['vpcs'],
     ];
+}
+
+function runtimeVpcsBinaryVersion(string $binary): string
+{
+    static $cache = [];
+
+    $binary = trim($binary);
+    if ($binary === '') {
+        return '';
+    }
+    if (array_key_exists($binary, $cache)) {
+        return (string) $cache[$binary];
+    }
+
+    $cmd = escapeshellarg($binary) . ' -v 2>&1';
+    $raw = shell_exec($cmd);
+    if (!is_string($raw) || trim($raw) === '') {
+        $cache[$binary] = '';
+        return '';
+    }
+
+    $version = '';
+    if (preg_match('/version\s+([^\r\n]+)/i', $raw, $m) === 1) {
+        $version = trim((string) $m[1]);
+    }
+
+    $cache[$binary] = $version;
+    return $version;
+}
+
+function runtimeVpcsVersionLooksBroken(string $version): bool
+{
+    $value = strtolower(trim($version));
+    if ($value === '') {
+        return false;
+    }
+    return strpos($value, '0.5b2') !== false;
+}
+
+function runtimeEnsureVpcsBinaryCompatible(string $binary): void
+{
+    $version = runtimeVpcsBinaryVersion($binary);
+    if (!runtimeVpcsVersionLooksBroken($version)) {
+        return;
+    }
+
+    throw new RuntimeException(
+        'Unsupported VPCS binary "' . $version . '" at ' . $binary
+        . '. Install VPCS 1.3 (0.8.1) or newer and relink /opt/vpcsu/bin/vpcs.'
+    );
 }
 
 

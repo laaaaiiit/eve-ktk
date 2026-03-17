@@ -303,12 +303,39 @@ ensure_kvm_access() {
 	fi
 }
 
+vpcs_version_string() {
+	local bin="$1"
+	[[ -x "$bin" ]] || { echo ""; return 0; }
+	"$bin" -v 2>&1 | awk '
+		tolower($0) ~ /version[[:space:]]+/ {
+			line=$0
+			sub(/^.*[Vv]ersion[[:space:]]+/, "", line)
+			gsub(/\r/, "", line)
+			print line
+			exit
+		}
+	'
+}
+
+vpcs_version_is_known_bad() {
+	local version="${1:-}"
+	version="$(echo "$version" | tr '[:upper:]' '[:lower:]')"
+	[[ "$version" == *"0.5b2"* ]]
+}
+
 ensure_vpcs_binary() {
-	local system_vpcs
+	local existing_vpcs system_vpcs existing_version system_version backup_path
+	existing_vpcs="/opt/vpcsu/bin/vpcs"
 	system_vpcs=""
 
-	if [[ -x /opt/vpcsu/bin/vpcs ]]; then
-		return
+	if [[ -x "$existing_vpcs" ]]; then
+		existing_version="$(vpcs_version_string "$existing_vpcs")"
+		if vpcs_version_is_known_bad "$existing_version"; then
+			warn "Detected old VPCS build at $existing_vpcs (${existing_version:-unknown}); trying to replace with newer binary"
+		else
+			log "Using existing VPCS binary: $existing_vpcs (${existing_version:-unknown})"
+			return
+		fi
 	fi
 
 	if command -v vpcs >/dev/null 2>&1; then
@@ -325,11 +352,32 @@ ensure_vpcs_binary() {
 	fi
 
 	if [[ -n "$system_vpcs" ]] && [[ -x "$system_vpcs" ]]; then
-		install -d -m 0755 /opt/vpcsu/bin
-		ln -sfn "$system_vpcs" /opt/vpcsu/bin/vpcs
-		log "Linked VPCS binary: /opt/vpcsu/bin/vpcs -> $system_vpcs"
+		system_version="$(vpcs_version_string "$system_vpcs")"
+		if vpcs_version_is_known_bad "$system_version"; then
+			warn "System VPCS binary is old (${system_version:-unknown}) at $system_vpcs"
+		else
+			if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]]; then
+				backup_path="/opt/vpcsu/bin/vpcs.backup.$(date +%Y%m%d%H%M%S)"
+				cp -f "$existing_vpcs" "$backup_path" || true
+				warn "Backed up previous VPCS binary to $backup_path"
+			fi
+			install -d -m 0755 /opt/vpcsu/bin
+			ln -sfn "$system_vpcs" "$existing_vpcs"
+			log "Linked VPCS binary: $existing_vpcs -> $system_vpcs (${system_version:-unknown})"
+			return
+		fi
+	fi
+
+	if [[ -x "$existing_vpcs" ]]; then
+		existing_version="$(vpcs_version_string "$existing_vpcs")"
+		if vpcs_version_is_known_bad "$existing_version"; then
+			warn "VPCS remains old at $existing_vpcs (${existing_version:-unknown}). VPC nodes may crash with buffer overflow."
+		else
+			log "Using existing VPCS binary: $existing_vpcs (${existing_version:-unknown})"
+			return
+		fi
 	else
-		warn "VPCS binary is missing (/opt/vpcsu/bin/vpcs). VPC nodes will fail to start."
+		warn "VPCS binary is missing ($existing_vpcs). VPC nodes will fail to start."
 	fi
 }
 
