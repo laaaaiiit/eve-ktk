@@ -323,6 +323,19 @@ vpcs_version_is_known_bad() {
 	[[ "$version" == *"0.5b2"* ]]
 }
 
+ensure_vpcs_binary_is_usable_or_fail() {
+	local path="$1"
+	local version=""
+	if [[ ! -x "$path" ]]; then
+		fail "VPCS binary is missing at $path"
+	fi
+	version="$(vpcs_version_string "$path")"
+	if vpcs_version_is_known_bad "$version"; then
+		fail "Unsupported VPCS binary \"$version\" at $path. Install script could not replace old 0.5b2 build."
+	fi
+	log "Verified VPCS binary: $path (${version:-unknown})"
+}
+
 build_vpcs_from_source() {
 	local tmp_dir archive src_dir built_version
 	tmp_dir="$(mktemp -d /tmp/eve-vpcs-build.XXXXXX)"
@@ -439,7 +452,7 @@ ensure_vpcs_binary() {
 	if [[ -n "$selected_vpcs" ]]; then
 		if [[ "$selected_vpcs" == "$existing_vpcs" ]]; then
 			chmod 0755 "$existing_vpcs" || true
-			log "Using VPCS binary: $existing_vpcs (${selected_version:-unknown})"
+			ensure_vpcs_binary_is_usable_or_fail "$existing_vpcs"
 			return
 		fi
 		if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]]; then
@@ -450,19 +463,21 @@ ensure_vpcs_binary() {
 		install -d -m 0755 /opt/vpcsu/bin
 		ln -sfn "$selected_vpcs" "$existing_vpcs"
 		log "Linked VPCS binary: $existing_vpcs -> $selected_vpcs (${selected_version:-unknown})"
+		ensure_vpcs_binary_is_usable_or_fail "$existing_vpcs"
 		return
 	fi
 
 	if [[ -x "$existing_vpcs" ]]; then
 		existing_version="$(vpcs_version_string "$existing_vpcs")"
 		if vpcs_version_is_known_bad "$existing_version"; then
-			warn "VPCS remains old at $existing_vpcs (${existing_version:-unknown}). VPC nodes may crash with buffer overflow."
+			fail "VPCS remains old at $existing_vpcs (${existing_version:-unknown}) after all installer attempts."
 		else
 			log "Using existing VPCS binary: $existing_vpcs (${existing_version:-unknown})"
+			ensure_vpcs_binary_is_usable_or_fail "$existing_vpcs"
 			return
 		fi
 	else
-		warn "VPCS binary is missing ($existing_vpcs). VPC nodes will fail to start."
+		fail "VPCS binary is missing ($existing_vpcs)."
 	fi
 }
 
