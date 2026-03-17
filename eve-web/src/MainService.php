@@ -4880,7 +4880,7 @@ function mainLabArchiveSafeFilenamePart(string $value): string
 
 function mainLabArchiveRunTar(array $args): void
 {
-    $parts = ['/bin/tar'];
+	$parts = ['/bin/tar'];
     foreach ($args as $arg) {
         $parts[] = escapeshellarg((string) $arg);
     }
@@ -4894,7 +4894,121 @@ function mainLabArchiveRunTar(array $args): void
             $details = 'tar command failed';
         }
         throw new RuntimeException($details);
-    }
+	}
+}
+
+function mainLabArchiveCommandPath(string $command): string
+{
+	$command = trim($command);
+	if ($command === '') {
+		return '';
+	}
+	try {
+		$out = @shell_exec('command -v ' . escapeshellarg($command) . ' 2>/dev/null');
+	} catch (Throwable $e) {
+		$out = null;
+	}
+	$path = trim((string) ($out ?? ''));
+	if ($path !== '' && is_executable($path)) {
+		return $path;
+	}
+	return '';
+}
+
+function mainLabArchiveReadIntEnv(string $name, int $default, int $min, int $max): int
+{
+	$raw = getenv($name);
+	if ($raw === false) {
+		return $default;
+	}
+	$value = (int) trim((string) $raw);
+	if ($value < $min) {
+		$value = $min;
+	}
+	if ($value > $max) {
+		$value = $max;
+	}
+	return $value;
+}
+
+function mainLabArchiveCpuCount(): int
+{
+	static $cache = null;
+	if (is_int($cache) && $cache > 0) {
+		return $cache;
+	}
+	$count = 0;
+	try {
+		$out = @shell_exec('nproc 2>/dev/null');
+		$count = (int) trim((string) ($out ?? '0'));
+	} catch (Throwable $e) {
+		$count = 0;
+	}
+	if ($count < 1 && is_file('/proc/cpuinfo')) {
+		try {
+			$raw = @file_get_contents('/proc/cpuinfo');
+			if (is_string($raw) && $raw !== '') {
+				$matches = [];
+				$count = preg_match_all('/^processor\s*:/m', $raw, $matches);
+			}
+		} catch (Throwable $e) {
+			$count = 0;
+		}
+	}
+	if ($count < 1) {
+		$count = 1;
+	}
+	$cache = $count;
+	return $count;
+}
+
+function mainLabArchiveTarSupportsUseCompressProgram(): bool
+{
+	static $cache = null;
+	if (is_bool($cache)) {
+		return $cache;
+	}
+	$output = [];
+	$rc = 0;
+	@exec('/bin/tar --help 2>&1', $output, $rc);
+	if ($rc !== 0) {
+		$cache = false;
+		return false;
+	}
+	$text = strtolower(implode("\n", $output));
+	$cache = (strpos($text, '--use-compress-program') !== false);
+	return $cache;
+}
+
+function mainLabArchivePreferredGzipProgram(): string
+{
+	$gzipLevel = mainLabArchiveReadIntEnv('EVE_EXPORT_GZIP_LEVEL', 1, 1, 9);
+	$pigzPath = mainLabArchiveCommandPath('pigz');
+	if ($pigzPath !== '') {
+		$cpu = mainLabArchiveCpuCount();
+		$defaultThreads = max(1, $cpu - 1);
+		$threads = mainLabArchiveReadIntEnv('EVE_EXPORT_PIGZ_THREADS', $defaultThreads, 1, 128);
+		return $pigzPath . ' -' . $gzipLevel . ' -p ' . $threads;
+	}
+	$gzipPath = mainLabArchiveCommandPath('gzip');
+	if ($gzipPath !== '') {
+		return $gzipPath . ' -' . $gzipLevel;
+	}
+	return '';
+}
+
+function mainLabArchiveBuildCreateTarArgs(string $archivePath, string $bundleDir): array
+{
+	$archivePath = trim($archivePath);
+	$bundleDir = trim($bundleDir);
+	if ($archivePath === '' || $bundleDir === '') {
+		return ['-czf', $archivePath, '-C', $bundleDir, '.'];
+	}
+	$program = mainLabArchivePreferredGzipProgram();
+	if ($program !== '' && mainLabArchiveTarSupportsUseCompressProgram()) {
+		return ['-cf', $archivePath, '--use-compress-program=' . $program, '-C', $bundleDir, '.'];
+	}
+	return ['-czf', $archivePath, '-C', $bundleDir, '.'];
 }
 
 function mainDirectorySizeBytes(string $path): int
@@ -5661,12 +5775,12 @@ function mainExportLabArchiveForViewer(
             'archive_name' => $archiveName,
             'total_bytes' => $bundleSizeBytes,
         ]);
-        mainLabArchiveRunTarWithProgress(
-            ['-czf', $archivePath, '-C', $bundleDir, '.'],
-            $archivePath,
-            $bundleSizeBytes,
-            $stageCallback
-        );
+		mainLabArchiveRunTarWithProgress(
+			mainLabArchiveBuildCreateTarArgs($archivePath, $bundleDir),
+			$archivePath,
+			$bundleSizeBytes,
+			$stageCallback
+		);
 
         clearstatcache(true, $archivePath);
         if (!is_file($archivePath)) {

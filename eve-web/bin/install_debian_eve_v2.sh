@@ -228,6 +228,7 @@ install_packages() {
 		python3-venv \
 		qemu-system-x86 \
 		qemu-utils \
+		pigz \
 		vpcs
 }
 
