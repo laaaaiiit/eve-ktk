@@ -2731,6 +2731,14 @@
       link.remove();
     }
 
+    function shouldUseDirectExportDownload(readyState){
+      const result = (readyState && readyState.result && typeof readyState.result === 'object') ? readyState.result : {};
+      const sizeBytes = Math.max(0, Number(result.size_bytes || 0));
+      // Avoid JS Blob/ArrayBuffer allocation for huge archives in browser memory.
+      const maxInMemoryBytes = 512 * 1024 * 1024; // 512 MiB
+      return Number.isFinite(sizeBytes) && sizeBytes > maxInMemoryBytes;
+    }
+
     async function downloadMainExportBlobWithRetry(operationId, onProgress, timeoutMs = 30000){
       const opId = String(operationId || '').trim();
       if (!opId) throw new Error(tr('exportError'));
@@ -2888,7 +2896,16 @@
           { stage: queuedState, message: exportStageText(queuedState) }
         );
 
-        await waitMainExportReady(opId);
+        const readyState = await waitMainExportReady(opId);
+
+        if (shouldUseDirectExportDownload(readyState)) {
+          const total = Math.max(0, Number((readyState && readyState.result && readyState.result.size_bytes) || 0));
+          updateExportProgress('downloading', 0, total);
+          triggerDirectDownload(api.mainExportDownload(opId));
+          closeExportDialog(true);
+          toast(tr('exportSuccess'), 'success');
+          return;
+        }
 
         try {
           const { blob, filename } = await downloadMainExportBlobWithRetry(opId, (progress) => {
@@ -2907,6 +2924,9 @@
             || downloadMsg.includes('network')
             || downloadMsg.includes('failed to fetch')
             || downloadMsg.includes('request aborted')
+            || downloadMsg.includes('array buffer allocation failed')
+            || downloadMsg.includes('out of memory')
+            || downloadMsg.includes('allocation failed')
             || downloadMsg.includes('http 5')
           );
           if (!allowDirectFallback) {
