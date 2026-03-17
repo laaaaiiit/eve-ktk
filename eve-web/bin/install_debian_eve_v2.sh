@@ -21,6 +21,9 @@ INSTALL_EVE_QEMU_PACKAGE="${INSTALL_EVE_QEMU_PACKAGE:-0}"
 NGINX_SITE_PATH="${NGINX_SITE_PATH:-/etc/nginx/sites-available/eve-v2.conf}"
 DISABLE_APACHE="${DISABLE_APACHE:-1}"
 APPLY_SYSCTL="${APPLY_SYSCTL:-1}"
+ENABLE_KSM="${ENABLE_KSM:-1}"
+KSM_PAGES_TO_SCAN="${KSM_PAGES_TO_SCAN:-1250}"
+KSM_SLEEP_MILLISECS="${KSM_SLEEP_MILLISECS:-10}"
 ADMIN_USER_CREATED=0
 ADMIN_PASSWORD_GENERATED=0
 ADMIN_USER_INFO="not_checked"
@@ -58,6 +61,7 @@ Options:
   --install-eve-qemu       Try apt install eve-ng-qemu (if repository is configured)
   --keep-apache            Do not stop/disable apache2
   --skip-sysctl            Do not apply sysctl tuning
+  --skip-ksm               Do not configure KSM
   -h, --help               Show this help
 
 Environment overrides:
@@ -65,7 +69,8 @@ Environment overrides:
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SEARCH_PATH,
   ADMIN_USERNAME, ADMIN_PASSWORD,
   QEMU_VERSIONS, QEMU_DEFAULT_LINK, INSTALL_EVE_QEMU_PACKAGE,
-  WEB_USER, WEB_GROUP, DISABLE_APACHE, APPLY_SYSCTL, NGINX_SITE_PATH
+  WEB_USER, WEB_GROUP, DISABLE_APACHE, APPLY_SYSCTL, NGINX_SITE_PATH,
+  ENABLE_KSM, KSM_PAGES_TO_SCAN, KSM_SLEEP_MILLISECS
 USAGE
 }
 
@@ -176,6 +181,10 @@ parse_args() {
 				;;
 			--skip-sysctl)
 				APPLY_SYSCTL=0
+				shift
+				;;
+			--skip-ksm)
+				ENABLE_KSM=0
 				shift
 				;;
 			-h|--help)
@@ -729,6 +738,64 @@ SYSCTL
 	sysctl --system >/dev/null || warn "sysctl --system returned non-zero status"
 }
 
+configure_ksm() {
+	local ksm_service ksm_script
+	[[ "$ENABLE_KSM" == "1" ]] || {
+		log "Skipping KSM configuration by option"
+		return
+	}
+
+	if [[ ! -e /sys/kernel/mm/ksm/run ]]; then
+		warn "KSM sysfs is unavailable on this kernel: /sys/kernel/mm/ksm/run"
+		return
+	fi
+
+	if [[ ! "$KSM_PAGES_TO_SCAN" =~ ^[0-9]+$ ]] || [[ ! "$KSM_SLEEP_MILLISECS" =~ ^[0-9]+$ ]]; then
+		fail "KSM_PAGES_TO_SCAN and KSM_SLEEP_MILLISECS must be numeric"
+	fi
+
+	ksm_script="/usr/local/sbin/eve-ksm-apply.sh"
+	ksm_service="/etc/systemd/system/eve-ksm.service"
+
+	log "Configuring KSM (pages_to_scan=${KSM_PAGES_TO_SCAN}, sleep_millisecs=${KSM_SLEEP_MILLISECS})"
+
+	cat > "$ksm_script" <<KSM_SCRIPT
+#!/bin/bash
+set -euo pipefail
+if [[ -w /sys/kernel/mm/ksm/pages_to_scan ]]; then
+	echo ${KSM_PAGES_TO_SCAN} > /sys/kernel/mm/ksm/pages_to_scan
+fi
+if [[ -w /sys/kernel/mm/ksm/sleep_millisecs ]]; then
+	echo ${KSM_SLEEP_MILLISECS} > /sys/kernel/mm/ksm/sleep_millisecs
+fi
+if [[ -w /sys/kernel/mm/ksm/run ]]; then
+	echo 1 > /sys/kernel/mm/ksm/run
+fi
+KSM_SCRIPT
+	chmod 0755 "$ksm_script"
+
+	cat > "$ksm_service" <<KSM_SERVICE
+[Unit]
+Description=Apply EVE KSM tuning
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=${ksm_script}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+KSM_SERVICE
+
+	systemctl daemon-reload || warn "systemctl daemon-reload returned non-zero status for KSM"
+	systemctl enable --now eve-ksm.service || warn "Failed to enable/start eve-ksm.service"
+
+	if [[ -r /sys/kernel/mm/ksm/run ]]; then
+		log "KSM run=$(cat /sys/kernel/mm/ksm/run 2>/dev/null || echo '?')"
+	fi
+}
+
 run_quick_checks() {
 	log "Running quick checks"
 	php -l "$TARGET_DIR/eve-web/public/index.php" >/dev/null
@@ -821,6 +888,7 @@ main() {
 	install_labtasks_service
 	configure_nginx
 	apply_sysctl_tuning
+	configure_ksm
 	restart_runtime_services
 	run_quick_checks
 	print_summary
