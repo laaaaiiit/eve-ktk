@@ -4245,6 +4245,9 @@ function queueMainLabExportForViewer(
     $labName = (string) ($entry['name'] ?? '');
     $runtimeNodeTotal = $includeRuntime ? mainCountNodesForLab($db, $entryLabId) : 0;
 
+    $estimatedRequiredBytes = mainEstimateExportRequiredBytes($db, $entryLabId, $includeRuntime);
+    mainAssertArchiveStorageAvailable($estimatedRequiredBytes, 'export');
+
     $operation = mainExportProgressCreate(
         $viewer,
         $entryLabId,
@@ -4700,11 +4703,18 @@ function queueMainLabImportForViewer(
     }
     $normalizedLabNameOverride = mainNormalizeImportLabName($labNameOverride);
 
+    $uploadedSizeBytesSafe = max(0, (int) $uploadedSizeBytes);
+    if ($uploadedSizeBytesSafe <= 0 && $uploadedTmpPath !== '' && is_file($uploadedTmpPath)) {
+        $uploadedSizeBytesSafe = max(0, (int) (@filesize($uploadedTmpPath) ?: 0));
+    }
+    $estimatedRequiredBytes = mainEstimateImportRequiredBytes($uploadedSizeBytesSafe);
+    mainAssertArchiveStorageAvailable($estimatedRequiredBytes, 'import');
+
     $operation = mainImportProgressCreate(
         $viewer,
         $normalizedTargetPath,
         $archiveNameSafe,
-        $uploadedSizeBytes,
+        $uploadedSizeBytesSafe,
         $normalizedLabNameOverride
     );
     $operationId = trim((string) ($operation['operation_id'] ?? ''));
@@ -4807,6 +4817,132 @@ function queueMainLabImportForViewer(
 function mainLabArchiveTempRootDir(): string
 {
     return '/opt/unetlab/data/tmp/main-lab-archives';
+}
+
+function mainFormatBytesHuman(int $bytes): string
+{
+    $value = max(0, (float) $bytes);
+    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    $idx = 0;
+    while ($value >= 1024.0 && $idx < (count($units) - 1)) {
+        $value /= 1024.0;
+        $idx++;
+    }
+    $decimals = ($value >= 100.0 || $idx === 0) ? 0 : 1;
+    return number_format($value, $decimals, '.', '') . ' ' . $units[$idx];
+}
+
+function mainArchiveStorageReserveBytes(): int
+{
+    $raw = getenv('EVE_ARCHIVE_STORAGE_RESERVE_BYTES');
+    if ($raw === false || trim((string) $raw) === '') {
+        return 2 * 1024 * 1024 * 1024; // 2 GiB reserve by default.
+    }
+    $value = (int) trim((string) $raw);
+    if ($value < 0) {
+        $value = 0;
+    }
+    return $value;
+}
+
+function mainArchiveStorageFreeBytes(string $path): int
+{
+    $path = trim($path);
+    if ($path === '') {
+        $path = '/opt/unetlab/data/tmp';
+    }
+    if (!is_dir($path) && !@mkdir($path, 0775, true) && !is_dir($path)) {
+        $path = '/';
+    }
+    $free = @disk_free_space($path);
+    if (!is_float($free) && !is_int($free)) {
+        return 0;
+    }
+    return max(0, (int) $free);
+}
+
+function mainAssertArchiveStorageAvailable(int $requiredBytes, string $purpose = 'archive'): void
+{
+    $required = max(0, $requiredBytes);
+    if ($required <= 0) {
+        return;
+    }
+    $storageRoot = mainLabArchiveTempRootDir();
+    $free = mainArchiveStorageFreeBytes($storageRoot);
+    $reserve = mainArchiveStorageReserveBytes();
+    $available = max(0, $free - $reserve);
+    if ($available >= $required) {
+        return;
+    }
+    $needText = mainFormatBytesHuman($required + $reserve);
+    $freeText = mainFormatBytesHuman($free);
+    $missingText = mainFormatBytesHuman(($required + $reserve) - $free);
+    throw new RuntimeException(
+        'Insufficient disk space for ' . trim($purpose) . ': need ' . $needText . ', free ' . $freeText . ', missing ' . $missingText
+    );
+}
+
+function mainEstimateExportRuntimeBytes(PDO $db, string $labId): int
+{
+    $labId = trim($labId);
+    if ($labId === '') {
+        return 0;
+    }
+    $stmt = $db->prepare(
+        "SELECT l.author_user_id, n.id AS node_id
+         FROM labs l
+         JOIN lab_nodes n ON n.lab_id = l.id
+         WHERE l.id = :lab_id"
+    );
+    $stmt->bindValue(':lab_id', $labId, PDO::PARAM_STR);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!is_array($rows) || empty($rows)) {
+        return 0;
+    }
+
+    $ownerUserId = trim((string) ($rows[0]['author_user_id'] ?? ''));
+    $total = 0;
+    foreach ($rows as $row) {
+        $nodeId = trim((string) ($row['node_id'] ?? ''));
+        if ($nodeId === '') {
+            continue;
+        }
+        $srcDir = mainRuntimeNodeSourceDir($labId, $nodeId, $ownerUserId);
+        if ($srcDir === '' || !is_dir($srcDir)) {
+            continue;
+        }
+        $dirBytes = mainDirectorySizeBytes($srcDir);
+        if ($dirBytes > 0) {
+            $total += $dirBytes;
+        }
+    }
+    return max(0, (int) $total);
+}
+
+function mainEstimateExportRequiredBytes(PDO $db, string $labId, bool $includeRuntime): int
+{
+    $base = 512 * 1024 * 1024; // 512 MiB baseline.
+    if (!$includeRuntime) {
+        return $base;
+    }
+    $runtimeBytes = mainEstimateExportRuntimeBytes($db, $labId);
+    // Export peak: copied runtime + archive + metadata overhead.
+    $required = (int) ($runtimeBytes * 2.2) + $base;
+    return max($base, $required);
+}
+
+function mainEstimateImportRequiredBytes(int $archiveBytes): int
+{
+    $base = 512 * 1024 * 1024; // 512 MiB baseline.
+    $archiveBytes = max(0, $archiveBytes);
+    if ($archiveBytes <= 0) {
+        return 2 * 1024 * 1024 * 1024; // Conservative fallback.
+    }
+    // Import peak includes uploaded copy + extraction + runtime copy.
+    $required = (int) ($archiveBytes * 6.0) + $base;
+    $minRequired = 2 * 1024 * 1024 * 1024; // 2 GiB minimum.
+    return max($minRequired, $required);
 }
 
 function mainLabArchiveEnsureDir(string $path): void

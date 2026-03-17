@@ -3444,6 +3444,8 @@ if ($method === 'POST' && preg_match('#^/api/main/labs/([a-f0-9-]{36})/export$#i
             jsonResponse(403, 'fail', 'Forbidden');
         } elseif ($msg === 'Entry not found') {
             jsonResponse(404, 'fail', 'Entry not found');
+        } elseif (stripos($msg, 'Insufficient disk space') !== false) {
+            jsonResponse(409, 'fail', $msg);
         } else {
             v2AppLogWrite('system_errors', 'ERROR', v2AppLogAttachUser([
                 'event' => 'main_lab_export_failed',
@@ -3696,6 +3698,8 @@ if ($method === 'POST' && $uriPath === '/api/main/labs/import') {
             jsonResponse(403, 'fail', 'Forbidden');
         } elseif ($msg === 'Path not found') {
             jsonResponse(404, 'fail', 'Path not found');
+        } elseif (stripos($msg, 'Insufficient disk space') !== false) {
+            jsonResponse(409, 'fail', $msg);
         } else {
             jsonResponse(500, 'error', ($msg !== '' ? $msg : 'Failed to queue import lab'));
         }
