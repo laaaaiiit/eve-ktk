@@ -153,33 +153,47 @@ function v2SystemConsolePrivilegedPhpBinary(): string
     return v2ConsolePhpBinary();
 }
 
-function v2SystemConsoleSpawnWorker(string $sessionId): int
+function v2SystemConsoleSpawnWorker(string $sessionId): array
 {
     $script = dirname(__DIR__) . '/bin/run_host_console_session.php';
     if (!is_file($script)) {
-        return 0;
+        return ['pid' => 0, 'error' => 'worker_script_missing'];
     }
 
     $php = v2SystemConsolePrivilegedPhpBinary();
+    $errPath = rtrim(sys_get_temp_dir(), '/') . '/eve-v2-host-console.' . bin2hex(random_bytes(4)) . '.err';
     $cmd = sprintf(
-        'sudo -n %s %s --session=%s > /dev/null 2>&1 & echo $!',
+        'sudo -n %s %s --session=%s > /dev/null 2>%s < /dev/null & echo $!',
         escapeshellarg($php),
         escapeshellarg($script),
-        escapeshellarg($sessionId)
+        escapeshellarg($sessionId),
+        escapeshellarg($errPath)
     );
     $out = [];
     $rc = 1;
     @exec($cmd, $out, $rc);
+    $spawnError = '';
+    if (@is_file($errPath)) {
+        $rawError = @file_get_contents($errPath);
+        if (is_string($rawError)) {
+            $spawnError = trim((string) preg_replace('/\s+/', ' ', (string) preg_replace('/[[:cntrl:]]+/', ' ', $rawError)));
+        }
+        @unlink($errPath);
+    }
+
     if ($rc !== 0 || !isset($out[0])) {
-        return 0;
+        if ($spawnError === '') {
+            $spawnError = 'spawn_command_failed';
+        }
+        return ['pid' => 0, 'error' => $spawnError];
     }
 
     $pidRaw = trim((string) $out[0]);
     if ($pidRaw === '' || !preg_match('/^[0-9]+$/', $pidRaw)) {
-        return 0;
+        return ['pid' => 0, 'error' => $spawnError !== '' ? $spawnError : 'invalid_worker_pid'];
     }
 
-    return (int) $pidRaw;
+    return ['pid' => (int) $pidRaw, 'error' => $spawnError];
 }
 
 function v2SystemConsoleCloseConflictingSessions(array $viewer): void
@@ -284,15 +298,18 @@ function v2SystemConsoleOpenSession(array $viewer): array
 
     v2ConsoleWriteMeta($sessionId, $meta);
 
-    $pid = v2SystemConsoleSpawnWorker($sessionId);
+    $spawn = v2SystemConsoleSpawnWorker($sessionId);
+    $pid = (int) ($spawn['pid'] ?? 0);
+    $spawnError = trim((string) ($spawn['error'] ?? ''));
     if ($pid <= 0) {
         $meta['status'] = 'error';
         $meta['updated_at'] = v2SystemConsoleNowIso();
         $meta['closed_at'] = v2SystemConsoleNowIso();
         $meta['closed_reason'] = 'worker_spawn_failed';
-        $meta['worker_error'] = 'worker_spawn_failed';
+        $meta['worker_error'] = $spawnError !== '' ? $spawnError : 'worker_spawn_failed';
         v2ConsoleWriteMeta($sessionId, $meta);
-        throw new RuntimeException('Failed to start system console worker');
+        $errMsg = $spawnError !== '' ? ('Failed to start system console worker: ' . $spawnError) : 'Failed to start system console worker';
+        throw new RuntimeException($errMsg);
     }
     $meta['worker_pid'] = $pid;
     $meta['worker_started_at'] = v2SystemConsoleNowIso();

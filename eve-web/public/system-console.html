@@ -167,6 +167,7 @@
     let writeBusy = false;
     let writeQueue = '';
     let closing = false;
+    let receivedAnyOutput = false;
     let termResizeObserver = null;
     const utf8Decoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder('utf-8') : null;
     const utf8Encoder = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
@@ -503,6 +504,9 @@
           if (typeof data.next_offset === 'number') readOffset = data.next_offset;
           if (data.chunk_base64) {
             const raw = decodeChunkBase64Utf8(String(data.chunk_base64));
+            if (raw !== '') {
+              receivedAnyOutput = true;
+            }
             processCwdProbeChunk(raw);
             term.write(raw);
           }
@@ -528,6 +532,7 @@
       if (!sessionId) return;
       const sid = sessionId;
       sessionId = '';
+      receivedAnyOutput = false;
       try {
         await jget(api.close(sid), {
           method: 'DELETE',
@@ -536,6 +541,17 @@
       } catch (e) {
         // Ignore close errors.
       }
+    }
+
+    function schedulePromptKick(localToken, delayMs) {
+      setTimeout(() => {
+        if (closing) return;
+        if (!sessionId) return;
+        if (localToken !== readLoopToken) return;
+        if (receivedAnyOutput) return;
+        writeQueue += '\r';
+        void flushWriteQueue();
+      }, delayMs);
     }
 
     async function connectSession() {
@@ -550,8 +566,11 @@
         sessionId = String(data.session_id || '').trim();
         if (!sessionId) throw new Error(tr('errOpen'));
         const myToken = readLoopToken;
+        receivedAnyOutput = false;
         statusSet('ok', tr('statusConnected'));
         term.focus();
+        schedulePromptKick(myToken, 700);
+        schedulePromptKick(myToken, 1800);
         void readLoop(myToken);
       } catch (e) {
         statusSet('error', tr('statusError'));
