@@ -12,6 +12,8 @@ DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-eve-ng-db}"
 DB_USER="${DB_USER:-eve-ng-ktk}"
 DB_PASSWORD="${DB_PASSWORD:-}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 DB_SEARCH_PATH="${DB_SEARCH_PATH:-auth,infra,labs,runtime,checks,public}"
 QEMU_VERSIONS="${QEMU_VERSIONS:-1.3.1 2.0.2 2.2.0 2.4.0 2.5.0 2.6.2 2.12.0 3.1.0 4.1.0 5.2.0 6.0.0 7.2.9 8.2.1}"
 QEMU_DEFAULT_LINK="${QEMU_DEFAULT_LINK:-2.4.0}"
@@ -19,6 +21,9 @@ INSTALL_EVE_QEMU_PACKAGE="${INSTALL_EVE_QEMU_PACKAGE:-0}"
 NGINX_SITE_PATH="${NGINX_SITE_PATH:-/etc/nginx/sites-available/eve-v2.conf}"
 DISABLE_APACHE="${DISABLE_APACHE:-1}"
 APPLY_SYSCTL="${APPLY_SYSCTL:-1}"
+ADMIN_USER_CREATED=0
+ADMIN_PASSWORD_GENERATED=0
+ADMIN_USER_INFO="not_checked"
 
 SCRIPT_NAME="$(basename "$0")"
 
@@ -58,6 +63,7 @@ Options:
 Environment overrides:
   TARGET_DIR, REPO_URL, REPO_BRANCH, SERVER_NAME,
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SEARCH_PATH,
+  ADMIN_USERNAME, ADMIN_PASSWORD,
   QEMU_VERSIONS, QEMU_DEFAULT_LINK, INSTALL_EVE_QEMU_PACKAGE,
   WEB_USER, WEB_GROUP, DISABLE_APACHE, APPLY_SYSCTL, NGINX_SITE_PATH
 USAGE
@@ -77,6 +83,13 @@ ensure_db_ident() {
 	local field="$2"
 	if [[ ! "$value" =~ ^[A-Za-z0-9_-]{1,63}$ ]]; then
 		fail "$field contains unsupported characters: $value"
+	fi
+}
+
+ensure_admin_username_ident() {
+	local value="$1"
+	if [[ ! "$value" =~ ^[A-Za-z0-9._-]{1,64}$ ]]; then
+		fail "ADMIN_USERNAME contains unsupported characters: $value"
 	fi
 }
 
@@ -304,6 +317,89 @@ apply_migrations() {
 	DB_PASSWORD="$DB_PASSWORD" \
 	MIGRATIONS_TABLE="schema_migrations" \
 	"$TARGET_DIR/eve-web/bin/apply_migrations.sh"
+}
+
+generate_password_hash() {
+	local password="$1"
+	php -r '
+		$password = (string) ($argv[1] ?? "");
+		if ($password === "") { exit(1); }
+		if (defined("PASSWORD_ARGON2ID")) {
+			$hash = password_hash($password, PASSWORD_ARGON2ID, [
+				"memory_cost" => 65536,
+				"time_cost" => 2,
+				"threads" => 1,
+			]);
+			if (is_string($hash) && $hash !== "") {
+				echo $hash;
+				exit(0);
+			}
+		}
+		$hash = password_hash($password, PASSWORD_BCRYPT);
+		if (!is_string($hash) || $hash === "") { exit(1); }
+		echo $hash;
+	' -- "$password"
+}
+
+ensure_initial_admin_user() {
+	local conn schema users_count users_count_trim admin_role_id password_hash
+
+	conn="host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER"
+	schema="$(PGPASSWORD="$DB_PASSWORD" psql "$conn" -At -v ON_ERROR_STOP=1 -c \
+		"SELECT CASE
+			WHEN to_regclass('auth.users') IS NOT NULL AND to_regclass('auth.roles') IS NOT NULL THEN 'auth'
+			WHEN to_regclass('public.users') IS NOT NULL AND to_regclass('public.roles') IS NOT NULL THEN 'public'
+			ELSE ''
+		END")"
+
+	if [[ -z "$schema" ]]; then
+		ADMIN_USER_INFO="skipped:users_table_not_found"
+		log "Skipping first admin creation: users table not found"
+		return
+	fi
+
+	users_count="$(PGPASSWORD="$DB_PASSWORD" psql "$conn" -At -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM ${schema}.users")"
+	users_count_trim="${users_count//[[:space:]]/}"
+	if [[ "$users_count_trim" =~ ^[0-9]+$ ]] && (( users_count_trim > 0 )); then
+		ADMIN_USER_INFO="skipped:users_exist(${users_count_trim})"
+		log "Skipping first admin creation: users table already has ${users_count_trim} records"
+		return
+	fi
+
+	if [[ "$schema" == "auth" ]]; then
+		admin_role_id="$(PGPASSWORD="$DB_PASSWORD" psql "$conn" -At -v ON_ERROR_STOP=1 -c "SELECT id FROM auth.roles WHERE lower(name)='admin' ORDER BY id LIMIT 1")"
+	else
+		admin_role_id="$(PGPASSWORD="$DB_PASSWORD" psql "$conn" -At -v ON_ERROR_STOP=1 -c "SELECT id FROM public.roles WHERE lower(name)='admin' ORDER BY id LIMIT 1")"
+	fi
+	admin_role_id="${admin_role_id//[[:space:]]/}"
+	[[ -n "$admin_role_id" ]] || fail "Failed to create first admin user: admin role not found"
+
+	if [[ -z "$ADMIN_PASSWORD" ]]; then
+		ADMIN_PASSWORD="$(random_password)"
+		ADMIN_PASSWORD_GENERATED=1
+	fi
+
+	password_hash="$(generate_password_hash "$ADMIN_PASSWORD")" || fail "Failed to hash admin password"
+
+	if [[ "$schema" == "auth" ]]; then
+		PGPASSWORD="$DB_PASSWORD" psql "$conn" -v ON_ERROR_STOP=1 \
+			-v username="$ADMIN_USERNAME" \
+			-v password_hash="$password_hash" \
+			-v role_id="$admin_role_id" \
+			-c "INSERT INTO auth.users (username, password_hash, role_id, is_blocked, lang, theme)
+			    VALUES (:'username', :'password_hash', :'role_id', FALSE, 'en', 'dark')" >/dev/null
+	else
+		PGPASSWORD="$DB_PASSWORD" psql "$conn" -v ON_ERROR_STOP=1 \
+			-v username="$ADMIN_USERNAME" \
+			-v password_hash="$password_hash" \
+			-v role_id="$admin_role_id" \
+			-c "INSERT INTO public.users (username, password_hash, role_id, is_blocked, lang, theme)
+			    VALUES (:'username', :'password_hash', :'role_id', FALSE, 'en', 'dark')" >/dev/null
+	fi
+
+	ADMIN_USER_CREATED=1
+	ADMIN_USER_INFO="created:${ADMIN_USERNAME}"
+	log "First admin user created: ${ADMIN_USERNAME}"
 }
 
 install_qemu_versions_layout() {
@@ -595,6 +691,12 @@ Database:
   host=${DB_HOST} port=${DB_PORT} db=${DB_NAME} user=${DB_USER}
   password=${DB_PASSWORD}
 
+Admin user:
+  status=${ADMIN_USER_INFO}
+$(if [[ "$ADMIN_USER_CREATED" == "1" ]]; then
+	printf '  username=%s\n  password=%s\n' "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+fi)
+
 Services:
   - nginx
   - $(detect_php_fpm_service)
@@ -617,6 +719,7 @@ main() {
 
 	ensure_db_ident "$DB_NAME" "DB_NAME"
 	ensure_db_ident "$DB_USER" "DB_USER"
+	ensure_admin_username_ident "$ADMIN_USERNAME"
 	[[ "$DB_PORT" =~ ^[0-9]+$ ]] || fail "DB_PORT must be numeric: $DB_PORT"
 
 	if [[ -z "$DB_PASSWORD" ]]; then
@@ -634,6 +737,7 @@ main() {
 	setup_database
 	prepare_env
 	apply_migrations
+	ensure_initial_admin_user
 	install_sudoers
 	install_labtasks_service
 	configure_nginx
