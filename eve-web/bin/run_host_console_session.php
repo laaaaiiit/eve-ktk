@@ -178,6 +178,13 @@ $targetProducedOutput = false;
 $noOutputHintShown = false;
 $workerStartedAt = microtime(true);
 
+// Wake login prompt proactively on hosts where first prompt is delayed/suppressed.
+$bootWake = @fwrite($stdin, "\r");
+if (is_int($bootWake) && $bootWake > 0) {
+    $bytesIn += $bootWake;
+    $lastActivity = time();
+}
+
 while (true) {
     if ($terminate) {
         $closeReason = 'worker_terminated';
