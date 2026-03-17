@@ -1021,12 +1021,12 @@ main() {
 
 	install_packages
 	ensure_kvm_access
-	ensure_vpcs_binary
 	require_cmd git
 	require_cmd visudo
 	require_cmd curl
-	install_qemu_versions_layout
 	sync_repo
+	ensure_vpcs_binary
+	install_qemu_versions_layout
 	prepare_runtime_dirs
 	setup_database
 	prepare_env
