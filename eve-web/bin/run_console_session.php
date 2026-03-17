@@ -216,10 +216,22 @@ if ($targetPort < 1 || $targetPort > 65535) {
 }
 
 $target = sprintf('tcp://%s:%d', $targetHost, $targetPort);
+$workerOpenSocket = static function (string $target, int &$errno, string &$errstr) {
+    $errno = 0;
+    $errstr = '';
+    $sock = @stream_socket_client($target, $errno, $errstr, 5, STREAM_CLIENT_CONNECT);
+    if ($sock === false) {
+        return false;
+    }
+    @stream_set_blocking($sock, false);
+    workerEnableLowLatencySocket($sock);
+    return $sock;
+};
+
 $errno = 0;
 $errstr = '';
-$socket = @stream_socket_client($target, $errno, $errstr, 5, STREAM_CLIENT_CONNECT);
-if ($socket === false) {
+$socket = $workerOpenSocket($target, $errno, $errstr);
+if ($socket === false || !is_resource($socket)) {
     $meta['status'] = 'error';
     $meta['updated_at'] = workerNowIso();
     $meta['closed_at'] = workerNowIso();
@@ -229,9 +241,6 @@ if ($socket === false) {
     fwrite(STDERR, "Connection failed: {$errstr} ({$errno})\n");
     exit(1);
 }
-
-@stream_set_blocking($socket, false);
-workerEnableLowLatencySocket($socket);
 
 $terminate = false;
 if (function_exists('pcntl_async_signals')) {
@@ -270,6 +279,8 @@ $nodeConsole = strtolower(trim((string) ($meta['node_console'] ?? 'telnet')));
 $telnetFilterEnabled = ($nodeConsole === '' || $nodeConsole === 'telnet');
 $telnetState = workerTelnetStateInit();
 $socketReplyBuffer = '';
+$earlyReconnects = 0;
+$maxEarlyReconnects = 2;
 
 while (true) {
     if ($terminate) {
@@ -301,6 +312,21 @@ while (true) {
         }
         $hadActivity = true;
     } elseif ($readChunk === '' && @feof($socket)) {
+        // Some targets (VPCS/vIOS on certain hosts) may drop the very first
+        // connection immediately. Retry a couple of times before closing.
+        if ($bytesOut === 0 && $earlyReconnects < $maxEarlyReconnects) {
+            @fclose($socket);
+            usleep(180000);
+            $socket = $workerOpenSocket($target, $errno, $errstr);
+            if ($socket !== false && is_resource($socket)) {
+                $earlyReconnects++;
+                $telnetState = workerTelnetStateInit();
+                $socketReplyBuffer = '';
+                $hadActivity = true;
+                $lastActivity = time();
+                continue;
+            }
+        }
         $closeReason = 'target_closed';
         break;
     }
