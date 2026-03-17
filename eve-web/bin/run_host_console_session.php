@@ -256,31 +256,13 @@ while (true) {
 
     $readOut = @fread($stdout, 65536);
     if (is_string($readOut) && $readOut !== '') {
-        $streamChunk = hostWorkerSanitizeScriptChunk($readOut);
-        if ($streamChunk !== '') {
-            $written = hostWorkerAppendOut($sessionId, $streamChunk);
-            if ($written > 0) {
-                $bytesOut += $written;
-            }
-            if (preg_match('/[^\r\n\t ]/', $streamChunk) === 1) {
-                $targetProducedOutput = true;
-            }
-        }
+        // Keep stdout drained to avoid blocking, but render from script transcript only.
         $hadActivity = true;
     }
 
     $readErr = @fread($stderr, 65536);
     if (is_string($readErr) && $readErr !== '') {
-        $streamErrChunk = hostWorkerSanitizeScriptChunk($readErr);
-        if ($streamErrChunk !== '') {
-            $written = hostWorkerAppendOut($sessionId, $streamErrChunk);
-            if ($written > 0) {
-                $bytesOut += $written;
-            }
-            if (preg_match('/[^\r\n\t ]/', $streamErrChunk) === 1) {
-                $targetProducedOutput = true;
-            }
-        }
+        // Keep stderr drained to avoid blocking, but render from script transcript only.
         $hadActivity = true;
     }
 
