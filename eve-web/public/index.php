@@ -3558,25 +3558,36 @@ if ($method === 'GET' && preg_match('#^/api/main/export-download/([a-z0-9._-]{8,
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
 
-        while (!feof($fh)) {
-            $chunk = fread($fh, 8192);
-            if ($chunk === false) {
-                break;
+        $ignoreUserAbortPrev = ignore_user_abort(true);
+        $clientAborted = false;
+        try {
+            while (!feof($fh)) {
+                $chunk = fread($fh, 8192);
+                if ($chunk === false) {
+                    break;
+                }
+                echo $chunk;
+                flush();
+                if (connection_aborted()) {
+                    $clientAborted = true;
+                    break;
+                }
             }
-            echo $chunk;
-            flush();
+        } finally {
+            fclose($fh);
+            ignore_user_abort((bool) $ignoreUserAbortPrev);
         }
-        fclose($fh);
 
         cleanupMainLabArchiveExport([
             'work_dir' => $workDir,
             'archive_path' => $archivePath,
         ]);
         mainExportProgressPatch($operationId, [
-            'message' => 'Archive downloaded',
+            'message' => $clientAborted ? 'Archive stream aborted by client' : 'Archive downloaded',
             'result' => [
-                'downloaded' => true,
+                'downloaded' => !$clientAborted,
                 'downloaded_at' => mainDeleteProgressNow(),
+                'aborted' => $clientAborted,
             ],
             'internal' => [
                 'archive_path' => '',
