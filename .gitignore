@@ -7,3 +7,4 @@ data/
 legacy/
 legacy/files/logs-archive-*/
 legacy/files/logs-trash-*/
+eve-web/.env

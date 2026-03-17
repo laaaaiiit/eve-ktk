@@ -645,7 +645,9 @@
       const runs = Array.isArray(runsData.runs) ? runsData.runs : [];
       state.runs = runs;
 
-      const candidateRunId = state.runObservedId || (!state.runTaskId ? selectObservedRunIdFromRuns(runs) : '');
+      // Even when a specific task is tracked, derive run id from runs list
+      // to avoid stalled UI on hosts where task payload.run_id is updated late.
+      const candidateRunId = state.runObservedId || selectObservedRunIdFromRuns(runs);
       if (candidateRunId) {
         state.runObservedId = candidateRunId;
         const detailRes = await ctx.jget(apiRun(candidateRunId));
