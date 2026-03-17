@@ -218,7 +218,8 @@ install_packages() {
 		python3 \
 		python3-venv \
 		qemu-system-x86 \
-		qemu-utils
+		qemu-utils \
+		vpcs
 }
 
 sync_repo() {
@@ -244,6 +245,8 @@ sync_repo() {
 
 prepare_runtime_dirs() {
 	log "Preparing runtime directories"
+	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/addons"
+	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/addons/qemu"
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data"
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data/Logs"
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data/tmp"
@@ -259,6 +262,36 @@ prepare_runtime_dirs() {
 	fi
 	chown root:"$WEB_GROUP" "$TARGET_DIR/data/Logs/task_worker.service.log"
 	chmod 0664 "$TARGET_DIR/data/Logs/task_worker.service.log"
+}
+
+ensure_vpcs_binary() {
+	local system_vpcs
+	system_vpcs=""
+
+	if [[ -x /opt/vpcsu/bin/vpcs ]]; then
+		return
+	fi
+
+	if command -v vpcs >/dev/null 2>&1; then
+		system_vpcs="$(command -v vpcs)"
+	fi
+
+	if [[ -z "$system_vpcs" ]]; then
+		if apt-cache show vpcs >/dev/null 2>&1; then
+			apt-get install -y vpcs || true
+			if command -v vpcs >/dev/null 2>&1; then
+				system_vpcs="$(command -v vpcs)"
+			fi
+		fi
+	fi
+
+	if [[ -n "$system_vpcs" ]] && [[ -x "$system_vpcs" ]]; then
+		install -d -m 0755 /opt/vpcsu/bin
+		ln -sfn "$system_vpcs" /opt/vpcsu/bin/vpcs
+		log "Linked VPCS binary: /opt/vpcsu/bin/vpcs -> $system_vpcs"
+	else
+		warn "VPCS binary is missing (/opt/vpcsu/bin/vpcs). VPC nodes will fail to start."
+	fi
 }
 
 setup_database() {
@@ -726,6 +759,7 @@ main() {
 	fi
 
 	install_packages
+	ensure_vpcs_binary
 	require_cmd git
 	require_cmd visudo
 	require_cmd curl
