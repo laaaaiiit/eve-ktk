@@ -4041,10 +4041,16 @@ function mainExportProgressCleanupPayloadArtifacts(array $payload): void
     ]);
 }
 
-function mainExportProgressCleanupExpired(int $maxAgeSeconds = 172800): void
+function mainExportProgressCleanupExpired(int $maxAgeSeconds = 172800, int $readyUndownloadedMaxAgeSeconds = 21600): void
 {
-    if ($maxAgeSeconds < 60) {
-        $maxAgeSeconds = 60;
+    if ($maxAgeSeconds < 300) {
+        $maxAgeSeconds = 300;
+    }
+    if ($readyUndownloadedMaxAgeSeconds < 300) {
+        $readyUndownloadedMaxAgeSeconds = 300;
+    }
+    if ($readyUndownloadedMaxAgeSeconds > $maxAgeSeconds) {
+        $readyUndownloadedMaxAgeSeconds = $maxAgeSeconds;
     }
     $dir = mainExportProgressDir();
     if (!is_dir($dir)) {
@@ -4057,17 +4063,53 @@ function mainExportProgressCleanupExpired(int $maxAgeSeconds = 172800): void
         if (!is_int($mtime)) {
             continue;
         }
-        if (($now - $mtime) > $maxAgeSeconds) {
+        $ageSeconds = $now - $mtime;
+        $decoded = null;
+        $shouldDelete = ($ageSeconds > $maxAgeSeconds);
+
+        if (!$shouldDelete && $ageSeconds > $readyUndownloadedMaxAgeSeconds) {
             $raw = @file_get_contents($path);
             if (is_string($raw) && $raw !== '') {
-                $decoded = json_decode($raw, true);
-                if (is_array($decoded)) {
-                    mainExportProgressCleanupPayloadArtifacts($decoded);
+                $decodedTry = json_decode($raw, true);
+                if (is_array($decodedTry)) {
+                    $decoded = $decodedTry;
+                    $status = strtolower(trim((string) ($decoded['status'] ?? '')));
+                    $result = is_array($decoded['result'] ?? null) ? $decoded['result'] : [];
+                    $downloaded = !empty($result['downloaded']);
+                    if ($status === 'done' && !$downloaded) {
+                        $shouldDelete = true;
+                    }
                 }
+            }
+        }
+
+        if ($shouldDelete) {
+            if (!is_array($decoded)) {
+                $raw = @file_get_contents($path);
+                if (is_string($raw) && $raw !== '') {
+                    $decodedTry = json_decode($raw, true);
+                    if (is_array($decodedTry)) {
+                        $decoded = $decodedTry;
+                    }
+                }
+            }
+            if (is_array($decoded)) {
+                mainExportProgressCleanupPayloadArtifacts($decoded);
             }
             @unlink($path);
         }
     }
+}
+
+function mainExportProgressCleanupMaybeRun(): void
+{
+    static $lastRunAt = 0;
+    $now = time();
+    if (($now - $lastRunAt) < 60) {
+        return;
+    }
+    $lastRunAt = $now;
+    mainExportProgressCleanupExpired();
 }
 
 function mainExportProgressGenerateOperationId(): string
@@ -4147,6 +4189,7 @@ function mainExportProgressCreate(
 function mainExportProgressGetForViewerRaw(PDO $db, array $viewer, string $operationId): array
 {
     unset($db);
+    mainExportProgressCleanupMaybeRun();
 
     $safeId = mainExportProgressNormalizeOperationId($operationId);
     if ($safeId === '') {
@@ -4260,6 +4303,7 @@ function queueMainLabExportForViewer(
 
 function resolveMainLabExportDownloadForViewer(PDO $db, array $viewer, string $operationId): array
 {
+    mainExportProgressCleanupMaybeRun();
     $payload = mainExportProgressGetForViewerRaw($db, $viewer, $operationId);
     $status = strtolower(trim((string) ($payload['status'] ?? '')));
     if ($status !== 'done') {
