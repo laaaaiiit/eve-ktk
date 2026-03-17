@@ -324,9 +324,13 @@ vpcs_version_is_known_bad() {
 }
 
 ensure_vpcs_binary() {
-	local existing_vpcs system_vpcs existing_version system_version backup_path
+	local existing_vpcs repo_vpcs system_vpcs existing_version backup_path
+	local selected_vpcs selected_version candidate candidate_version
 	existing_vpcs="/opt/vpcsu/bin/vpcs"
+	repo_vpcs="$TARGET_DIR/runtime/bin/vpcs/linux-amd64/vpcs"
 	system_vpcs=""
+	selected_vpcs=""
+	selected_version=""
 
 	if [[ -x "$existing_vpcs" ]]; then
 		existing_version="$(vpcs_version_string "$existing_vpcs")"
@@ -351,21 +355,29 @@ ensure_vpcs_binary() {
 		fi
 	fi
 
-	if [[ -n "$system_vpcs" ]] && [[ -x "$system_vpcs" ]]; then
-		system_version="$(vpcs_version_string "$system_vpcs")"
-		if vpcs_version_is_known_bad "$system_version"; then
-			warn "System VPCS binary is old (${system_version:-unknown}) at $system_vpcs"
-		else
-			if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]]; then
-				backup_path="/opt/vpcsu/bin/vpcs.backup.$(date +%Y%m%d%H%M%S)"
-				cp -f "$existing_vpcs" "$backup_path" || true
-				warn "Backed up previous VPCS binary to $backup_path"
-			fi
-			install -d -m 0755 /opt/vpcsu/bin
-			ln -sfn "$system_vpcs" "$existing_vpcs"
-			log "Linked VPCS binary: $existing_vpcs -> $system_vpcs (${system_version:-unknown})"
-			return
+	for candidate in "$repo_vpcs" "$system_vpcs"; do
+		[[ -n "${candidate:-}" ]] || continue
+		[[ -x "$candidate" ]] || continue
+		candidate_version="$(vpcs_version_string "$candidate")"
+		if vpcs_version_is_known_bad "$candidate_version"; then
+			warn "Skipping old VPCS binary at $candidate (${candidate_version:-unknown})"
+			continue
 		fi
+		selected_vpcs="$candidate"
+		selected_version="$candidate_version"
+		break
+	done
+
+	if [[ -n "$selected_vpcs" ]]; then
+		if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]] && [[ "$selected_vpcs" != "$existing_vpcs" ]]; then
+			backup_path="/opt/vpcsu/bin/vpcs.backup.$(date +%Y%m%d%H%M%S)"
+			cp -f "$existing_vpcs" "$backup_path" || true
+			warn "Backed up previous VPCS binary to $backup_path"
+		fi
+		install -d -m 0755 /opt/vpcsu/bin
+		ln -sfn "$selected_vpcs" "$existing_vpcs"
+		log "Linked VPCS binary: $existing_vpcs -> $selected_vpcs (${selected_version:-unknown})"
+		return
 	fi
 
 	if [[ -x "$existing_vpcs" ]]; then

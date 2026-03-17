@@ -6,6 +6,7 @@
 
 Скрипт `eve-web/bin/install_debian_eve_v2.sh`:
 - ставит пакеты (`nginx`, `php-fpm`, `postgresql`, `websockify`, `qemu-utils`, и т.д.);
+- проверяет `vpcs` и при необходимости использует bundled бинарник из репозитория (`runtime/bin/vpcs/linux-amd64/vpcs`);
 - подготавливает layout версий QEMU в `/opt/qemu-*` (как на текущей VM):
   `1.3.1, 2.0.2, 2.2.0, 2.4.0, 2.5.0, 2.6.2, 2.12.0, 3.1.0, 4.1.0, 5.2.0, 6.0.0, 7.2.9, 8.2.1`;
 - создает симлинк `/opt/qemu -> /opt/qemu-2.4.0` (по умолчанию);

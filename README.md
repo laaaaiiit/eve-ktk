@@ -19,7 +19,7 @@
 ## Структура репозитория
 
 - `eve-web/` — основной web-код v2 (API, UI, сервисы, миграции, утилиты).
-- `runtime/` — runtime-шаблоны и ресурсы (иконки, templates).
+- `runtime/` — runtime-шаблоны и ресурсы (иконки, templates), а также bundled `vpcs` бинарник (`runtime/bin/vpcs/linux-amd64/vpcs`) для автономной установки.
 - `config_scripts/` — скрипты первичной конфигурации вендорных образов.
 - `addons/` — каталог пользовательских образов и файлов рантайма (в первую очередь `addons/qemu/*` для QEMU-шаблонов).
 
@@ -57,6 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-
 6. Настраивает `nginx` (HTTP + websocket proxy для `/vncws/` и `/collabws/`).
 7. Создает/включает сервис `eve-labtasks`.
 8. Применяет базовые `sysctl` настройки.
+9. Проверяет `vpcs`: если системный бинарник старый/проблемный, использует bundled вариант из репозитория.
 
 Подробности: `eve-web/docs/install-debian.md`.
 
