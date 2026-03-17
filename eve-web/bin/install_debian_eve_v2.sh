@@ -706,6 +706,22 @@ run_quick_checks() {
 	curl -fsS "http://127.0.0.1/login" >/dev/null || warn "HTTP check failed at /login"
 }
 
+restart_runtime_services() {
+	local php_fpm_service
+	log "Restarting runtime services"
+	php_fpm_service="$(detect_php_fpm_service)"
+
+	systemctl daemon-reload || warn "systemctl daemon-reload returned non-zero status"
+	systemctl restart postgresql || warn "Failed to restart postgresql"
+	if [[ -n "$php_fpm_service" ]]; then
+		systemctl restart "$php_fpm_service" || warn "Failed to restart ${php_fpm_service}"
+	else
+		warn "Unable to detect php-fpm service for restart"
+	fi
+	systemctl restart nginx || warn "Failed to restart nginx"
+	systemctl restart eve-labtasks.service || warn "Failed to restart eve-labtasks.service"
+}
+
 print_summary() {
 	cat <<SUMMARY
 
@@ -774,6 +790,7 @@ main() {
 	install_labtasks_service
 	configure_nginx
 	apply_sysctl_tuning
+	restart_runtime_services
 	run_quick_checks
 	print_summary
 }
