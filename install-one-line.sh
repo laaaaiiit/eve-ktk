@@ -2,6 +2,9 @@
 set -euo pipefail
 
 INSTALL_URL="${INSTALL_URL:-https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/eve-web/bin/install_debian_eve_v2.sh}"
+if [[ -z "${INSTALL_URL##*raw.githubusercontent.com*/main/*}" ]] && [[ "$INSTALL_URL" != *\?* ]]; then
+	INSTALL_URL="${INSTALL_URL}?ts=$(date +%s)"
+fi
 TMP_SCRIPT="$(mktemp /tmp/eve-v2-install.XXXXXX.sh)"
 
 cleanup() {
