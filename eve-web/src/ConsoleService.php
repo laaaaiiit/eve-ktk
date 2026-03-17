@@ -486,21 +486,7 @@ function v2ConsoleSpawnWorker(string $sessionId): int
     if ($pidRaw === '' || !preg_match('/^[0-9]+$/', $pidRaw)) {
         return 0;
     }
-    $pid = (int) $pidRaw;
-    if ($pid <= 0) {
-        return 0;
-    }
-
-    // Fast sanity check: fail early if process exits immediately.
-    usleep(120000);
-    $alive = false;
-    if (function_exists('posix_kill')) {
-        $alive = @posix_kill($pid, 0);
-    } else {
-        $alive = @is_dir('/proc/' . $pid);
-    }
-
-    return $alive ? $pid : 0;
+    return (int) $pidRaw;
 }
 
 function v2ConsoleReadOutputChunk(string $path, int $offset, int $maxBytes): array
