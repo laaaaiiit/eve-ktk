@@ -74,6 +74,45 @@ function hostWorkerAppendOut(string $sessionId, string $chunk): int
     return is_int($written) ? $written : 0;
 }
 
+function hostWorkerReadAppendChunk(string $path, int $offset, int $maxBytes = 131072): array
+{
+    if ($offset < 0) {
+        $offset = 0;
+    }
+    if ($maxBytes < 1024) {
+        $maxBytes = 1024;
+    }
+
+    clearstatcache(true, $path);
+    $size = @filesize($path);
+    if (!is_int($size) || $size <= $offset) {
+        return ['', $offset];
+    }
+
+    $toRead = min($maxBytes, $size - $offset);
+    if ($toRead <= 0) {
+        return ['', $offset];
+    }
+
+    $fp = @fopen($path, 'rb');
+    if ($fp === false) {
+        return ['', $offset];
+    }
+    $chunk = '';
+    if (@fseek($fp, $offset) === 0) {
+        $read = @fread($fp, $toRead);
+        if (is_string($read)) {
+            $chunk = $read;
+        }
+    }
+    @fclose($fp);
+
+    if ($chunk === '') {
+        return ['', $offset];
+    }
+    return [$chunk, $offset + strlen($chunk)];
+}
+
 $options = getopt('', ['session:']);
 $sessionId = strtolower(trim((string) ($options['session'] ?? '')));
 if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $sessionId)) {
@@ -105,7 +144,9 @@ $descriptors = [
     2 => ['pipe', 'w'],
 ];
 
-$cmd = [$scriptBin, '-qfec', '/bin/login -p', '/dev/null'];
+$scriptCapturePath = hostWorkerSessionDir($sessionId) . '/script.log';
+@file_put_contents($scriptCapturePath, '');
+$cmd = [$scriptBin, '-qf', '-c', '/bin/login -p', $scriptCapturePath];
 $env = [
     'TERM' => 'xterm-256color',
     'COLORTERM' => 'truecolor',
@@ -177,6 +218,7 @@ $closeReason = 'worker_stopped';
 $targetProducedOutput = false;
 $noOutputHintShown = false;
 $workerStartedAt = microtime(true);
+$scriptCaptureOffset = 0;
 
 // Wake login prompt proactively on hosts where first prompt is delayed/suppressed.
 $bootWake = @fwrite($stdin, "\r");
@@ -202,22 +244,24 @@ while (true) {
 
     $readOut = @fread($stdout, 65536);
     if (is_string($readOut) && $readOut !== '') {
-        $targetProducedOutput = true;
-        $written = hostWorkerAppendOut($sessionId, $readOut);
-        if ($written > 0) {
-            $bytesOut += $written;
-        }
         $hadActivity = true;
     }
 
     $readErr = @fread($stderr, 65536);
     if (is_string($readErr) && $readErr !== '') {
-        $targetProducedOutput = true;
-        $written = hostWorkerAppendOut($sessionId, $readErr);
+        $hadActivity = true;
+    }
+
+    [$capturedChunk, $scriptCaptureOffset] = hostWorkerReadAppendChunk($scriptCapturePath, $scriptCaptureOffset);
+    if ($capturedChunk !== '') {
+        $written = hostWorkerAppendOut($sessionId, $capturedChunk);
         if ($written > 0) {
             $bytesOut += $written;
+            $hadActivity = true;
         }
-        $hadActivity = true;
+        if (preg_match('/[^\r\n\t ]/', $capturedChunk) === 1) {
+            $targetProducedOutput = true;
+        }
     }
 
     $status = @proc_get_status($proc);
@@ -299,6 +343,14 @@ while (true) {
 @fclose($stdout);
 @fclose($stderr);
 @proc_close($proc);
+
+[$tailChunk, $scriptCaptureOffset] = hostWorkerReadAppendChunk($scriptCapturePath, $scriptCaptureOffset);
+if ($tailChunk !== '') {
+    $written = hostWorkerAppendOut($sessionId, $tailChunk);
+    if ($written > 0) {
+        $bytesOut += $written;
+    }
+}
 
 $meta = hostWorkerReadMeta($sessionId) ?: [];
 $meta['status'] = 'closed';
