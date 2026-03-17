@@ -3270,15 +3270,22 @@ function runtimeQemuOptionsProvideDisplay(array $tokens): bool
 
 function runtimeBuildVpcsLaunchSpec(array $ctx, string $labId, string $nodeId, string $nodeDir): array
 {
-    $binary = '/opt/vpcsu/bin/vpcs';
-    if (!is_executable($binary)) {
+    $binary = '';
+    $candidates = [
+        '/opt/vpcsu/bin/vpcs',
+        '/usr/bin/vpcs',
+        '/usr/local/bin/vpcs',
+    ];
+    foreach ($candidates as $candidate) {
+        if (is_executable($candidate)) {
+            $binary = $candidate;
+            break;
+        }
+    }
+    if ($binary === '') {
         throw new RuntimeException('vpcs binary is not available');
     }
 
-    $name = trim((string) ($ctx['name'] ?? 'VPCS'));
-    if ($name === '') {
-        $name = 'VPCS';
-    }
     $consolePort = runtimeAllocateConsolePort(
         $labId,
         $nodeId,
@@ -3309,7 +3316,6 @@ function runtimeBuildVpcsLaunchSpec(array $ctx, string $labId, string $nodeId, s
         '-i', '1',
         '-p', (string) $consolePort,
         '-m', (string) $macSeed,
-        '-N', $name,
         '-e',
         '-d', $tap,
     ];

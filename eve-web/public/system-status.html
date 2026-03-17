@@ -661,10 +661,12 @@
       ).join('');
 
       const light = theme === 'light';
-      const svcRows = [
-        ['apache2', services.apache2 || {}],
-        ['postgresql', services.postgresql || {}]
-      ];
+      const svcRows = [];
+      if (services.web && typeof services.web === 'object') {
+        const webName = (services.web.name && String(services.web.name).trim() !== '') ? String(services.web.name) : 'web';
+        svcRows.push([webName, services.web]);
+      }
+      svcRows.push(['postgresql', services.postgresql || {}]);
       byId('servicesBody').innerHTML = svcRows.map((row) => {
         const running = !!row[1].running;
         const badgeCls = running

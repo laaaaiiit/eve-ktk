@@ -448,7 +448,14 @@ function getSystemStatusForViewer(PDO $db, array $viewer): array
     $dbQueryMs = round((microtime(true) - $startTs) * 1000, 2);
 
     $apacheCount = systemCountProcessComm(['apache2']);
+    $nginxCount = systemCountProcessComm(['nginx']);
     $postgresCount = systemCountProcessComm(['postgres']);
+    $webName = 'nginx';
+    $webCount = $nginxCount;
+    if ($webCount <= 0 && $apacheCount > 0) {
+        $webName = 'apache2';
+        $webCount = $apacheCount;
+    }
 
     return [
         'server' => [
@@ -468,9 +475,10 @@ function getSystemStatusForViewer(PDO $db, array $viewer): array
             'disks' => [$diskRoot, $diskUnetlab],
         ],
         'services' => [
-            'apache2' => [
-                'running' => $apacheCount > 0,
-                'process_count' => $apacheCount,
+            'web' => [
+                'name' => $webName,
+                'running' => $webCount > 0,
+                'process_count' => $webCount,
             ],
             'postgresql' => [
                 'running' => $postgresCount > 0,
