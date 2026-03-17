@@ -323,6 +323,66 @@ vpcs_version_is_known_bad() {
 	[[ "$version" == *"0.5b2"* ]]
 }
 
+build_vpcs_from_source() {
+	local tmp_dir archive src_dir built_version
+	tmp_dir="$(mktemp -d /tmp/eve-vpcs-build.XXXXXX)"
+	archive="$tmp_dir/vpcs.tar.gz"
+	src_dir=""
+	built_version=""
+
+	log "Building fresh VPCS from source (GNS3/vpcs)"
+	apt-get install -y --no-install-recommends build-essential ca-certificates curl tar >/dev/null 2>&1 || {
+		warn "Failed to install build deps for VPCS source build"
+		rm -rf "$tmp_dir"
+		return 1
+	}
+
+	if ! curl -fsSL --connect-timeout 20 --max-time 300 \
+		"https://codeload.github.com/GNS3/vpcs/tar.gz/refs/heads/master" \
+		-o "$archive"; then
+		warn "Failed to download VPCS source archive from GitHub"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	if ! tar -xzf "$archive" -C "$tmp_dir"; then
+		warn "Failed to unpack VPCS source archive"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	src_dir="$(find "$tmp_dir" -maxdepth 2 -type d -name 'vpcs-*' | head -n1 || true)"
+	if [[ -z "$src_dir" ]] || [[ ! -d "$src_dir/src" ]]; then
+		warn "Unexpected VPCS source layout after extract"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	if ! make -C "$src_dir/src" >/dev/null 2>&1; then
+		warn "VPCS source build failed"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	install -d -m 0755 /opt/vpcsu/bin
+	if ! install -m 0755 "$src_dir/src/vpcs" /opt/vpcsu/bin/vpcs; then
+		warn "Failed to install built VPCS to /opt/vpcsu/bin/vpcs"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	built_version="$(vpcs_version_string /opt/vpcsu/bin/vpcs)"
+	if vpcs_version_is_known_bad "$built_version"; then
+		warn "Built VPCS version is still old (${built_version:-unknown})"
+		rm -rf "$tmp_dir"
+		return 1
+	fi
+
+	log "Installed VPCS from source: /opt/vpcsu/bin/vpcs (${built_version:-unknown})"
+	rm -rf "$tmp_dir"
+	return 0
+}
+
 ensure_vpcs_binary() {
 	local existing_vpcs repo_vpcs system_vpcs existing_version backup_path
 	local selected_vpcs selected_version candidate candidate_version
@@ -368,8 +428,21 @@ ensure_vpcs_binary() {
 		break
 	done
 
+	if [[ -z "$selected_vpcs" ]]; then
+		warn "No compatible VPCS binary found in repo/system; trying source build"
+		if build_vpcs_from_source; then
+			selected_vpcs="$existing_vpcs"
+			selected_version="$(vpcs_version_string "$selected_vpcs")"
+		fi
+	fi
+
 	if [[ -n "$selected_vpcs" ]]; then
-		if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]] && [[ "$selected_vpcs" != "$existing_vpcs" ]]; then
+		if [[ "$selected_vpcs" == "$existing_vpcs" ]]; then
+			chmod 0755 "$existing_vpcs" || true
+			log "Using VPCS binary: $existing_vpcs (${selected_version:-unknown})"
+			return
+		fi
+		if [[ -e "$existing_vpcs" ]] && [[ ! -L "$existing_vpcs" ]]; then
 			backup_path="/opt/vpcsu/bin/vpcs.backup.$(date +%Y%m%d%H%M%S)"
 			cp -f "$existing_vpcs" "$backup_path" || true
 			warn "Backed up previous VPCS binary to $backup_path"
