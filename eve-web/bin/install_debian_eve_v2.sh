@@ -264,6 +264,36 @@ prepare_runtime_dirs() {
 	chmod 0664 "$TARGET_DIR/data/Logs/task_worker.service.log"
 }
 
+ensure_kvm_access() {
+	log "Checking KVM access for ${WEB_USER}"
+
+	if ! id "$WEB_USER" >/dev/null 2>&1; then
+		warn "User ${WEB_USER} does not exist yet, skipping KVM group setup"
+		return
+	fi
+
+	if ! getent group kvm >/dev/null 2>&1; then
+		warn "Group 'kvm' not found. QEMU may run without acceleration."
+		return
+	fi
+
+	if id -nG "$WEB_USER" | tr ' ' '\n' | grep -qx "kvm"; then
+		log "${WEB_USER} is already in group kvm"
+	else
+		usermod -a -G kvm "$WEB_USER"
+		log "Added ${WEB_USER} to group kvm"
+	fi
+
+	if [[ ! -e /dev/kvm ]]; then
+		warn "/dev/kvm is missing. Hardware virtualization may be unavailable (QEMU will use TCG, high CPU)."
+		return
+	fi
+
+	if ! sudo -u "$WEB_USER" test -r /dev/kvm || ! sudo -u "$WEB_USER" test -w /dev/kvm; then
+		warn "${WEB_USER} cannot read/write /dev/kvm yet. Restart php-fpm after install and verify permissions."
+	fi
+}
+
 ensure_vpcs_binary() {
 	local system_vpcs
 	system_vpcs=""
@@ -775,6 +805,7 @@ main() {
 	fi
 
 	install_packages
+	ensure_kvm_access
 	ensure_vpcs_binary
 	require_cmd git
 	require_cmd visudo
