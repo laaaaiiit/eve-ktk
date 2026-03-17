@@ -44,6 +44,9 @@
 curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-line.sh | bash
 ```
 
+Это единый скрипт для установки и обновления.
+Повторный запуск той же команды на уже установленной системе выполнит обновление кода и миграции.
+
 Скрипт автоматически:
 1. Устанавливает зависимости (`nginx`, `php-fpm`, `postgresql`, `websockify`, и т.д.).
 2. Клонирует/обновляет Git-репозиторий в `/opt/unetlab`.
@@ -55,33 +58,6 @@ curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-
 8. Применяет базовые `sysctl` настройки.
 
 Подробности: `eve-web/docs/install-debian.md`.
-
-## Обновление системы (рекомендуется)
-
-Для обновления кода и миграций используйте скрипт:
-
-```bash
-/opt/unetlab/eve-web/bin/update_system.sh
-```
-
-Скрипт автоматически:
-1. Скачивает выбранную ветку с GitHub.
-2. Делает backup кода.
-3. Обновляет файлы в `/opt/unetlab`.
-4. Применяет миграции БД.
-5. Выполняет базовые проверки.
-6. Перезагружает/обновляет сервисы (если активны).
-
-### Полезные параметры скрипта
-
-```bash
-/opt/unetlab/eve-web/bin/update_system.sh --dry-run
-/opt/unetlab/eve-web/bin/update_system.sh --skip-backup
-/opt/unetlab/eve-web/bin/update_system.sh --skip-migrations
-/opt/unetlab/eve-web/bin/update_system.sh --no-restart
-```
-
-Подробная инструкция: `eve-web/docs/update-guide.md`.
 
 ## Версии QEMU
 

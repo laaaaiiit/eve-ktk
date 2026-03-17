@@ -18,39 +18,24 @@
 - устанавливает и включает `eve-labtasks.service`;
 - применяет базовые sysctl параметры.
 
-## Быстрый запуск
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/eve-web/bin/install_debian_eve_v2.sh -o /tmp/install_debian_eve_v2.sh
-chmod +x /tmp/install_debian_eve_v2.sh
-sudo /tmp/install_debian_eve_v2.sh
-```
-
-## Запуск в одну строку
+## Единый запуск (установка и обновление)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-line.sh | bash
 ```
 
-## Основные параметры
+Повторный запуск этой же команды на уже установленной системе делает обновление:
+- подтягивает изменения из Git;
+- повторно применяет миграции (без повторного применения уже выполненных);
+- обновляет конфигурацию и сервисы.
+
+## Прямой локальный запуск (тот же механизм)
 
 ```bash
-sudo /tmp/install_debian_eve_v2.sh \
-  --repo https://github.com/laaaaiiit/eve-ktk.git \
-  --branch main \
-  --target-dir /opt/unetlab \
-  --server-name _ \
-  --db-host 127.0.0.1 \
-  --db-port 5432 \
-  --db-name eve-ng-db \
-  --db-user eve-ng-ktk \
-  --db-password '<password>' \
-  --install-eve-qemu
+sudo /opt/unetlab/eve-web/bin/install_debian_eve_v2.sh
 ```
 
-Полный список: `sudo /tmp/install_debian_eve_v2.sh --help`.
-
-`--install-eve-qemu`:
+`--install-eve-qemu` (опционально):
 - пытается установить пакет `eve-ng-qemu` через APT (если репозиторий настроен);
 - если пакет недоступен, скрипт все равно создает совместимый `/opt/qemu-*` layout через системный `qemu-system-x86_64`.
 

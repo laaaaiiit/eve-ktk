@@ -36,23 +36,14 @@ Migration behavior:
 - Historical incremental files are archived in `migrations/legacy/`.
 - Applied files are tracked in `public.schema_migrations`; repeated runs skip already applied files.
 
-## Automated update
-Use the updater script for branch-based updates with backup + migrations:
+## Debian install/update (single command)
+Use one command for both fresh install and updates:
 
 ```bash
-/opt/unetlab/eve-web/bin/update_system.sh
+curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-line.sh | bash
 ```
 
-Full guide: `docs/update-guide.md`.
-
-## Debian install (full setup)
-For a clean Debian host use the installer script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/eve-web/bin/install_debian_eve_v2.sh -o /tmp/install_debian_eve_v2.sh
-chmod +x /tmp/install_debian_eve_v2.sh
-sudo /tmp/install_debian_eve_v2.sh
-```
+Re-run the same command on an existing host to update code + migrations.
 
 The installer also prepares QEMU compatibility layout in `/opt/qemu-*`
 for template `qemu_version` values used in this project.
