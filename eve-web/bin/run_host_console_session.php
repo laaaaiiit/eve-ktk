@@ -158,7 +158,7 @@ $descriptors = [
 
 $scriptCapturePath = hostWorkerSessionDir($sessionId) . '/script.log';
 @file_put_contents($scriptCapturePath, '');
-$cmd = [$scriptBin, '-qf', '-c', '/bin/login', $scriptCapturePath];
+$cmd = [$scriptBin, '-qf', '-c', 'exec /bin/login', $scriptCapturePath];
 $env = [
     'TERM' => 'xterm-256color',
     'COLORTERM' => 'truecolor',
