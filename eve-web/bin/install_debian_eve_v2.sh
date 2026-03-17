@@ -343,6 +343,7 @@ generate_password_hash() {
 
 ensure_initial_admin_user() {
 	local conn schema users_count users_count_trim admin_role_id password_hash
+	local esc_username esc_password_hash esc_role_id
 
 	conn="host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER"
 	schema="$(PGPASSWORD="$DB_PASSWORD" psql "$conn" -At -v ON_ERROR_STOP=1 -c \
@@ -380,21 +381,18 @@ ensure_initial_admin_user() {
 	fi
 
 	password_hash="$(generate_password_hash "$ADMIN_PASSWORD")" || fail "Failed to hash admin password"
+	esc_username="$(sql_escape_literal "$ADMIN_USERNAME")"
+	esc_password_hash="$(sql_escape_literal "$password_hash")"
+	esc_role_id="$(sql_escape_literal "$admin_role_id")"
 
 	if [[ "$schema" == "auth" ]]; then
 		PGPASSWORD="$DB_PASSWORD" psql "$conn" -v ON_ERROR_STOP=1 \
-			-v username="$ADMIN_USERNAME" \
-			-v password_hash="$password_hash" \
-			-v role_id="$admin_role_id" \
 			-c "INSERT INTO auth.users (username, password_hash, role_id, is_blocked, lang, theme)
-			    VALUES (:'username', :'password_hash', :'role_id', FALSE, 'en', 'dark')" >/dev/null
+			    VALUES ('${esc_username}', '${esc_password_hash}', '${esc_role_id}', FALSE, 'en', 'dark')" >/dev/null
 	else
 		PGPASSWORD="$DB_PASSWORD" psql "$conn" -v ON_ERROR_STOP=1 \
-			-v username="$ADMIN_USERNAME" \
-			-v password_hash="$password_hash" \
-			-v role_id="$admin_role_id" \
 			-c "INSERT INTO public.users (username, password_hash, role_id, is_blocked, lang, theme)
-			    VALUES (:'username', :'password_hash', :'role_id', FALSE, 'en', 'dark')" >/dev/null
+			    VALUES ('${esc_username}', '${esc_password_hash}', '${esc_role_id}', FALSE, 'en', 'dark')" >/dev/null
 	fi
 
 	ADMIN_USER_CREATED=1
