@@ -26,6 +26,12 @@ chmod +x /tmp/install_debian_eve_v2.sh
 sudo /tmp/install_debian_eve_v2.sh
 ```
 
+## Запуск в одну строку
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/laaaaiiit/eve-ktk/main/install-one-line.sh | bash
+```
+
 ## Основные параметры
 
 ```bash

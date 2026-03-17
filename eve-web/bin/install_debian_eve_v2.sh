@@ -204,6 +204,7 @@ install_packages() {
 		php-mbstring \
 		python3 \
 		python3-venv \
+		qemu-system-x86 \
 		qemu-utils
 }
 
@@ -320,12 +321,32 @@ install_qemu_versions_layout() {
 	fi
 
 	qemu_bin=""
-	for qemu_bin in /usr/bin/qemu-system-x86_64 /opt/qemu/bin/qemu-system-x86_64; do
+	for qemu_bin in \
+		/usr/bin/qemu-system-x86_64 \
+		/opt/qemu/bin/qemu-system-x86_64 \
+		/usr/libexec/qemu-kvm \
+		/usr/bin/kvm; do
 		if [[ -x "$qemu_bin" ]]; then
 			break
 		fi
 		qemu_bin=""
 	done
+	if [[ -z "$qemu_bin" ]]; then
+		log "qemu-system-x86_64 not found, trying to install fallback package qemu-system-x86"
+		if apt-cache show qemu-system-x86 >/dev/null 2>&1; then
+			apt-get install -y qemu-system-x86 || true
+		fi
+		for qemu_bin in \
+			/usr/bin/qemu-system-x86_64 \
+			/opt/qemu/bin/qemu-system-x86_64 \
+			/usr/libexec/qemu-kvm \
+			/usr/bin/kvm; do
+			if [[ -x "$qemu_bin" ]]; then
+				break
+			fi
+			qemu_bin=""
+		done
+	fi
 	[[ -n "$qemu_bin" ]] || fail "qemu-system-x86_64 not found after package installation"
 
 	qemu_img=""
