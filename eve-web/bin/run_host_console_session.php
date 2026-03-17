@@ -174,6 +174,9 @@ $lastActivity = time();
 $lastHeartbeatWrite = 0;
 $maxIdleSeconds = 21600;
 $closeReason = 'worker_stopped';
+$targetProducedOutput = false;
+$noOutputHintShown = false;
+$workerStartedAt = microtime(true);
 
 while (true) {
     if ($terminate) {
@@ -192,6 +195,7 @@ while (true) {
 
     $readOut = @fread($stdout, 65536);
     if (is_string($readOut) && $readOut !== '') {
+        $targetProducedOutput = true;
         $written = hostWorkerAppendOut($sessionId, $readOut);
         if ($written > 0) {
             $bytesOut += $written;
@@ -201,6 +205,7 @@ while (true) {
 
     $readErr = @fread($stderr, 65536);
     if (is_string($readErr) && $readErr !== '') {
+        $targetProducedOutput = true;
         $written = hostWorkerAppendOut($sessionId, $readErr);
         if ($written > 0) {
             $bytesOut += $written;
@@ -212,6 +217,18 @@ while (true) {
     if (!is_array($status) || empty($status['running'])) {
         $closeReason = 'target_closed';
         break;
+    }
+
+    // Some Debian hosts do not render login prompt immediately in browser stream.
+    // Provide a visible hint so the page is not perceived as frozen.
+    if (!$targetProducedOutput && !$noOutputHintShown && (microtime(true) - $workerStartedAt) >= 2.0) {
+        $hint = "[system-console] Waiting for login prompt. Press Enter if screen is empty.\r\n";
+        $written = hostWorkerAppendOut($sessionId, $hint);
+        if ($written > 0) {
+            $bytesOut += $written;
+            $hadActivity = true;
+        }
+        $noOutputHintShown = true;
     }
 
     $inPath = hostWorkerInPath($sessionId);
