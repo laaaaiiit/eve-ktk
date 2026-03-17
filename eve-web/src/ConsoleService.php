@@ -19,7 +19,20 @@ function v2ConsoleNowIso(): string
 
 function v2ConsolePhpBinary(): string
 {
-    $candidates = [PHP_BINARY, '/usr/bin/php', '/usr/local/bin/php', 'php'];
+    $candidates = [];
+
+    $phpBinary = defined('PHP_BINARY') ? trim((string) PHP_BINARY) : '';
+    $phpBinaryBase = $phpBinary !== '' ? strtolower((string) basename($phpBinary)) : '';
+    $isFpmBinary = $phpBinaryBase !== '' && strpos($phpBinaryBase, 'php-fpm') !== false;
+
+    // Prefer CLI paths first. On FPM hosts PHP_BINARY may point to php-fpm.
+    $candidates[] = '/usr/bin/php';
+    $candidates[] = '/usr/local/bin/php';
+    if ($phpBinary !== '' && !$isFpmBinary) {
+        $candidates[] = $phpBinary;
+    }
+    $candidates[] = 'php';
+
     foreach ($candidates as $candidate) {
         if ($candidate === 'php') {
             return $candidate;
@@ -92,6 +105,11 @@ function v2ConsoleSessionInPath(string $sessionId): string
 function v2ConsoleSessionStopPath(string $sessionId): string
 {
     return v2ConsoleSessionDir($sessionId) . '/stop.flag';
+}
+
+function v2ConsoleSessionWorkerLogPath(string $sessionId): string
+{
+    return v2ConsoleSessionDir($sessionId) . '/worker.log';
 }
 
 function v2ConsoleVncTokensPath(): string
@@ -448,11 +466,15 @@ function v2ConsoleSpawnWorker(string $sessionId): int
         return 0;
     }
     $php = v2ConsolePhpBinary();
+    $workerLogPath = v2ConsoleSessionWorkerLogPath($sessionId);
+    @file_put_contents($workerLogPath, '');
+
     $cmd = sprintf(
-        '%s %s --session=%s > /dev/null 2>&1 & echo $!',
+        '%s %s --session=%s >> %s 2>&1 & echo $!',
         escapeshellarg($php),
         escapeshellarg($script),
-        escapeshellarg($sessionId)
+        escapeshellarg($sessionId),
+        escapeshellarg($workerLogPath)
     );
     $out = [];
     $rc = 1;
@@ -464,7 +486,21 @@ function v2ConsoleSpawnWorker(string $sessionId): int
     if ($pidRaw === '' || !preg_match('/^[0-9]+$/', $pidRaw)) {
         return 0;
     }
-    return (int) $pidRaw;
+    $pid = (int) $pidRaw;
+    if ($pid <= 0) {
+        return 0;
+    }
+
+    // Fast sanity check: fail early if process exits immediately.
+    usleep(120000);
+    $alive = false;
+    if (function_exists('posix_kill')) {
+        $alive = @posix_kill($pid, 0);
+    } else {
+        $alive = @is_dir('/proc/' . $pid);
+    }
+
+    return $alive ? $pid : 0;
 }
 
 function v2ConsoleReadOutputChunk(string $path, int $offset, int $maxBytes): array
@@ -692,6 +728,13 @@ function v2ConsoleOpenSession(PDO $db, array $viewer, string $labId, string $nod
             $meta['worker_pid'] = $pid;
             $meta['worker_started_at'] = v2ConsoleNowIso();
             $meta['updated_at'] = v2ConsoleNowIso();
+            v2ConsoleWriteMeta($sessionId, $meta);
+        } else {
+            $meta['status'] = 'error';
+            $meta['updated_at'] = v2ConsoleNowIso();
+            $meta['closed_at'] = v2ConsoleNowIso();
+            $meta['closed_reason'] = 'worker_spawn_failed';
+            $meta['worker_error'] = 'Failed to start console worker process';
             v2ConsoleWriteMeta($sessionId, $meta);
         }
     }
