@@ -113,6 +113,18 @@ function hostWorkerReadAppendChunk(string $path, int $offset, int $maxBytes = 13
     return [$chunk, $offset + strlen($chunk)];
 }
 
+function hostWorkerSanitizeScriptChunk(string $chunk): string
+{
+    if ($chunk === '') {
+        return '';
+    }
+
+    // Remove util-linux script metadata lines from browser stream.
+    $chunk = (string) preg_replace('/^Script started on .*?(?:\r?\n|$)/mi', '', $chunk);
+    $chunk = (string) preg_replace('/^Script done on .*?(?:\r?\n|$)/mi', '', $chunk);
+    return $chunk;
+}
+
 $options = getopt('', ['session:']);
 $sessionId = strtolower(trim((string) ($options['session'] ?? '')));
 if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $sessionId)) {
@@ -254,12 +266,13 @@ while (true) {
 
     [$capturedChunk, $scriptCaptureOffset] = hostWorkerReadAppendChunk($scriptCapturePath, $scriptCaptureOffset);
     if ($capturedChunk !== '') {
-        $written = hostWorkerAppendOut($sessionId, $capturedChunk);
+        $sanitizedChunk = hostWorkerSanitizeScriptChunk($capturedChunk);
+        $written = hostWorkerAppendOut($sessionId, $sanitizedChunk);
         if ($written > 0) {
             $bytesOut += $written;
             $hadActivity = true;
         }
-        if (preg_match('/[^\r\n\t ]/', $capturedChunk) === 1) {
+        if (preg_match('/[^\r\n\t ]/', $sanitizedChunk) === 1) {
             $targetProducedOutput = true;
         }
     }
@@ -346,6 +359,7 @@ while (true) {
 
 [$tailChunk, $scriptCaptureOffset] = hostWorkerReadAppendChunk($scriptCapturePath, $scriptCaptureOffset);
 if ($tailChunk !== '') {
+    $tailChunk = hostWorkerSanitizeScriptChunk($tailChunk);
     $written = hostWorkerAppendOut($sessionId, $tailChunk);
     if ($written > 0) {
         $bytesOut += $written;
