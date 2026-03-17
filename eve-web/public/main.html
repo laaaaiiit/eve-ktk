@@ -725,11 +725,16 @@
         importProgressProcessingHintElapsed: '{stage}. Прошло: {time}',
         importProgressDone: 'Импорт завершен',
         importStageQueued: 'Поставлено в очередь',
+        importStageUploadStoring: 'Сервер сохраняет загруженный архив',
         importStageValidating: 'Проверка архива',
         importStageExtracting: 'Распаковка архива',
         importStagePayload: 'Подготовка плана импорта',
+        importStagePayloadMeta: 'план: записи БД {db}, runtime файлов {runtime}',
         importStageDbImport: 'Импорт данных лаборатории',
+        importStageDbMeta: 'БД: {current} из {total}',
         importStageRuntimeCopy: 'Копирование runtime',
+        importStageRuntimeMeta: 'runtime: {current} из {total}',
+        importStageRuntimeCopyStats: 'скопировано {copied}, пропущено {skipped}',
         importStageFinalizing: 'Финализация импорта',
         importStageDone: 'Импорт завершен',
         importWaitTimeout: 'Превышено время ожидания завершения импорта.',
@@ -1009,11 +1014,16 @@
         importProgressProcessingHintElapsed: '{stage}. Elapsed: {time}',
         importProgressDone: 'Import completed',
         importStageQueued: 'Queued',
+        importStageUploadStoring: 'Server is storing uploaded archive',
         importStageValidating: 'Validating archive',
         importStageExtracting: 'Extracting archive',
         importStagePayload: 'Preparing import plan',
+        importStagePayloadMeta: 'plan: DB records {db}, runtime files {runtime}',
         importStageDbImport: 'Importing lab data',
+        importStageDbMeta: 'DB: {current} of {total}',
         importStageRuntimeCopy: 'Copying runtime files',
+        importStageRuntimeMeta: 'runtime: {current} of {total}',
+        importStageRuntimeCopyStats: 'copied {copied}, skipped {skipped}',
         importStageFinalizing: 'Finalizing import',
         importStageDone: 'Import completed',
         importWaitTimeout: 'Timed out waiting for import completion.',
@@ -2267,6 +2277,7 @@
     function importStageText(stage){
       const safe = String(stage || '').trim().toLowerCase();
       if (safe === '' || safe === 'queued') return tr('importStageQueued');
+      if (safe === 'upload_storing') return tr('importStageUploadStoring');
       if (safe === 'validating_archive') return tr('importStageValidating');
       if (safe === 'extracting_archive') return tr('importStageExtracting');
       if (safe === 'payload_loaded') return tr('importStagePayload');
@@ -2275,6 +2286,73 @@
       if (safe === 'finalizing') return tr('importStageFinalizing');
       if (safe === 'done') return tr('importStageDone');
       return tr('importProgressProcessingHint');
+    }
+
+    function importStageMessageFromState(state, fallbackStage = ''){
+      const src = (state && typeof state === 'object') ? state : {};
+      const stage = String(src.stage || fallbackStage || '').trim().toLowerCase();
+      const status = String(src.status || '').trim().toLowerCase();
+      const progress = (src.progress && typeof src.progress === 'object') ? src.progress : {};
+      const stats = (src.stats && typeof src.stats === 'object') ? src.stats : {};
+      const runtime = (src.runtime_copy && typeof src.runtime_copy === 'object') ? src.runtime_copy : {};
+      let message = importStageText(stage || status || 'queued');
+
+      if (stage === 'payload_loaded') {
+        const dbTotal = Math.max(0, Number(stats.db_total || 0));
+        const runtimeTotal = Math.max(0, Number(stats.runtime_total || runtime.total || 0));
+        if (dbTotal > 0 || runtimeTotal > 0) {
+          message = `${message}: ${tr('importStagePayloadMeta')
+            .replace('{db}', String(Math.round(dbTotal)))
+            .replace('{runtime}', String(Math.round(runtimeTotal)))}`;
+        }
+        return message;
+      }
+
+      if (stage === 'db_import' || stage === 'db_import_start' || stage === 'db_import_progress' || stage === 'db_import_done') {
+        const dbTotal = Math.max(0, Number(stats.db_total || 0));
+        if (dbTotal > 0) {
+          let dbCurrent = Number(stats.db_current);
+          if (!Number.isFinite(dbCurrent)) {
+            dbCurrent = Math.max(0, Number(progress.current || 0) - 2);
+          }
+          dbCurrent = Math.max(0, Math.min(dbTotal, dbCurrent));
+          message = `${message}: ${tr('importStageDbMeta')
+            .replace('{current}', String(Math.round(dbCurrent)))
+            .replace('{total}', String(Math.round(dbTotal)))}`;
+        }
+        return message;
+      }
+
+      if (stage === 'runtime_copy' || stage === 'runtime_copy_start' || stage === 'runtime_copy_progress') {
+        const runtimeTotal = Math.max(0, Number(runtime.total || stats.runtime_total || 0));
+        const runtimeCurrent = Math.max(0, Number(runtime.current || 0));
+        if (runtimeTotal > 0) {
+          const clampedCurrent = Math.max(0, Math.min(runtimeTotal, runtimeCurrent));
+          message = `${message}: ${tr('importStageRuntimeMeta')
+            .replace('{current}', String(Math.round(clampedCurrent)))
+            .replace('{total}', String(Math.round(runtimeTotal)))}`;
+        }
+        const copied = Math.max(0, Number(runtime.copied || stats.runtime_copied || 0));
+        const skipped = Math.max(0, Number(runtime.skipped || stats.runtime_skipped || 0));
+        if (copied > 0 || skipped > 0) {
+          message += ` (${tr('importStageRuntimeCopyStats')
+            .replace('{copied}', String(Math.round(copied)))
+            .replace('{skipped}', String(Math.round(skipped)))})`;
+        }
+        return message;
+      }
+
+      if (stage === 'finalizing') {
+        const copied = Math.max(0, Number(runtime.copied || stats.runtime_copied || 0));
+        const skipped = Math.max(0, Number(runtime.skipped || stats.runtime_skipped || 0));
+        if (copied > 0 || skipped > 0) {
+          message += ` (${tr('importStageRuntimeCopyStats')
+            .replace('{copied}', String(Math.round(copied)))
+            .replace('{skipped}', String(Math.round(skipped)))})`;
+        }
+      }
+
+      return message;
     }
 
     function setExportDialogBusy(isBusy){
@@ -2663,6 +2741,11 @@
             onProgress(payload || {});
           } catch (_) {}
         };
+        const notifyProcessing = (stage = 'queued') => {
+          if (processingNotified) return;
+          processingNotified = true;
+          notify({ phase: 'processing', stage: String(stage || 'queued').trim().toLowerCase() || 'queued' });
+        };
 
         if (xhr.upload) {
           xhr.upload.onprogress = (ev) => {
@@ -2672,12 +2755,16 @@
               : 0;
             notify({ phase: 'uploading', loaded, total });
           };
+          const onUploadDone = () => {
+            notifyProcessing('upload_storing');
+          };
+          xhr.upload.onload = onUploadDone;
+          xhr.upload.onloadend = onUploadDone;
         }
 
         xhr.onreadystatechange = () => {
           if (!processingNotified && xhr.readyState >= 2 && xhr.readyState < 4) {
-            processingNotified = true;
-            notify({ phase: 'processing' });
+            notifyProcessing('queued');
           }
         };
 
@@ -3007,15 +3094,9 @@
         const status = String(state.status || '').trim().toLowerCase();
         const stage = String(state.stage || '').trim().toLowerCase();
         const progress = (state.progress && typeof state.progress === 'object') ? state.progress : {};
-        const runtime = (state.runtime_copy && typeof state.runtime_copy === 'object') ? state.runtime_copy : {};
         const current = Math.max(0, Number(progress.current || 0));
         const total = Math.max(0, Number(progress.total || 0));
-        let stageMessage = importStageText(stage || status);
-        if ((stage === 'runtime_copy') && Number(runtime.total || 0) > 0) {
-          const rtCurrent = Math.max(0, Number(runtime.current || 0));
-          const rtTotal = Math.max(0, Number(runtime.total || 0));
-          stageMessage = `${stageMessage}: ${rtCurrent}/${rtTotal}`;
-        }
+        const stageMessage = importStageMessageFromState(state, stage || status);
 
         if (status === 'done') {
           updateImportProgress('done', total > 0 ? total : 1, total > 0 ? total : 1, {
@@ -3059,9 +3140,10 @@
         const queueRes = await jmultipartWithProgress(api.mainLabsImport, formData, {}, (progress) => {
           const phase = String(progress && progress.phase ? progress.phase : '').toLowerCase();
           if (phase === 'processing') {
+            const processingStage = String(progress && progress.stage ? progress.stage : 'queued').trim().toLowerCase() || 'queued';
             updateImportProgress('processing', 0, 0, {
-              stage: 'queued',
-              message: importStageText('queued'),
+              stage: processingStage,
+              message: importStageText(processingStage),
             });
             return;
           }
@@ -3090,7 +3172,7 @@
           'processing',
           Number(queuedProgressObj.current || 0),
           Number(queuedProgressObj.total || 0),
-          { stage: queuedState, message: importStageText(queuedState) }
+          { stage: queuedState, message: importStageMessageFromState(queuedProgress, queuedState) }
         );
 
         await waitMainImportDone(opId);
