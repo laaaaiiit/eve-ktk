@@ -266,6 +266,8 @@ prepare_runtime_dirs() {
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data/v2-console"
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data/v2-console/sessions"
 	install -d -m 2775 -o root -g "$WEB_GROUP" "$TARGET_DIR/data/v2-collab"
+	install -d -m 0770 -o "$WEB_USER" -g "$WEB_GROUP" "$TARGET_DIR/data/tmp/php-upload"
+	install -d -m 0770 -o "$WEB_USER" -g "$WEB_GROUP" "$TARGET_DIR/data/tmp/nginx-client-body"
 
 	if [[ ! -f "$TARGET_DIR/data/Logs/task_worker.service.log" ]]; then
 		touch "$TARGET_DIR/data/Logs/task_worker.service.log"
@@ -789,7 +791,7 @@ detect_php_fpm_socket() {
 
 configure_php_upload_limits() {
 	local php_fpm_service="$1"
-	local version="" conf_file="" fpm_conf_d="" cli_conf_d=""
+	local version="" conf_file="" fpm_conf_d="" cli_conf_d="" php_upload_tmp_dir=""
 	if [[ "$php_fpm_service" =~ ^php([0-9]+\.[0-9]+)-fpm\.service$ ]]; then
 		version="${BASH_REMATCH[1]}"
 	fi
@@ -801,13 +803,14 @@ configure_php_upload_limits() {
 	fpm_conf_d="/etc/php/${version}/fpm/conf.d"
 	cli_conf_d="/etc/php/${version}/cli/conf.d"
 	conf_file="99-eve-upload.ini"
+	php_upload_tmp_dir="${TARGET_DIR}/data/tmp/php-upload"
 
 	if [[ ! -d "$fpm_conf_d" ]]; then
 		warn "PHP FPM conf.d path is missing: ${fpm_conf_d}"
 		return
 	fi
 
-	log "Configuring PHP upload limits for large lab archives"
+log "Configuring PHP upload limits for large lab archives"
 	cat > "${fpm_conf_d}/${conf_file}" <<'PHPINI'
 ; EVE-KTK: large lab archive upload support
 upload_max_filesize = 25G
@@ -818,6 +821,8 @@ max_file_uploads = 100
 memory_limit = 1024M
 file_uploads = On
 PHPINI
+	echo "upload_tmp_dir = ${php_upload_tmp_dir}" >> "${fpm_conf_d}/${conf_file}"
+	echo "sys_temp_dir = ${php_upload_tmp_dir}" >> "${fpm_conf_d}/${conf_file}"
 
 	if [[ -d "$cli_conf_d" ]]; then
 		cp -f "${fpm_conf_d}/${conf_file}" "${cli_conf_d}/${conf_file}" || true
@@ -845,6 +850,7 @@ server {
     index index.php index.html;
 
     client_max_body_size 25G;
+    client_body_temp_path ${TARGET_DIR}/data/tmp/nginx-client-body 1 2;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
