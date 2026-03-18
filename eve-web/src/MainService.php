@@ -3063,7 +3063,29 @@ function deleteMainEntryForViewer(PDO $db, array $viewer, string $type, string $
 
 function mainAsyncPhpBinary(): string
 {
-    $candidates = [PHP_BINARY, '/usr/bin/php', '/usr/local/bin/php', 'php'];
+    $candidates = [];
+
+    $envCli = trim((string) getenv('PHP_CLI_BIN'));
+    if ($envCli !== '') {
+        $candidates[] = $envCli;
+    }
+
+    // Prefer explicit CLI locations first; in php-fpm context PHP_BINARY may point to php-fpm.
+    $candidates[] = '/usr/bin/php';
+    $candidates[] = '/usr/local/bin/php';
+    $candidates[] = '/bin/php';
+
+    $phpBinary = trim((string) PHP_BINARY);
+    if ($phpBinary !== '') {
+        $base = strtolower((string) basename($phpBinary));
+        $isFpm = (strpos($base, 'fpm') !== false);
+        $isCgi = (strpos($base, 'cgi') !== false);
+        if (!$isFpm && !$isCgi) {
+            $candidates[] = $phpBinary;
+        }
+    }
+
+    $candidates[] = 'php';
     foreach ($candidates as $candidate) {
         if ($candidate === 'php') {
             return $candidate;
