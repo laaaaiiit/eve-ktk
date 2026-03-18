@@ -140,6 +140,33 @@ function v2RequestContentType(): string
     return trim((string) ($parts[0] ?? ''));
 }
 
+function v2ParseIniSizeToBytes(string $value): int
+{
+    $raw = trim($value);
+    if ($raw === '') {
+        return 0;
+    }
+    if (!preg_match('/^([0-9]+)\s*([kmgtp]?)(?:b)?$/i', $raw, $m)) {
+        return 0;
+    }
+    $num = (float) ($m[1] ?? '0');
+    $unit = strtolower((string) ($m[2] ?? ''));
+    $pow = 0;
+    if ($unit === 'k') {
+        $pow = 1;
+    } elseif ($unit === 'm') {
+        $pow = 2;
+    } elseif ($unit === 'g') {
+        $pow = 3;
+    } elseif ($unit === 't') {
+        $pow = 4;
+    } elseif ($unit === 'p') {
+        $pow = 5;
+    }
+    $bytes = (int) round($num * pow(1024, $pow));
+    return max(0, $bytes);
+}
+
 function v2PathAllowsRawBody(string $method, string $path): bool
 {
     if ($method === 'PATCH' && preg_match('#^/api/system/host-console/uploads/[a-f0-9-]{36}$#i', $path)) {
@@ -3653,26 +3680,58 @@ if ($method === 'POST' && $uriPath === '/api/main/labs/import') {
     $user = requirePermission($db, 'main.lab.import');
     $targetPath = (string) ($_POST['path'] ?? '/');
     $labNameOverride = (string) ($_POST['lab_name'] ?? '');
+    $uploadMax = trim((string) ini_get('upload_max_filesize'));
+    $postMax = trim((string) ini_get('post_max_size'));
+    $uploadTmpDir = trim((string) ini_get('upload_tmp_dir'));
+    if ($uploadTmpDir === '') {
+        $uploadTmpDir = trim((string) sys_get_temp_dir());
+    }
+    $tmpFreeBytes = null;
+    if ($uploadTmpDir !== '' && is_dir($uploadTmpDir)) {
+        $tmpFreeRaw = @disk_free_space($uploadTmpDir);
+        if (is_int($tmpFreeRaw) || is_float($tmpFreeRaw)) {
+            $tmpFreeBytes = max(0, (int) $tmpFreeRaw);
+        }
+    }
+    $tmpDiag = ($uploadTmpDir !== '' ? 'upload_tmp_dir=' . $uploadTmpDir : 'upload_tmp_dir=n/a');
+    if ($tmpFreeBytes !== null) {
+        $tmpDiag .= ', tmp_free=' . $tmpFreeBytes . 'B';
+    }
 
     $file = $_FILES['archive'] ?? null;
     if (!is_array($file)) {
-        jsonResponse(400, 'fail', 'Archive file is required');
+        $contentLength = isset($_SERVER['CONTENT_LENGTH']) ? max(0, (int) $_SERVER['CONTENT_LENGTH']) : 0;
+        $postMaxBytes = v2ParseIniSizeToBytes($postMax);
+        if ($postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+            jsonResponse(400, 'fail', 'Archive is too large (upload_max_filesize='
+                . ($uploadMax !== '' ? $uploadMax : 'n/a') . ', post_max_size='
+                . ($postMax !== '' ? $postMax : 'n/a') . ', content_length=' . $contentLength . 'B)');
+            exit;
+        }
+        jsonResponse(400, 'fail', 'Archive file is required (' . $tmpDiag . ')');
         exit;
     }
 
     $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($uploadError !== UPLOAD_ERR_OK) {
-        $message = 'Archive upload failed';
+        $message = 'Archive upload failed (code=' . $uploadError . ')';
         if ($uploadError === UPLOAD_ERR_NO_FILE) {
             $message = 'Archive file is required';
         } elseif ($uploadError === UPLOAD_ERR_INI_SIZE || $uploadError === UPLOAD_ERR_FORM_SIZE) {
-            $uploadMax = trim((string) ini_get('upload_max_filesize'));
-            $postMax = trim((string) ini_get('post_max_size'));
             $message = 'Archive is too large';
-            if ($uploadMax !== '' || $postMax !== '') {
-                $message .= ' (upload_max_filesize=' . ($uploadMax !== '' ? $uploadMax : 'n/a')
-                    . ', post_max_size=' . ($postMax !== '' ? $postMax : 'n/a') . ')';
-            }
+            $message .= ' (upload_max_filesize=' . ($uploadMax !== '' ? $uploadMax : 'n/a')
+                . ', post_max_size=' . ($postMax !== '' ? $postMax : 'n/a') . ')';
+        } elseif ($uploadError === UPLOAD_ERR_PARTIAL) {
+            $message = 'Archive upload was interrupted (partial upload)';
+        } elseif ($uploadError === UPLOAD_ERR_NO_TMP_DIR) {
+            $message = 'Upload temporary directory is missing';
+        } elseif ($uploadError === UPLOAD_ERR_CANT_WRITE) {
+            $message = 'Server cannot write uploaded archive to temporary storage';
+        } elseif ($uploadError === UPLOAD_ERR_EXTENSION) {
+            $message = 'Upload was stopped by a PHP extension';
+        }
+        if ($uploadError !== UPLOAD_ERR_NO_FILE && $uploadError !== UPLOAD_ERR_INI_SIZE && $uploadError !== UPLOAD_ERR_FORM_SIZE) {
+            $message .= ' (' . $tmpDiag . ')';
         }
         jsonResponse(400, 'fail', $message);
         exit;
