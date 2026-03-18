@@ -145,6 +145,10 @@ function v2PathAllowsRawBody(string $method, string $path): bool
     if ($method === 'PATCH' && preg_match('#^/api/system/host-console/uploads/[a-f0-9-]{36}$#i', $path)) {
         return true;
     }
+    if ($method === 'POST' && $path === '/api/main/labs/import') {
+        // Archive import uses multipart/form-data upload.
+        return true;
+    }
     return false;
 }
 
