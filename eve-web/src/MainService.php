@@ -4578,6 +4578,41 @@ function mainImportProgressCreate(
     return mainImportProgressWrite($operationId, $payload);
 }
 
+function mainImportProgressMarkFailedIfStalled(array $payload, int $stallSeconds = 120): array
+{
+    $status = strtolower(trim((string) ($payload['status'] ?? '')));
+    $stage = strtolower(trim((string) ($payload['stage'] ?? '')));
+    $startedAt = trim((string) ($payload['started_at'] ?? ''));
+    if ($status !== 'queued' && $stage !== 'queued' && $stage !== 'worker_starting') {
+        return $payload;
+    }
+    if ($startedAt !== '' && strtolower($startedAt) !== 'null') {
+        return $payload;
+    }
+
+    $requestedAtRaw = trim((string) ($payload['requested_at'] ?? ''));
+    $requestedAtTs = ($requestedAtRaw !== '') ? strtotime($requestedAtRaw) : false;
+    if (!is_int($requestedAtTs) || $requestedAtTs <= 0) {
+        return $payload;
+    }
+    if ((time() - $requestedAtTs) < max(30, $stallSeconds)) {
+        return $payload;
+    }
+
+    $operationId = trim((string) ($payload['operation_id'] ?? ''));
+    if ($operationId === '') {
+        return $payload;
+    }
+
+    $patched = mainImportProgressPatch($operationId, [
+        'status' => 'failed',
+        'stage' => 'failed',
+        'message' => 'Import worker did not start in time. Check php-fpm background execution permissions and logs.',
+        'finished_at' => mainDeleteProgressNow(),
+    ]);
+    return is_array($patched) ? $patched : $payload;
+}
+
 function mainImportProgressGetForViewerRaw(PDO $db, array $viewer, string $operationId): array
 {
     unset($db);
@@ -4599,7 +4634,7 @@ function mainImportProgressGetForViewerRaw(PDO $db, array $viewer, string $opera
     if ($role !== 'admin' && $requesterId !== '' && $requesterId !== $viewerId) {
         throw new RuntimeException('Forbidden');
     }
-    return $payload;
+    return mainImportProgressMarkFailedIfStalled($payload);
 }
 
 function mainImportProgressPublicPayload(array $payload): array

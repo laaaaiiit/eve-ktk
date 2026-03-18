@@ -726,7 +726,7 @@
         importProgressFailed: 'Импорт завершился с ошибкой',
         importPayloadTooLarge: 'Архив превышает допустимый размер загрузки на сервере.',
         importProgressDone: 'Импорт завершен',
-        importStageQueued: 'Поставлено в очередь',
+        importStageQueued: 'Запуск задачи импорта',
         importStageUploadStoring: 'Сервер сохраняет загруженный архив',
         importStageValidating: 'Проверка архива',
         importStageExtracting: 'Распаковка архива',
@@ -1017,7 +1017,7 @@
         importProgressFailed: 'Import failed',
         importPayloadTooLarge: 'Archive exceeds server upload size limits.',
         importProgressDone: 'Import completed',
-        importStageQueued: 'Queued',
+        importStageQueued: 'Starting import task',
         importStageUploadStoring: 'Server is storing uploaded archive',
         importStageValidating: 'Validating archive',
         importStageExtracting: 'Extracting archive',
@@ -2589,18 +2589,6 @@
         metaEl.textContent = tr('importProgressProcessingHintElapsed')
           .replace('{stage}', stageText)
           .replace('{time}', elapsed);
-        if (stage === 'upload_storing' && !knownTotal) {
-          // During server-side archive persist (between upload completion and API response)
-          // there is no byte-level progress from backend yet. Show a smooth estimated fill.
-          const pseudoPercent = Math.max(
-            1,
-            Math.min(95, Math.round((1 - Math.exp(-(elapsedMs / 14000))) * 100))
-          );
-          percentEl.textContent = `${pseudoPercent}%`;
-          barEl.classList.remove('export-progress-indeterminate');
-          barEl.style.width = `${pseudoPercent}%`;
-          return;
-        }
         if (knownTotal) {
           percentEl.textContent = `${percent}%`;
           barEl.classList.remove('export-progress-indeterminate');
