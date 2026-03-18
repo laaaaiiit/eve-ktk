@@ -787,6 +787,43 @@ detect_php_fpm_socket() {
 	echo "$socket"
 }
 
+configure_php_upload_limits() {
+	local php_fpm_service="$1"
+	local version="" conf_file="" fpm_conf_d="" cli_conf_d=""
+	if [[ "$php_fpm_service" =~ ^php([0-9]+\.[0-9]+)-fpm\.service$ ]]; then
+		version="${BASH_REMATCH[1]}"
+	fi
+	if [[ -z "$version" ]]; then
+		warn "Unable to detect PHP version for upload limits tuning"
+		return
+	fi
+
+	fpm_conf_d="/etc/php/${version}/fpm/conf.d"
+	cli_conf_d="/etc/php/${version}/cli/conf.d"
+	conf_file="99-eve-upload.ini"
+
+	if [[ ! -d "$fpm_conf_d" ]]; then
+		warn "PHP FPM conf.d path is missing: ${fpm_conf_d}"
+		return
+	fi
+
+	log "Configuring PHP upload limits for large lab archives"
+	cat > "${fpm_conf_d}/${conf_file}" <<'PHPINI'
+; EVE-KTK: large lab archive upload support
+upload_max_filesize = 25G
+post_max_size = 25G
+max_execution_time = 7200
+max_input_time = 7200
+max_file_uploads = 100
+memory_limit = 1024M
+file_uploads = On
+PHPINI
+
+	if [[ -d "$cli_conf_d" ]]; then
+		cp -f "${fpm_conf_d}/${conf_file}" "${cli_conf_d}/${conf_file}" || true
+	fi
+}
+
 configure_nginx() {
 	local php_fpm_service php_fpm_socket
 	log "Configuring nginx"
@@ -794,6 +831,7 @@ configure_nginx() {
 	php_fpm_service="$(detect_php_fpm_service)"
 	[[ -n "$php_fpm_service" ]] || fail "Unable to detect php-fpm service"
 	systemctl enable --now "$php_fpm_service"
+	configure_php_upload_limits "$php_fpm_service"
 	php_fpm_socket="$(detect_php_fpm_socket "$php_fpm_service")"
 	[[ -n "$php_fpm_socket" ]] || fail "Unable to detect php-fpm socket"
 

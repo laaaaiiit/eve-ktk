@@ -3666,7 +3666,13 @@ if ($method === 'POST' && $uriPath === '/api/main/labs/import') {
         if ($uploadError === UPLOAD_ERR_NO_FILE) {
             $message = 'Archive file is required';
         } elseif ($uploadError === UPLOAD_ERR_INI_SIZE || $uploadError === UPLOAD_ERR_FORM_SIZE) {
+            $uploadMax = trim((string) ini_get('upload_max_filesize'));
+            $postMax = trim((string) ini_get('post_max_size'));
             $message = 'Archive is too large';
+            if ($uploadMax !== '' || $postMax !== '') {
+                $message .= ' (upload_max_filesize=' . ($uploadMax !== '' ? $uploadMax : 'n/a')
+                    . ', post_max_size=' . ($postMax !== '' ? $postMax : 'n/a') . ')';
+            }
         }
         jsonResponse(400, 'fail', $message);
         exit;

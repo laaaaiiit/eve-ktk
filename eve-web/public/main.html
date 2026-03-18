@@ -723,6 +723,8 @@
         importProgressProcessing: 'Обработка архива...',
         importProgressProcessingHint: 'Архив загружен, сервер выполняет импорт.',
         importProgressProcessingHintElapsed: '{stage}. Прошло: {time}',
+        importProgressFailed: 'Импорт завершился с ошибкой',
+        importPayloadTooLarge: 'Архив превышает допустимый размер загрузки на сервере.',
         importProgressDone: 'Импорт завершен',
         importStageQueued: 'Поставлено в очередь',
         importStageUploadStoring: 'Сервер сохраняет загруженный архив',
@@ -1012,6 +1014,8 @@
         importProgressProcessing: 'Processing archive...',
         importProgressProcessingHint: 'Archive uploaded, server is importing.',
         importProgressProcessingHintElapsed: '{stage}. Elapsed: {time}',
+        importProgressFailed: 'Import failed',
+        importPayloadTooLarge: 'Archive exceeds server upload size limits.',
         importProgressDone: 'Import completed',
         importStageQueued: 'Queued',
         importStageUploadStoring: 'Server is storing uploaded archive',
@@ -2609,6 +2613,18 @@
         return;
       }
 
+      if (phase === 'failed') {
+        statusEl.textContent = tr('importProgressFailed');
+        const failPercent = knownTotal
+          ? Math.max(1, Math.min(100, percent))
+          : 100;
+        percentEl.textContent = `${failPercent}%`;
+        metaEl.textContent = message || tr('importError');
+        barEl.classList.remove('export-progress-indeterminate');
+        barEl.style.width = `${failPercent}%`;
+        return;
+      }
+
       statusEl.textContent = tr('importProgressDone');
       percentEl.textContent = '100%';
       metaEl.textContent = message || tr('importSuccess');
@@ -2785,9 +2801,10 @@
         xhr.onabort = () => reject(new Error('Request aborted'));
 
         xhr.onload = () => {
+          const rawText = String(xhr.responseText || '');
           let data = {};
           try {
-            data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            data = rawText ? JSON.parse(rawText) : {};
           } catch (_) {
             data = {};
           }
@@ -2795,12 +2812,23 @@
             resolve(data);
             return;
           }
+          if (xhr.status === 413) {
+            reject(new Error(tr('importPayloadTooLarge')));
+            return;
+          }
+          const plainText = rawText
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 240);
           const msg = String(data && data.message ? data.message : '');
           if (xhr.status === 403 || msg.toLowerCase() === 'forbidden') {
             reject(new Error(tr('errForbiddenAction')));
             return;
           }
-          reject(new Error(msg || ('HTTP ' + xhr.status)));
+          reject(new Error(msg || plainText || ('HTTP ' + xhr.status)));
         };
 
         notify({ phase: 'uploading', loaded: 0, total: 0 });
@@ -3193,8 +3221,12 @@
         await loadPath(currentPath || '/');
         toast(tr('importSuccess'), 'success');
       } catch (err) {
-        resetImportProgress();
-        toast((err && err.message) ? err.message : tr('importError'));
+        const errMsg = (err && err.message) ? String(err.message) : tr('importError');
+        updateImportProgress('failed', Number(importProgress.loaded || 0), Number(importProgress.total || 0), {
+          stage: 'failed',
+          message: errMsg,
+        });
+        toast(errMsg);
       } finally {
         importBusy = false;
         setImportDialogBusy(false);
