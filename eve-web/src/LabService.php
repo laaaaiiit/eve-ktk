@@ -25,8 +25,14 @@ function listViewerCloudProfiles(PDO $db, string $viewerUserId, bool $includeAll
 {
     if ($includeAll) {
         $stmt = $db->prepare(
-            "SELECT c.id, c.name, c.pnet
+            "SELECT c.id,
+                    c.name,
+                    c.pnet,
+                    COALESCE(string_agg(DISTINCT u.username, ', ' ORDER BY u.username), '') AS usernames
              FROM clouds c
+             LEFT JOIN cloud_users cu ON cu.cloud_id = c.id
+             LEFT JOIN users u ON u.id = cu.user_id
+             GROUP BY c.id, c.name, c.pnet
              ORDER BY c.name ASC, c.pnet ASC"
         );
         $stmt->execute();
@@ -35,9 +41,13 @@ function listViewerCloudProfiles(PDO $db, string $viewerUserId, bool $includeAll
             return [];
         }
         $stmt = $db->prepare(
-            "SELECT c.id, c.name, c.pnet
+            "SELECT c.id,
+                    c.name,
+                    c.pnet,
+                    COALESCE(u.username, '') AS usernames
              FROM cloud_users cu
              INNER JOIN clouds c ON c.id = cu.cloud_id
+             INNER JOIN users u ON u.id = cu.user_id
              WHERE cu.user_id = :user_id
              ORDER BY c.name ASC, c.pnet ASC"
         );
@@ -58,11 +68,17 @@ function listViewerCloudProfiles(PDO $db, string $viewerUserId, bool $includeAll
         if ($name === '') {
             $name = strtoupper($pnet);
         }
+        $usernames = trim((string) ($row['usernames'] ?? ''));
+        $meta = $pnet;
+        if ($usernames !== '') {
+            $meta .= '; ' . $usernames;
+        }
         $result[] = [
             'cloud_id' => (string) ($row['id'] ?? ''),
             'name' => $name,
             'pnet' => $pnet,
-            'label' => $name . ' (' . $pnet . ')',
+            'usernames' => $usernames,
+            'label' => $name . ' (' . $meta . ')',
         ];
     }
     return $result;

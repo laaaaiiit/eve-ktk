@@ -1888,6 +1888,163 @@ function runtimeTapCurrentBridgeName(string $tap): string
     return $bridge;
 }
 
+function runtimeBridgePortsMapFromInterfaces(string $rootFile = '/etc/network/interfaces'): array
+{
+    static $cache = [];
+
+    $cacheKey = (string) (realpath($rootFile) ?: $rootFile);
+    if (isset($cache[$cacheKey]) && is_array($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
+    $visited = [];
+    $map = [];
+    runtimeParseBridgePortsFromInterfacesFile($rootFile, $visited, $map);
+
+    foreach ($map as $bridge => $ports) {
+        if (!is_array($ports)) {
+            unset($map[$bridge]);
+            continue;
+        }
+        $normalized = [];
+        foreach ($ports as $port) {
+            $port = strtolower(trim((string) $port));
+            if ($port === '' || $port === 'none') {
+                continue;
+            }
+            $normalized[$port] = true;
+        }
+        $deduped = array_keys($normalized);
+        sort($deduped, SORT_NATURAL);
+        $map[$bridge] = $deduped;
+    }
+
+    $cache[$cacheKey] = $map;
+    return $map;
+}
+
+function runtimeParseBridgePortsFromInterfacesFile(string $filePath, array &$visited, array &$map): void
+{
+    $realPath = realpath($filePath) ?: $filePath;
+    if (isset($visited[$realPath])) {
+        return;
+    }
+    $visited[$realPath] = true;
+
+    if (!is_readable($filePath)) {
+        return;
+    }
+
+    $lines = @file($filePath, FILE_IGNORE_NEW_LINES);
+    if (!is_array($lines)) {
+        return;
+    }
+
+    $baseDir = dirname($filePath);
+    $currentIface = '';
+
+    foreach ($lines as $line) {
+        $trimmed = trim((string) $line);
+        if ($trimmed === '' || str_starts_with($trimmed, '#')) {
+            continue;
+        }
+
+        if (preg_match('/^(?:source|source-directory)\s+(.+)$/i', $trimmed, $m) === 1) {
+            $pattern = trim((string) ($m[1] ?? ''));
+            if ($pattern === '') {
+                continue;
+            }
+            if ($pattern[0] !== '/') {
+                $pattern = $baseDir . '/' . $pattern;
+            }
+            $matches = glob($pattern, GLOB_NOSORT) ?: [];
+            foreach ($matches as $matchFile) {
+                if (is_dir($matchFile)) {
+                    $children = glob(rtrim($matchFile, '/') . '/*', GLOB_NOSORT) ?: [];
+                    foreach ($children as $child) {
+                        runtimeParseBridgePortsFromInterfacesFile($child, $visited, $map);
+                    }
+                    continue;
+                }
+                runtimeParseBridgePortsFromInterfacesFile($matchFile, $visited, $map);
+            }
+            continue;
+        }
+
+        if (preg_match('/^iface\s+([a-zA-Z0-9_.:-]+)\b/i', $trimmed, $m) === 1) {
+            $currentIface = strtolower((string) ($m[1] ?? ''));
+            continue;
+        }
+
+        if ($currentIface === '') {
+            continue;
+        }
+
+        if (preg_match('/^bridge[_-]ports\s+(.+)$/i', $trimmed, $m) !== 1) {
+            continue;
+        }
+
+        $portsText = trim((string) ($m[1] ?? ''));
+        if ($portsText === '') {
+            continue;
+        }
+        $parts = preg_split('/\s+/', $portsText) ?: [];
+        if (!isset($map[$currentIface]) || !is_array($map[$currentIface])) {
+            $map[$currentIface] = [];
+        }
+        foreach ($parts as $part) {
+            $part = strtolower(trim((string) $part));
+            if ($part === '' || $part === 'none') {
+                continue;
+            }
+            $map[$currentIface][] = $part;
+        }
+    }
+}
+
+function runtimeBridgePortsFromInterfaces(string $bridge): array
+{
+    $bridge = strtolower(trim($bridge));
+    if ($bridge === '') {
+        return [];
+    }
+
+    $map = runtimeBridgePortsMapFromInterfaces('/etc/network/interfaces');
+    $ports = $map[$bridge] ?? [];
+    return is_array($ports) ? $ports : [];
+}
+
+function runtimeEnsureCloudBridgePortsAttached(string $bridge, string $logPath): void
+{
+    $bridge = strtolower(trim($bridge));
+    if ($bridge === '' || preg_match('/^pnet[0-9]+$/', $bridge) !== 1) {
+        return;
+    }
+
+    $ports = runtimeBridgePortsFromInterfaces($bridge);
+    if (empty($ports)) {
+        return;
+    }
+
+    foreach ($ports as $port) {
+        $port = strtolower(trim((string) $port));
+        if ($port === '' || !runtimeLinuxInterfaceExists($port)) {
+            continue;
+        }
+
+        runtimeRunLoggedIpCommand(['link', 'set', 'dev', $port, 'up'], $logPath);
+
+        $master = strtolower(trim(runtimeTapCurrentBridgeName($port)));
+        if ($master !== '' && $master !== $bridge) {
+            runtimeRunLoggedIpCommand(['link', 'set', 'dev', $port, 'nomaster'], $logPath);
+        }
+        if ($master !== $bridge) {
+            runtimeRunLoggedIpCommand(['link', 'set', 'dev', $port, 'master', $bridge], $logPath);
+            runtimeRunLoggedIpCommand(['link', 'set', 'dev', $port, 'up'], $logPath);
+        }
+    }
+}
+
 function runtimeRunLoggedShellCommand(string $snippet, string $logPath): array
 {
     $snippet = trim($snippet);
@@ -2032,6 +2189,7 @@ function runtimeEnsureLinuxBridgeUp(string $bridge, string $logPath): bool
     }
 
     runtimeRunLoggedIpCommand(['link', 'set', 'dev', $bridge, 'up'], $logPath);
+    runtimeEnsureCloudBridgePortsAttached($bridge, $logPath);
 
     return runtimeLinuxInterfaceExists($bridge);
 }

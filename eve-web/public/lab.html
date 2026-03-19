@@ -9110,11 +9110,14 @@
         const pnet = String(row && row.pnet ? row.pnet : '');
         const value = cloudId || (`manual:${pnet}`);
         const name = String(row && row.name ? row.name : pnet.toUpperCase());
+        const usernames = String(row && row.usernames ? row.usernames : '').trim();
+        const label = String(row && row.label ? row.label : `${name} (${pnet}${usernames ? `; ${usernames}` : ''})`);
         return {
           value,
           cloud_id: cloudId || null,
           pnet,
-          label: `${name} (${pnet})`,
+          usernames,
+          label,
           name,
         };
       });
