@@ -8,3 +8,4 @@ legacy/
 legacy/files/logs-archive-*/
 legacy/files/logs-trash-*/
 eve-web/.env
+node_modules/
