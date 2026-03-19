@@ -6,6 +6,15 @@ require_once __DIR__ . '/LabRuntimeService.php';
 require_once __DIR__ . '/AppLogService.php';
 require_once __DIR__ . '/LabCheckService.php';
 
+function labTaskViewerCanAccessAllLabs(PDO $db, array $viewer): bool
+{
+    if (function_exists('rbacUserHasGlobalLabsAccess')) {
+        return rbacUserHasGlobalLabsAccess($db, $viewer);
+    }
+    $role = strtolower(trim((string) ($viewer['role_name'] ?? $viewer['role'] ?? '')));
+    return $role === 'admin';
+}
+
 function normalizeLabTaskAction(string $action): string
 {
     $action = strtolower(trim($action));
@@ -990,7 +999,7 @@ function listRecentLabTasksForViewer(PDO $db, array $viewer, int $limit = 150, s
         throw new RuntimeException('Forbidden');
     }
 
-    $isAdmin = (($viewer['role_name'] ?? '') === 'admin');
+    $isAdmin = labTaskViewerCanAccessAllLabs($db, $viewer);
     $limit = max(1, min(500, $limit));
     $page = max(1, $page);
     $offset = ($page - 1) * $limit;
@@ -1095,7 +1104,7 @@ function listLabTaskGroupsForViewer(PDO $db, array $viewer, int $limit = 150, st
         throw new RuntimeException('Forbidden');
     }
 
-    $isAdmin = (($viewer['role_name'] ?? '') === 'admin');
+    $isAdmin = labTaskViewerCanAccessAllLabs($db, $viewer);
     $limit = max(1, min(500, $limit));
     $page = max(1, $page);
     $offset = ($page - 1) * $limit;

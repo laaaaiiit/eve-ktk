@@ -41,6 +41,17 @@ function labCheckViewerIsAdmin(array $viewer): bool
     return $role === 'admin';
 }
 
+function labCheckViewerCanManageAllLabs(PDO $db, array $viewer): bool
+{
+    if (function_exists('rbacUserHasGlobalLabsAccess')) {
+        return rbacUserHasGlobalLabsAccess($db, $viewer);
+    }
+    if (labCheckViewerIsAdmin($viewer)) {
+        return true;
+    }
+    return rbacUserHasPermission($db, $viewer, 'main.users.browse_all');
+}
+
 function labCheckLog(string $status, array $context): void
 {
     if (!function_exists('v2AppLogWrite')) {
@@ -165,7 +176,7 @@ function labCheckEnsureViewerCanView(PDO $db, array $viewer, string $labId): voi
             FROM labs l
             LEFT JOIN lab_shared_users su ON su.lab_id = l.id AND su.user_id = :viewer_id
             WHERE l.id = :lab_id";
-    if (!labCheckViewerIsAdmin($viewer)) {
+    if (!labCheckViewerCanManageAllLabs($db, $viewer)) {
         $sql .= " AND (l.author_user_id = :viewer_id OR su.user_id IS NOT NULL)";
     }
     $sql .= ' LIMIT 1';
@@ -181,7 +192,7 @@ function labCheckEnsureViewerCanView(PDO $db, array $viewer, string $labId): voi
 
 function labCheckCanManage(PDO $db, array $viewer, string $labId): bool
 {
-    if (labCheckViewerIsAdmin($viewer)) {
+    if (labCheckViewerCanManageAllLabs($db, $viewer)) {
         return true;
     }
 

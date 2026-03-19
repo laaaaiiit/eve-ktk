@@ -22,7 +22,7 @@ function rbacBuiltInPermissionDefinitions(): array
         ['code' => 'main.lab.publish', 'title' => 'Publish labs (shared/collaboration)', 'category' => 'main'],
         ['code' => 'main.lab.share', 'title' => 'Manage lab shared_with users', 'category' => 'main'],
         ['code' => 'main.lab.topology_lock.manage', 'title' => 'Manage topology lock and wipe policy for recipients', 'category' => 'main'],
-        ['code' => 'main.users.browse_all', 'title' => 'Browse all user folders in Main explorer', 'category' => 'main'],
+        ['code' => 'main.users.browse_all', 'title' => 'Full access to all users labs', 'category' => 'main'],
         ['code' => 'cloudmgmt.mapping.manage', 'title' => 'Create/edit/delete cloud mappings', 'category' => 'cloudmgmt'],
         ['code' => 'cloudmgmt.pnet.view_all', 'title' => 'View all PNET cloud networks in Lab editor', 'category' => 'cloudmgmt'],
         ['code' => 'users.manage', 'title' => 'Manage users and sessions', 'category' => 'users'],
@@ -46,6 +46,14 @@ function rbacDefaultUserPermissionCodes(): array
 function rbacRoleName(array $user): string
 {
     return strtolower(trim((string) ($user['role_name'] ?? $user['role'] ?? '')));
+}
+
+function rbacUserHasGlobalLabsAccess(PDO $db, array $user): bool
+{
+    if (rbacRoleName($user) === 'admin') {
+        return true;
+    }
+    return rbacUserHasPermission($db, $user, 'main.users.browse_all');
 }
 
 function rbacNormalizeCodes(array $codes): array

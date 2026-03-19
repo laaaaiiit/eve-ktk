@@ -1,5 +1,5 @@
 INSERT INTO permissions (code, title, category)
-VALUES ('main.users.browse_all', 'Browse all user folders in Main explorer', 'main')
+VALUES ('main.users.browse_all', 'Full access to all users labs', 'main')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)

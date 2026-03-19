@@ -654,6 +654,9 @@ function parseAdminExplorerPath(string $path): array
 
 function viewerCanBrowseAllMainUserFolders(PDO $db, array $viewer): bool
 {
+    if (function_exists('rbacUserHasGlobalLabsAccess')) {
+        return rbacUserHasGlobalLabsAccess($db, $viewer);
+    }
     if (viewerRoleName($viewer) === 'admin') {
         return true;
     }
@@ -722,6 +725,7 @@ function listMainEntriesForViewer(PDO $db, array $viewer, string $path = '/'): a
 
     $virtualPath = normalizeMainPath($path);
     $canBrowseAllUserFolders = viewerCanBrowseAllMainUserFolders($db, $viewer);
+    $canManageAllLabs = $canBrowseAllUserFolders;
     if (!$canBrowseAllUserFolders) {
         return listMainEntriesForUser($db, $viewerId, $virtualPath);
     }
@@ -770,12 +774,12 @@ function listMainEntriesForViewer(PDO $db, array $viewer, string $path = '/'): a
     }
     $prefix = (string) $scope['prefix'];
 
-    $entries = array_map(static function ($entry) use ($prefix, $role, $isOwnScope) {
+    $entries = array_map(static function ($entry) use ($prefix, $isOwnScope, $canManageAllLabs) {
         $entry['path'] = remapScopedPath($prefix, (string) ($entry['path'] ?? '/'), false);
-        if (($entry['type'] ?? '') === 'lab' && !$isOwnScope) {
+        if (($entry['type'] ?? '') === 'lab' && !$isOwnScope && !$canManageAllLabs) {
             $entry['can_stop_nodes'] = false;
         }
-        if ($role !== 'admin' && !$isOwnScope) {
+        if (!$canManageAllLabs && !$isOwnScope) {
             $entry['can_manage'] = false;
         }
         return $entry;
@@ -907,7 +911,7 @@ function viewerRoleName(array $viewer): string
 
 function ensureMainEntryPermission(PDO $db, array $viewer, string $type, string $entryId): array
 {
-    $role = viewerRoleName($viewer);
+    $canManageAllLabs = viewerCanBrowseAllMainUserFolders($db, $viewer);
     $viewerId = (string) ($viewer['id'] ?? '');
     if ($viewerId === '') {
         throw new InvalidArgumentException('Invalid viewer');
@@ -921,7 +925,7 @@ function ensureMainEntryPermission(PDO $db, array $viewer, string $type, string 
         if ($row === false) {
             throw new RuntimeException('Entry not found');
         }
-        if ($role !== 'admin' && (string) $row['owner_user_id'] !== $viewerId) {
+        if (!$canManageAllLabs && (string) $row['owner_user_id'] !== $viewerId) {
             throw new RuntimeException('Forbidden');
         }
         return [
@@ -940,7 +944,7 @@ function ensureMainEntryPermission(PDO $db, array $viewer, string $type, string 
         if ($row === false) {
             throw new RuntimeException('Entry not found');
         }
-        if ($role !== 'admin' && (string) $row['author_user_id'] !== $viewerId) {
+        if (!$canManageAllLabs && (string) $row['author_user_id'] !== $viewerId) {
             throw new RuntimeException('Forbidden');
         }
         return [

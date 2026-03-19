@@ -44,7 +44,7 @@ INSERT INTO public.permissions (id, code, title, category, created_at, updated_a
 INSERT INTO public.permissions (id, code, title, category, created_at, updated_at) VALUES ('944078f1-220c-4d5a-b7a2-bd9c69e7b1ed', 'main.lab.topology_lock.manage', 'Manage topology lock and wipe policy for recipients', 'main', '2026-03-06 13:56:48.685404+05', '2026-03-06 13:56:48.685404+05');
 INSERT INTO public.permissions (id, code, title, category, created_at, updated_at) VALUES ('e48337b0-1bd0-44c3-b001-f13f4e7e094f', 'main.lab.export', 'Export labs from Main explorer', 'main', '2026-03-08 15:53:37.520805+05', '2026-03-08 15:53:37.520805+05');
 INSERT INTO public.permissions (id, code, title, category, created_at, updated_at) VALUES ('3209159a-3021-4608-a8a5-4001adf7d3fb', 'main.lab.import', 'Import labs into Main explorer', 'main', '2026-03-08 15:53:37.520805+05', '2026-03-08 15:53:37.520805+05');
-INSERT INTO public.permissions (id, code, title, category, created_at, updated_at) VALUES ('edfba7ac-9ce4-4701-b034-a2dc3a03d188', 'main.users.browse_all', 'Browse all user folders in Main explorer', 'main', '2026-03-08 17:01:29.317993+05', '2026-03-08 17:01:29.317993+05');
+INSERT INTO public.permissions (id, code, title, category, created_at, updated_at) VALUES ('edfba7ac-9ce4-4701-b034-a2dc3a03d188', 'main.users.browse_all', 'Full access to all users labs', 'main', '2026-03-08 17:01:29.317993+05', '2026-03-08 17:01:29.317993+05');
 
 
 --

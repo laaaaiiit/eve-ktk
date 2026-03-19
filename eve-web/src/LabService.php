@@ -8,6 +8,17 @@ function viewerIsAdmin(array $viewer): bool
     return $role === 'admin';
 }
 
+function viewerHasGlobalLabAccess(PDO $db, array $viewer): bool
+{
+    if (function_exists('rbacUserHasGlobalLabsAccess')) {
+        return rbacUserHasGlobalLabsAccess($db, $viewer);
+    }
+    if (viewerIsAdmin($viewer)) {
+        return true;
+    }
+    return rbacUserHasPermission($db, $viewer, 'main.users.browse_all');
+}
+
 function viewerCanManageClouds(array $viewer): bool
 {
     return true;
@@ -15,7 +26,7 @@ function viewerCanManageClouds(array $viewer): bool
 
 function viewerCanViewAllCloudPnets(PDO $db, array $viewer): bool
 {
-    if (viewerIsAdmin($viewer)) {
+    if (viewerHasGlobalLabAccess($db, $viewer)) {
         return true;
     }
     return rbacUserHasPermission($db, $viewer, 'cloudmgmt.pnet.view_all');
@@ -103,13 +114,18 @@ function viewerCanViewLab(PDO $db, array $viewer, string $labId): bool
     if ($viewerId === '') {
         return false;
     }
+    if (viewerHasGlobalLabAccess($db, $viewer)) {
+        $stmt = $db->prepare("SELECT 1 FROM labs WHERE id = :lab_id LIMIT 1");
+        $stmt->bindValue(':lab_id', $labId, PDO::PARAM_STR);
+        $stmt->execute();
+        return $stmt->fetchColumn() !== false;
+    }
+
     $sql = "SELECT 1
             FROM labs l
             LEFT JOIN lab_shared_users su ON su.lab_id = l.id AND su.user_id = :viewer_id
             WHERE l.id = :lab_id";
-    if (!viewerIsAdmin($viewer)) {
-        $sql .= " AND (l.author_user_id = :viewer_id OR su.user_id IS NOT NULL)";
-    }
+    $sql .= " AND (l.author_user_id = :viewer_id OR su.user_id IS NOT NULL)";
     $sql .= " LIMIT 1";
     $stmt = $db->prepare($sql);
     $stmt->bindValue(':viewer_id', $viewerId, PDO::PARAM_STR);
@@ -124,8 +140,11 @@ function viewerCanEditLab(PDO $db, array $viewer, string $labId): bool
     if ($viewerId === '') {
         return false;
     }
-    if (viewerIsAdmin($viewer)) {
-        return true;
+    if (viewerHasGlobalLabAccess($db, $viewer)) {
+        $stmt = $db->prepare("SELECT 1 FROM labs WHERE id = :lab_id LIMIT 1");
+        $stmt->bindValue(':lab_id', $labId, PDO::PARAM_STR);
+        $stmt->execute();
+        return $stmt->fetchColumn() !== false;
     }
 
     $stmt = $db->prepare(
@@ -722,7 +741,7 @@ function getLabEditorData(PDO $db, array $viewer, string $labId, bool $previewMo
                INNER JOIN users a ON a.id = l.author_user_id
                LEFT JOIN lab_shared_users su ON su.lab_id = l.id AND su.user_id = :viewer_id
                WHERE l.id = :lab_id";
-    if (!viewerIsAdmin($viewer)) {
+    if (!viewerHasGlobalLabAccess($db, $viewer)) {
         $labSql .= " AND (l.author_user_id = :viewer_id OR su.user_id IS NOT NULL)";
     }
     $labSql .= " LIMIT 1";
@@ -809,41 +828,43 @@ function getLabEditorData(PDO $db, array $viewer, string $labId, bool $previewMo
 
     if (!viewerIsAdmin($viewer)) {
         $viewerCanSeeAllCloudPnets = viewerCanViewAllCloudPnets($db, $viewer);
-        $viewerCloudPnets = $viewerCanSeeAllCloudPnets ? [] : listViewerCloudPnetSet($db, $viewerId);
-        $isSharedPreviewContext = $previewMode
-            && !empty($lab['is_shared'])
-            && (string) ($lab['author_user_id'] ?? '') !== $viewerId;
+        if (!$viewerCanSeeAllCloudPnets) {
+            $viewerCloudPnets = listViewerCloudPnetSet($db, $viewerId);
+            $isSharedPreviewContext = $previewMode
+                && !empty($lab['is_shared'])
+                && (string) ($lab['author_user_id'] ?? '') !== $viewerId;
 
-        $normalizedNetworks = [];
-        foreach ($networks as $row) {
-            $networkType = strtolower(trim((string) ($row['network_type'] ?? '')));
-            if (!isCloudNetworkType($networkType) || $networkType === 'cloud' || isset($viewerCloudPnets[$networkType])) {
-                $normalizedNetworks[] = $row;
-                continue;
-            }
-            if ($isSharedPreviewContext) {
-                $row['network_type'] = 'cloud';
-                $normalizedNetworks[] = $row;
-            }
-        }
-        $networks = $normalizedNetworks;
-
-        $normalizedAttachments = [];
-        foreach ($attachments as $row) {
-            $networkType = strtolower(trim((string) ($row['network_type'] ?? '')));
-            if (!isCloudNetworkType($networkType) || $networkType === 'cloud' || isset($viewerCloudPnets[$networkType])) {
-                $normalizedAttachments[] = $row;
-                continue;
-            }
-            if ($isSharedPreviewContext) {
-                $row['network_type'] = 'cloud';
-                if (!isset($row['network_name']) || trim((string) $row['network_name']) === '') {
-                    $row['network_name'] = 'Cloud';
+            $normalizedNetworks = [];
+            foreach ($networks as $row) {
+                $networkType = strtolower(trim((string) ($row['network_type'] ?? '')));
+                if (!isCloudNetworkType($networkType) || $networkType === 'cloud' || isset($viewerCloudPnets[$networkType])) {
+                    $normalizedNetworks[] = $row;
+                    continue;
                 }
-                $normalizedAttachments[] = $row;
+                if ($isSharedPreviewContext) {
+                    $row['network_type'] = 'cloud';
+                    $normalizedNetworks[] = $row;
+                }
             }
+            $networks = $normalizedNetworks;
+
+            $normalizedAttachments = [];
+            foreach ($attachments as $row) {
+                $networkType = strtolower(trim((string) ($row['network_type'] ?? '')));
+                if (!isCloudNetworkType($networkType) || $networkType === 'cloud' || isset($viewerCloudPnets[$networkType])) {
+                    $normalizedAttachments[] = $row;
+                    continue;
+                }
+                if ($isSharedPreviewContext) {
+                    $row['network_type'] = 'cloud';
+                    if (!isset($row['network_name']) || trim((string) $row['network_name']) === '') {
+                        $row['network_name'] = 'Cloud';
+                    }
+                    $normalizedAttachments[] = $row;
+                }
+            }
+            $attachments = $normalizedAttachments;
         }
-        $attachments = $normalizedAttachments;
     }
 
     $linkLayout = loadLabLinkLayoutState($db, $labId);
@@ -933,7 +954,7 @@ function getLabEditorData(PDO $db, array $viewer, string $labId, bool $previewMo
 
 function labWipeAllowedByPolicy(PDO $db, array $viewer, string $labId): bool
 {
-    if (viewerIsAdmin($viewer)) {
+    if (viewerHasGlobalLabAccess($db, $viewer)) {
         return true;
     }
     $viewerId = trim((string) ($viewer['id'] ?? ''));

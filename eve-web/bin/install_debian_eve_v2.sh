@@ -24,6 +24,7 @@ APPLY_SYSCTL="${APPLY_SYSCTL:-1}"
 ENABLE_KSM="${ENABLE_KSM:-1}"
 KSM_PAGES_TO_SCAN="${KSM_PAGES_TO_SCAN:-1250}"
 KSM_SLEEP_MILLISECS="${KSM_SLEEP_MILLISECS:-10}"
+RESTART_SERVICES="${RESTART_SERVICES:-1}"
 ADMIN_USER_CREATED=0
 ADMIN_PASSWORD_GENERATED=0
 ADMIN_USER_INFO="not_checked"
@@ -62,6 +63,7 @@ Options:
   --keep-apache            Do not stop/disable apache2
   --skip-sysctl            Do not apply sysctl tuning
   --skip-ksm               Do not configure KSM
+  --skip-service-restart   Do not restart runtime services at the end
   -h, --help               Show this help
 
 Environment overrides:
@@ -70,7 +72,8 @@ Environment overrides:
   ADMIN_USERNAME, ADMIN_PASSWORD,
   QEMU_VERSIONS, QEMU_DEFAULT_LINK, INSTALL_EVE_QEMU_PACKAGE,
   WEB_USER, WEB_GROUP, DISABLE_APACHE, APPLY_SYSCTL, NGINX_SITE_PATH,
-  ENABLE_KSM, KSM_PAGES_TO_SCAN, KSM_SLEEP_MILLISECS
+  ENABLE_KSM, KSM_PAGES_TO_SCAN, KSM_SLEEP_MILLISECS,
+  RESTART_SERVICES
 USAGE
 }
 
@@ -185,6 +188,10 @@ parse_args() {
 				;;
 			--skip-ksm)
 				ENABLE_KSM=0
+				shift
+				;;
+			--skip-service-restart|--no-service-restart)
+				RESTART_SERVICES=0
 				shift
 				;;
 			-h|--help)
@@ -996,6 +1003,34 @@ run_quick_checks() {
 	curl -fsS "http://127.0.0.1/login" >/dev/null || warn "HTTP check failed at /login"
 }
 
+prompt_restart_runtime_services() {
+	local answer prompt
+
+	if [[ ! -t 0 ]]; then
+		log "stdin is non-interactive; using RESTART_SERVICES=${RESTART_SERVICES}"
+		return
+	fi
+
+	if [[ "$RESTART_SERVICES" == "1" ]]; then
+		prompt="Restart runtime services now? [Y/n]: "
+	else
+		prompt="Restart runtime services now? [y/N]: "
+	fi
+
+	read -r -p "$prompt" answer
+	case "$answer" in
+		[yY]|[yY][eE][sS])
+			RESTART_SERVICES=1
+			;;
+		[nN]|[nN][oO])
+			RESTART_SERVICES=0
+			;;
+		*)
+			# Keep pre-selected default from RESTART_SERVICES.
+			;;
+	esac
+}
+
 restart_runtime_services() {
 	local php_fpm_service
 	log "Restarting runtime services"
@@ -1058,6 +1093,7 @@ main() {
 	ensure_db_ident "$DB_USER" "DB_USER"
 	ensure_admin_username_ident "$ADMIN_USERNAME"
 	[[ "$DB_PORT" =~ ^[0-9]+$ ]] || fail "DB_PORT must be numeric: $DB_PORT"
+	[[ "$RESTART_SERVICES" =~ ^[01]$ ]] || fail "RESTART_SERVICES must be 0 or 1: $RESTART_SERVICES"
 
 	if [[ -z "$DB_PASSWORD" ]]; then
 		DB_PASSWORD="$(random_password)"
@@ -1082,7 +1118,12 @@ main() {
 	configure_nginx
 	apply_sysctl_tuning
 	configure_ksm
-	restart_runtime_services
+	prompt_restart_runtime_services
+	if [[ "$RESTART_SERVICES" == "1" ]]; then
+		restart_runtime_services
+	else
+		log "Skipping runtime service restarts by option"
+	fi
 	run_quick_checks
 	print_summary
 }
