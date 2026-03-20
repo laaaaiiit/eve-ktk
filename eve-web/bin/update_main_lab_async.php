@@ -49,6 +49,7 @@ try {
     $viewer = [
         'id' => (string) ($user['id'] ?? ''),
         'username' => (string) ($user['username'] ?? ''),
+        'role_id' => (string) ($user['role_id'] ?? ''),
         'role_name' => (string) ($user['role'] ?? ''),
         'role' => (string) ($user['role'] ?? ''),
     ];
